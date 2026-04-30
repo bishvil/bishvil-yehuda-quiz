@@ -4,22 +4,10 @@ import { requireRole } from "@/src/lib/auth/server-auth";
 import { submitAnswerRequestSchema } from "@/src/lib/auth/validation";
 import { questionCacheTag, safeRevalidateTag } from "@/src/lib/cache/tags";
 import { noStoreJson } from "@/src/lib/http/responses";
-import {
-  computeScore,
-  isChoiceAnswerCorrect,
-  isMapAnswerCorrect,
-} from "@/src/lib/scoring";
-import {
-  lazyExpireAsyncProgress,
-  lazyExpireSyncQuestionState,
-} from "@/src/lib/sessions/expiry";
 import { findActiveSessionByPin } from "@/src/lib/sessions/lookup";
 import { writeLog } from "@/src/lib/logging";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
-import type {
-  Database,
-  QuestionMap,
-} from "@/src/lib/supabase/database.types";
+import type { Database } from "@/src/lib/supabase/database.types";
 
 interface AnswerRouteContext {
   params: Promise<{ pin: string }>;
@@ -53,10 +41,15 @@ interface AnswerErrorBody {
 }
 
 type AnswerResponseBody = AnswerSubmittedBody | AnswerErrorBody;
-
-type AnswerRow = Database["public"]["Tables"]["answers"]["Row"];
-
-const POSTGRES_UNIQUE_VIOLATION_CODE = "23505";
+type SubmitAnswerRow =
+  Database["public"]["Functions"]["submit_answer"]["Returns"][number];
+type SubmitAnswerSuccessStatus = "submitted" | "already_submitted";
+type CompleteSubmitAnswerRow = SubmitAnswerRow & {
+  submitted_at: string;
+  is_correct: boolean;
+  score: number;
+  time_bonus: number;
+};
 
 export async function POST(
   request: NextRequest,
@@ -101,7 +94,6 @@ export async function POST(
     );
   }
 
-  // ADR-0007 §Open Q2 RESOLVED: explicit ended_at deadline check.
   if (session.ended_at) {
     const endedAt = Date.parse(session.ended_at);
     if (Number.isFinite(endedAt) && Date.now() > endedAt) {
@@ -120,196 +112,27 @@ export async function POST(
   }
 
   const participantId = auth.claims.userId;
-
-  const { data: participant } = await serviceSupabase
-    .from("session_participants")
-    .select("id, session_id, streak, status")
-    .eq("session_id", session.id)
-    .eq("id", participantId)
-    .maybeSingle();
-
-  if (!participant) {
-    return noStoreJson<AnswerResponseBody>(
-      { error: "PARTICIPANT_NOT_FOUND", message: "Participant row missing." },
-      { status: 404 },
-    );
-  }
-
-  const { data: question } = await serviceSupabase
-    .from("questions")
-    .select(
-      "id, quiz_id, type, correct_ids, map, points, time_seconds, tolerance, explanation",
-    )
-    .eq("id", submission.questionId)
-    .maybeSingle();
-
-  if (!question || question.quiz_id !== session.quiz_id) {
-    return noStoreJson<AnswerResponseBody>(
-      { error: "QUESTION_NOT_FOUND", message: "Question not part of this quiz." },
-      { status: 404 },
-    );
-  }
-
-  // Lazy-expire question state. In sync mode the row is shared per session.
-  // In async mode each participant has their own row.
   const submittedAtDate = new Date();
-  let startedAtIso: string | null = null;
-  let deadlineAtIso: string | null = null;
-  let questionStatus: string | null = null;
-
-  if (session.game_mode === "sync") {
-    const { row } = await lazyExpireSyncQuestionState(
-      serviceSupabase,
-      session.id,
-      question.id,
-      {
-        autoReveal: session.auto_reveal,
-        nowMillis: submittedAtDate.getTime(),
-      },
-    );
-    startedAtIso = row?.started_at ?? null;
-    deadlineAtIso = row?.deadline_at ?? null;
-    questionStatus = row?.status ?? null;
-  } else {
-    const { row } = await lazyExpireAsyncProgress(
-      serviceSupabase,
-      session.id,
-      participantId,
-      question.id,
-      { nowMillis: submittedAtDate.getTime() },
-    );
-    startedAtIso = row?.started_at ?? null;
-    deadlineAtIso = row?.deadline_at ?? null;
-    questionStatus = row?.status ?? null;
-  }
-
-  if (questionStatus !== "answering") {
-    // Idempotency: if the participant already has an answer row for this
-    // question, return it (ADR-0006 §4) — late or post-reveal duplicate
-    // retries should not break the client flow.
-    const { data: existing } = await serviceSupabase
-      .from("answers")
-      .select("*")
-      .eq("session_id", session.id)
-      .eq("question_id", question.id)
-      .eq("participant_id", participantId)
-      .maybeSingle();
-
-    if (existing) {
-      return buildAlreadySubmittedResponse(
-        existing,
-        session.game_mode === "async" || questionStatus === "revealed",
-        question.correct_ids,
-        question.explanation,
-      );
-    }
-
-    return noStoreJson<AnswerResponseBody>(
-      {
-        error: questionStatus === null ? "QUESTION_NOT_ACTIVE" : "LATE_SUBMISSION",
-        message:
-          questionStatus === null
-            ? "Question has not been activated for this session."
-            : "Question deadline has passed.",
-        deadlineAt: deadlineAtIso ?? undefined,
-        submittedAt: submittedAtDate.toISOString(),
-      },
-      { status: 409 },
-    );
-  }
-
-  if (!startedAtIso || !deadlineAtIso) {
-    return noStoreJson<AnswerResponseBody>(
-      {
-        error: "QUESTION_NOT_ACTIVE",
-        message: "Question is missing a server timer.",
-      },
-      { status: 409 },
-    );
-  }
-
-  // Check existing answer first to short-circuit a duplicate submit.
-  const { data: existingAnswer } = await serviceSupabase
-    .from("answers")
-    .select("*")
-    .eq("session_id", session.id)
-    .eq("question_id", question.id)
-    .eq("participant_id", participantId)
+  const { data: submitResult, error: submitError } = await serviceSupabase
+    .rpc("submit_answer", {
+      p_session_id: session.id,
+      p_participant_id: participantId,
+      p_question_id: submission.questionId,
+      p_selected_ids: "selectedIds" in submission ? submission.selectedIds : null,
+      p_pin_x: "pin" in submission ? submission.pin.x : null,
+      p_pin_y: "pin" in submission ? submission.pin.y : null,
+    })
     .maybeSingle();
 
-  if (existingAnswer) {
-    // questionStatus is narrowed to "answering" here; the only reveal
-    // condition that applies is async mode (auto-reveal at lock).
-    return buildAlreadySubmittedResponse(
-      existingAnswer,
-      session.game_mode === "async",
-      question.correct_ids,
-      question.explanation,
-    );
-  }
-
-  const isCorrect = computeIsCorrect(submission, question);
-  const scoring = computeScore({
-    isCorrect,
-    points: question.points,
-    startedAt: new Date(startedAtIso),
-    deadlineAt: new Date(deadlineAtIso),
-    submittedAt: submittedAtDate,
-    timeSeconds: question.time_seconds,
-  });
-
-  const answerInsert: Database["public"]["Tables"]["answers"]["Insert"] = {
-    session_id: session.id,
-    question_id: question.id,
-    participant_id: participantId,
-    submitted_at: submittedAtDate.toISOString(),
-    selected_ids: "selectedIds" in submission ? submission.selectedIds : null,
-    pin_x: "pin" in submission ? submission.pin.x.toString() : null,
-    pin_y: "pin" in submission ? submission.pin.y.toString() : null,
-    is_correct: isCorrect,
-    time_bonus: scoring.timeBonus,
-    score: scoring.score,
-  };
-
-  const { data: insertedAnswer, error: insertError } = await serviceSupabase
-    .from("answers")
-    .insert(answerInsert)
-    .select("*")
-    .maybeSingle();
-
-  if (insertError || !insertedAnswer) {
-    // Race-condition: another concurrent INSERT won the unique constraint.
-    // Re-read for idempotency per ADR-0006 §4.
-    if (
-      insertError?.code === POSTGRES_UNIQUE_VIOLATION_CODE ||
-      insertError?.message?.includes("duplicate key")
-    ) {
-      const { data: raceWinner } = await serviceSupabase
-        .from("answers")
-        .select("*")
-        .eq("session_id", session.id)
-        .eq("question_id", question.id)
-        .eq("participant_id", participantId)
-        .maybeSingle();
-
-      if (raceWinner) {
-        return buildAlreadySubmittedResponse(
-          raceWinner,
-          session.game_mode === "async",
-          question.correct_ids,
-          question.explanation,
-        );
-      }
-    }
-
+  if (submitError || !submitResult) {
     writeLog({
       level: "error",
-      message: "Answer insert failed",
+      message: "submit_answer RPC failed",
       context: {
         sessionId: session.id,
-        questionId: question.id,
+        questionId: submission.questionId,
         participantId,
-        error: insertError?.message ?? "unknown",
+        error: submitError?.message ?? "unknown",
       },
     });
 
@@ -319,131 +142,108 @@ export async function POST(
     );
   }
 
-  // Update participant_scores summary and streak. These are best-effort
-  // post-write; if they fail, the answer row is canonical and a later cron
-  // can reconcile. The streak resets to 0 on a wrong answer per ADR-0006 §5.
-  await Promise.all([
-    upsertParticipantScores(
-      serviceSupabase,
-      session.id,
-      participantId,
-      scoring.score,
-      isCorrect,
-    ),
-    serviceSupabase
-      .from("session_participants")
-      .update({
-        streak: isCorrect ? participant.streak + 1 : 0,
-        status: participant.status === "joined" ? "in_progress" : participant.status,
-      })
-      .eq("id", participantId),
-  ]);
+  if (
+    submitResult.result_status === "submitted" ||
+    submitResult.result_status === "already_submitted"
+  ) {
+    if (!isCompleteSubmitAnswerResult(submitResult)) {
+      writeLog({
+        level: "error",
+        message: "submit_answer RPC returned incomplete success payload",
+        context: {
+          sessionId: session.id,
+          questionId: submission.questionId,
+          participantId,
+          resultStatus: submitResult.result_status,
+        },
+      });
 
-  // Async mode auto-reveals on lock; tell the participant the answer right
-  // away. Sync mode awaits host reveal — only `submitted` is shared. The
-  // tag pattern matches ADR-0008 §1.1; safeRevalidateTag tolerates non-Next
-  // runtimes (vitest) where the static-generation store is absent.
-  safeRevalidateTag(questionCacheTag(session.id, question.id));
+      return noStoreJson<AnswerResponseBody>(
+        { error: "ANSWER_WRITE_FAILED", message: "Could not record answer." },
+        { status: 500 },
+      );
+    }
 
-  if (session.game_mode === "async") {
+    safeRevalidateTag(questionCacheTag(session.id, submission.questionId));
+
+    return buildSubmittedResponse(
+      submitResult,
+      submitResult.result_status,
+      session.game_mode === "async" || submitResult.question_status === "revealed",
+    );
+  }
+
+  if (submitResult.result_status === "participant_not_found") {
     return noStoreJson<AnswerResponseBody>(
-      {
-        status: "submitted",
-        submittedAt: insertedAnswer.submitted_at,
-        isCorrect: insertedAnswer.is_correct,
-        score: insertedAnswer.score,
-        timeBonus: insertedAnswer.time_bonus,
-        correctIds: question.correct_ids,
-        explanation: question.explanation,
-      },
-      { status: 200 },
+      { error: "PARTICIPANT_NOT_FOUND", message: "Participant row missing." },
+      { status: 404 },
+    );
+  }
+
+  if (submitResult.result_status === "question_not_found") {
+    return noStoreJson<AnswerResponseBody>(
+      { error: "QUESTION_NOT_FOUND", message: "Question not part of this quiz." },
+      { status: 404 },
+    );
+  }
+
+  if (submitResult.result_status === "session_ended") {
+    return noStoreJson<AnswerResponseBody>(
+      { error: "SESSION_ENDED", message: "Session is ended." },
+      { status: 409 },
+    );
+  }
+
+  if (submitResult.result_status === "session_expired") {
+    return noStoreJson<AnswerResponseBody>(
+      { error: "SESSION_EXPIRED", message: "This session has ended." },
+      { status: 409 },
     );
   }
 
   return noStoreJson<AnswerResponseBody>(
     {
-      status: "submitted",
-      submittedAt: insertedAnswer.submitted_at,
+      error:
+        submitResult.result_status === "question_not_active"
+          ? "QUESTION_NOT_ACTIVE"
+          : "LATE_SUBMISSION",
+      message:
+        submitResult.result_status === "question_not_active"
+          ? "Question has not been activated for this session."
+          : "Question deadline has passed.",
+      deadlineAt: submitResult.deadline_at ?? undefined,
+      submittedAt: submittedAtDate.toISOString(),
     },
-    { status: 200 },
+    { status: 409 },
   );
 }
 
-function computeIsCorrect(
-  submission:
-    | { questionId: string; selectedIds: string[] }
-    | { questionId: string; pin: { x: number; y: number } },
-  question: {
-    type: Database["public"]["Tables"]["questions"]["Row"]["type"];
-    correct_ids: string[] | null;
-    map: Database["public"]["Tables"]["questions"]["Row"]["map"];
-  } & {
-    tolerance?: string | null;
-  },
-): boolean {
-  if ("selectedIds" in submission) {
-    if (!question.correct_ids) return false;
-    return isChoiceAnswerCorrect(submission.selectedIds, question.correct_ids);
-  }
-
-  if (!question.map) return false;
-  const mapPayload = question.map as unknown as QuestionMap;
-  const tolerance = question.tolerance ? Number.parseFloat(question.tolerance) : 0;
-  return isMapAnswerCorrect(submission.pin, mapPayload.target, tolerance);
+function isCompleteSubmitAnswerResult(
+  result: SubmitAnswerRow,
+): result is CompleteSubmitAnswerRow {
+  return (
+    result.submitted_at !== null &&
+    result.is_correct !== null &&
+    result.score !== null &&
+    result.time_bonus !== null
+  );
 }
 
-async function upsertParticipantScores(
-  supabase: Awaited<ReturnType<typeof createServiceRoleSupabaseClient>>,
-  sessionId: string,
-  participantId: string,
-  scoreDelta: number,
-  isCorrect: boolean,
-): Promise<void> {
-  const { data: existing } = await supabase
-    .from("participant_scores")
-    .select("total_score, correct_count")
-    .eq("session_id", sessionId)
-    .eq("participant_id", participantId)
-    .maybeSingle();
-
-  if (!existing) {
-    await supabase.from("participant_scores").insert({
-      session_id: sessionId,
-      participant_id: participantId,
-      total_score: scoreDelta,
-      correct_count: isCorrect ? 1 : 0,
-      last_updated_at: new Date().toISOString(),
-    });
-    return;
-  }
-
-  await supabase
-    .from("participant_scores")
-    .update({
-      total_score: existing.total_score + scoreDelta,
-      correct_count: existing.correct_count + (isCorrect ? 1 : 0),
-      last_updated_at: new Date().toISOString(),
-    })
-    .eq("session_id", sessionId)
-    .eq("participant_id", participantId);
-}
-
-function buildAlreadySubmittedResponse(
-  answer: AnswerRow,
+function buildSubmittedResponse(
+  answer: CompleteSubmitAnswerRow,
+  status: SubmitAnswerSuccessStatus,
   includeReveal: boolean,
-  correctIds: string[] | null,
-  explanation: string | null,
 ) {
   if (includeReveal) {
     return noStoreJson<AnswerResponseBody>(
       {
-        status: "already_submitted",
+        status,
         submittedAt: answer.submitted_at,
         isCorrect: answer.is_correct,
         score: answer.score,
         timeBonus: answer.time_bonus,
-        correctIds,
-        explanation,
+        correctIds: answer.correct_ids ?? null,
+        explanation: answer.explanation ?? null,
       },
       { status: 200 },
     );
@@ -451,7 +251,7 @@ function buildAlreadySubmittedResponse(
 
   return noStoreJson<AnswerResponseBody>(
     {
-      status: "already_submitted",
+      status,
       submittedAt: answer.submitted_at,
     },
     { status: 200 },

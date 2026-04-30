@@ -38,6 +38,35 @@ interface CreatedFixtures {
   pin: string;
 }
 
+export async function seedAdditionalQuestion(
+  sql: ReturnType<typeof getTestPostgres>,
+  options: { correctIds?: string[] } = {},
+): Promise<{ questionId: string; ordinal: number }> {
+  const questionId = uuid();
+  const ordinal = nextOrdinal();
+  const correctIds = options.correctIds ?? ["a"];
+
+  await sql`
+    insert into public.questions (id, quiz_id, ordinal, type, prompt, options, correct_ids, time_seconds, points)
+    values (
+      ${questionId}::uuid,
+      ${SEED_QUIZ_ID}::uuid,
+      ${ordinal},
+      'single',
+      'Additional test prompt',
+      ${JSON.stringify([
+        { id: "a", text: "Option A" },
+        { id: "b", text: "Option B" },
+      ])}::jsonb,
+      ${correctIds}::text[],
+      25,
+      1500
+    )
+  `;
+
+  return { questionId, ordinal };
+}
+
 /**
  * Seeds an isolated session + question + participant into the local DB so
  * an integration test can exercise the cron / answer paths without

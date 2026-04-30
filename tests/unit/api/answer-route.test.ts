@@ -90,6 +90,37 @@ async function callAnswerPost(
   }
 }
 
+async function callParticipantStateGet(
+  pin: string,
+  participantId: string,
+  sessionId: string,
+): Promise<{ status: number; body: unknown }> {
+  currentClaims = {
+    userId: participantId,
+    role: "participant",
+    sessionId,
+    participantId,
+  };
+
+  const { GET } = await import("@/app/api/participant/[pin]/state/route");
+
+  try {
+    const response = await GET(
+      new Request(`http://localhost:3000/api/participant/${pin}/state`, {
+        method: "GET",
+      }) as Parameters<typeof GET>[0],
+      { params: Promise.resolve({ pin }) } as Parameters<typeof GET>[1],
+    );
+
+    return {
+      status: response.status,
+      body: await response.json(),
+    };
+  } finally {
+    currentClaims = null;
+  }
+}
+
 describe("POST /api/session/[pin]/answer", () => {
   it("rejects an answer submitted past the deadline (LATE_SUBMISSION)", async () => {
     const fixtures = await seedSyncFixtures(sql, { gameMode: "sync" });
@@ -178,5 +209,53 @@ describe("POST /api/session/[pin]/answer", () => {
     };
     expect(secondBody.status).toBe("already_submitted");
     expect(secondBody.submittedAt).toBe(firstBody.submittedAt);
+  });
+
+  it("persists async progress as revealed after submit", async () => {
+    const fixtures = await seedSyncFixtures(sql, { gameMode: "async" });
+    cleanupTargets.push({
+      sessionId: fixtures.sessionId,
+      questionId: fixtures.questionId,
+      participantId: fixtures.participantId,
+    });
+
+    await sql`
+      insert into public.participant_question_progress (
+        session_id, participant_id, question_id, question_index,
+        status, started_at, deadline_at
+      ) values (
+        ${fixtures.sessionId}::uuid,
+        ${fixtures.participantId}::uuid,
+        ${fixtures.questionId}::uuid,
+        1,
+        'answering',
+        now(),
+        now() + interval '60 seconds'
+      )
+    `;
+
+    const submitted = await callAnswerPost(
+      fixtures.pin,
+      fixtures.participantId,
+      fixtures.sessionId,
+      { questionId: fixtures.questionId, selectedIds: ["a"] },
+    );
+
+    expect(submitted.status).toBe(200);
+
+    const state = await callParticipantStateGet(
+      fixtures.pin,
+      fixtures.participantId,
+      fixtures.sessionId,
+    );
+
+    expect(state.status).toBe(200);
+    const body = state.body as {
+      myAnswer: { status: string; isCorrect: boolean } | null;
+      reveal: { correctIds: string[] | null } | null;
+    };
+    expect(body.myAnswer?.status).toBe("revealed");
+    expect(body.myAnswer?.isCorrect).toBe(true);
+    expect(body.reveal?.correctIds).toEqual(["a"]);
   });
 });
