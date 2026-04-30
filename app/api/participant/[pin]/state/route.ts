@@ -208,19 +208,76 @@ export async function GET(
     .order("question_index", { ascending: false })
     .limit(1);
 
-  const currentProgress = progressRows?.[0] ?? null;
+  let currentProgress = progressRows?.[0] ?? null;
 
+  // ADR-0007 §2.3 bootstrap: when a participant fetches state and no
+  // progress row exists, the server creates the row for question 1 with
+  // started_at = now(), deadline_at = now() + question.time_seconds.
+  // Without this, an async participant has no entry point.
   if (!currentProgress) {
-    return privateNoStoreJson<ParticipantStateResponseBody>(
-      {
-        session: sessionPayload,
-        question: null,
-        myAnswer: null,
-        myScore,
-        reveal: null,
-      },
-      { status: 200 },
+    const { data: firstQuestion } = await serviceSupabase
+      .from("questions")
+      .select("id, ordinal, time_seconds")
+      .eq("quiz_id", session.quiz_id)
+      .order("ordinal", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (!firstQuestion) {
+      return privateNoStoreJson<ParticipantStateResponseBody>(
+        {
+          session: sessionPayload,
+          question: null,
+          myAnswer: null,
+          myScore,
+          reveal: null,
+        },
+        { status: 200 },
+      );
+    }
+
+    const startedAt = new Date();
+    const deadlineAt = new Date(
+      startedAt.getTime() + firstQuestion.time_seconds * 1000,
     );
+
+    const { data: created } = await serviceSupabase
+      .from("participant_question_progress")
+      .insert({
+        session_id: session.id,
+        participant_id: participant.id,
+        question_id: firstQuestion.id,
+        question_index: firstQuestion.ordinal,
+        status: "answering",
+        started_at: startedAt.toISOString(),
+        deadline_at: deadlineAt.toISOString(),
+      })
+      .select("*")
+      .maybeSingle();
+
+    currentProgress = created ?? null;
+
+    if (!currentProgress) {
+      writeLog({
+        level: "warn",
+        message: "Async progress bootstrap insert returned no row",
+        context: {
+          sessionId: session.id,
+          participantId: participant.id,
+          questionId: firstQuestion.id,
+        },
+      });
+      return privateNoStoreJson<ParticipantStateResponseBody>(
+        {
+          session: sessionPayload,
+          question: null,
+          myAnswer: null,
+          myScore,
+          reveal: null,
+        },
+        { status: 200 },
+      );
+    }
   }
 
   const { row: progress } = await lazyExpireAsyncProgress(

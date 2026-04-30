@@ -67,6 +67,15 @@ export async function POST(
     .eq("session_id", session.id)
     .eq("status", "answering");
 
+  // ADR-0004 §2: when a session transitions to `ended`, every participant
+  // is forced to `completed` (with whatever answers they had). Joined-but-
+  // never-answered participants get the zero-score completion path.
+  await serviceSupabase
+    .from("session_participants")
+    .update({ status: "completed" })
+    .eq("session_id", session.id)
+    .neq("status", "completed");
+
   const { data: updated, error } = await serviceSupabase
     .from("sessions")
     .update({ status: "ended", ended_at: endedAt })
