@@ -10,6 +10,7 @@ import {
 import {
   buildParticipantAnswerPayload,
   buildParticipantQuestionPayload,
+  extractMapTarget,
   type ParticipantStateResponse,
 } from "@/src/lib/sessions/participant-payload";
 import { writeLog } from "@/src/lib/logging";
@@ -183,6 +184,7 @@ export async function GET(
       ? {
           correctIds: currentQuestion.correct_ids,
           explanation: currentQuestion.explanation,
+          mapTarget: extractMapTarget(currentQuestion.map),
         }
       : null;
 
@@ -337,6 +339,7 @@ export async function GET(
     ? {
         correctIds: question.correct_ids,
         explanation: question.explanation,
+        mapTarget: extractMapTarget(question.map),
       }
     : null;
 

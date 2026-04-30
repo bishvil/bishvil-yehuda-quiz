@@ -30,12 +30,10 @@ interface PlayScreenProps {
 
 interface QuestionMapShape {
   image_url: string;
-  target?: { x: number; y: number };
 }
 
 interface QuestionMapMeta {
   imageUrl: string;
-  target: { x: number; y: number } | null;
 }
 
 export function PlayScreen({
@@ -261,6 +259,7 @@ export function PlayScreen({
             question,
             mapPin,
             isRevealed,
+            mapTarget: reveal?.mapTarget ?? null,
             onPin: handleMapPin,
           })
         ) : (
@@ -350,6 +349,7 @@ interface RenderMapArgs {
   question: NonNullable<ParticipantStateResponse["question"]>;
   mapPin: { x: number; y: number } | null;
   isRevealed: boolean;
+  mapTarget: { x: number; y: number } | null;
   onPin: (pin: { x: number; y: number }) => void;
 }
 
@@ -357,6 +357,7 @@ function renderMapQuestion({
   question,
   mapPin,
   isRevealed,
+  mapTarget,
   onPin,
 }: RenderMapArgs) {
   const mapMeta = extractMapMeta(question.map);
@@ -373,7 +374,7 @@ function renderMapQuestion({
       imageUrl={mapMeta.imageUrl}
       pin={mapPin}
       tolerance={toleranceRadius}
-      target={isRevealed ? mapMeta.target : null}
+      target={isRevealed ? mapTarget : null}
       revealed={isRevealed}
       onPin={onPin}
       helpText={
@@ -391,10 +392,7 @@ function extractMapMeta(map: NonNullable<ParticipantStateResponse["question"]>["
   if (!map || typeof map !== "object") return null;
   const candidate = map as unknown as QuestionMapShape;
   if (!candidate.image_url) return null;
-  return {
-    imageUrl: candidate.image_url,
-    target: candidate.target ?? null,
-  };
+  return { imageUrl: candidate.image_url };
 }
 
 function computeOptionState(args: {

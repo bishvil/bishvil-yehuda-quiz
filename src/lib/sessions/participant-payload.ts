@@ -26,7 +26,8 @@ export interface ParticipantQuestionPayload {
   prompt: string;
   options: Array<{ id: string; text: string; image_url?: string }> | null;
   imageUrl: string | null;
-  map: { image_url: string; target?: { x: number; y: number } } | null;
+  /** Map images are public; the correct target lives in the reveal payload. */
+  map: { image_url: string } | null;
   timeSeconds: number;
   /** Map question tolerance (% radius) for client-side reveal-ring sizing. */
   tolerance: number | null;
@@ -51,6 +52,9 @@ export interface ParticipantAnswerPayload {
 export interface ParticipantQuestionRevealPayload {
   correctIds: string[] | null;
   explanation: string | null;
+  /** Correct target for map questions — only set on reveal. ADR-0008 §2
+   *  parity with correct_ids: the target is the correct answer. */
+  mapTarget: { x: number; y: number } | null;
 }
 
 export interface ParticipantStateResponse {
@@ -69,6 +73,18 @@ interface RawQuestionOption {
 interface RawQuestionMap {
   image_url: string;
   target?: { x: number; y: number };
+}
+
+export function extractMapTarget(
+  map: QuestionRow["map"] | null,
+): { x: number; y: number } | null {
+  if (!map || typeof map !== "object") return null;
+  const raw = map as unknown as RawQuestionMap;
+  if (!raw.target) return null;
+  if (typeof raw.target.x !== "number" || typeof raw.target.y !== "number") {
+    return null;
+  }
+  return { x: raw.target.x, y: raw.target.y };
 }
 
 type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
@@ -105,10 +121,7 @@ export function buildParticipantQuestionPayload(args: {
     args.question.map && typeof args.question.map === "object"
       ? (() => {
           const raw = args.question.map as unknown as RawQuestionMap;
-          return {
-            image_url: raw.image_url,
-            target: raw.target,
-          };
+          return { image_url: raw.image_url };
         })()
       : null;
 
