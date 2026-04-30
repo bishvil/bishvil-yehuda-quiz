@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>בשביל — מערכת עיצוב</title>
+<link rel="stylesheet" href="styles/tokens.css">
+<style>
+  body { background: var(--c-paper); }
+
+  /* === HERO === */
+  .hero {
+    position: relative;
+    min-height: 92vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .hero-mountains {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 60%;
+    z-index: -1;
+    overflow: hidden;
+  }
+  .hero-mountains svg {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .hero-top {
+    padding: var(--s-6) var(--content-pad);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--c-muted);
+    text-transform: uppercase;
+    direction: ltr;
+  }
+  .hero-top .right-side { display: flex; gap: var(--s-5); }
+  .hero-top .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-lime); display: inline-block; margin-inline-end: 6px; vertical-align: middle; }
+
+  .hero-center {
+    align-self: center;
+    text-align: center;
+    padding: var(--s-7) var(--content-pad);
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .hero-eyebrow {
+    font-family: var(--font-text);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.4em;
+    color: var(--c-forest-deep);
+    margin-bottom: var(--s-5);
+    padding-inline-end: 0.4em;
+  }
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(96px, 16vw, 240px);
+    line-height: 0.9;
+    margin: 0;
+    color: var(--c-forest-deep);
+    letter-spacing: -0.01em;
+  }
+  .hero-tagline {
+    font-family: var(--font-display);
+    font-size: clamp(24px, 3.5vw, 44px);
+    color: var(--c-earth);
+    margin-top: var(--s-4);
+    line-height: 1.2;
+  }
+  .hero-divider {
+    width: 64px;
+    height: 1px;
+    background: var(--c-earth);
+    margin: var(--s-6) auto;
+  }
+  .hero-subtitle {
+    font-family: var(--font-text);
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--c-ink-soft);
+    line-height: 1.7;
+    max-width: 56ch;
+    margin: 0 auto;
+  }
+  .hero-pairing {
+    margin-top: var(--s-7);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-5);
+    max-width: 720px;
+    margin-inline: auto;
+    padding-top: var(--s-5);
+    border-top: 1px dashed rgba(24, 72, 63, 0.2);
+  }
+  .hero-pair {
+    text-align: center;
+  }
+  .pair-display {
+    font-family: var(--font-display);
+    font-size: 56px;
+    line-height: 1;
+    color: var(--c-forest-deep);
+  }
+  .pair-text {
+    font-family: var(--font-text);
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--c-forest-deep);
+  }
+  .pair-meta {
+    font-family: var(--font-text);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--c-muted);
+    margin-top: 10px;
+    letter-spacing: 0.04em;
+  }
+
+  .hero-bottom {
+    padding: var(--s-6) var(--content-pad);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--s-5);
+    border-top: 1px solid rgba(24, 72, 63, 0.15);
+    background: rgba(250, 247, 240, 0.65);
+    backdrop-filter: blur(4px);
+  }
+  .hero-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .hero-stat .num {
+    font-family: var(--font-display);
+    font-size: 40px;
+    line-height: 1;
+    color: var(--c-forest-deep);
+  }
+  .hero-stat .lbl {
+    font-family: var(--font-text);
+    font-size: 13px;
+    color: var(--c-ink-soft);
+  }
+  .hero-stat .sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--c-muted);
+    direction: ltr;
+    text-transform: uppercase;
+  }
+
+  /* === SECTIONS GRID === */
+  .toc {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: var(--s-10) var(--content-pad);
+  }
+  .toc-head {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: var(--s-7);
+    align-items: end;
+    margin-bottom: var(--s-8);
+    padding-bottom: var(--s-6);
+    border-bottom: 2px solid var(--c-ink);
+  }
+  .toc-head .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--c-muted);
+    text-transform: uppercase;
+    direction: ltr;
+    text-align: left;
+  }
+  .toc-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(48px, 6vw, 88px);
+    line-height: 1;
+    margin: 0;
+    grid-column: 2;
+  }
+
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--c-rule);
+    border: 1px solid var(--c-rule);
+  }
+  .toc-card {
+    background: var(--c-paper);
+    padding: var(--s-7);
+    text-decoration: none;
+    color: var(--c-ink);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--s-5);
+    align-items: start;
+    transition: background 0.2s ease;
+    min-height: 200px;
+  }
+  .toc-card:hover { background: var(--c-paper-2); }
+  .toc-num {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--c-muted);
+    direction: ltr;
+    padding-top: 6px;
+  }
+  .toc-card-body h3 {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 400;
+    margin: 0 0 var(--s-3);
+    line-height: 1.05;
+  }
+  .toc-card-body p {
+    margin: 0;
+    color: var(--c-ink-soft);
+    font-size: 15px;
+    line-height: 1.55;
+    max-width: 38ch;
+  }
+  .toc-card-body .tags {
+    margin-top: var(--s-4);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .toc-card-body .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--c-muted);
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border: 1px solid var(--c-rule);
+    border-radius: var(--r-pill);
+    direction: ltr;
+  }
+  .toc-arrow {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    color: var(--c-muted);
+    transition: transform 0.2s ease, color 0.2s ease;
+    align-self: end;
+  }
+  .toc-card:hover .toc-arrow {
+    color: var(--c-forest-deep);
+    transform: translateX(-4px);
+  }
+  .toc-card-icon {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--c-paper);
+  }
+  .toc-card .toc-card-icon { background: var(--c-forest-deep); }
+  .toc-card[data-tone="green"] .toc-card-icon  { background: var(--c-forest-deep); }
+  .toc-card[data-tone="lime"]  .toc-card-icon  { background: var(--c-leaf); }
+  .toc-card[data-tone="earth"] .toc-card-icon  { background: var(--c-earth); }
+  .toc-card[data-tone="ink"]   .toc-card-icon  { background: var(--c-ink); }
+
+  /* === Philosophy ribbon === */
+  .ribbon {
+    background: var(--c-forest-deep);
+    color: var(--c-cream);
+    padding: var(--s-9) var(--content-pad);
+    text-align: center;
+  }
+  .ribbon-quote {
+    font-family: var(--font-display);
+    font-size: clamp(32px, 4.5vw, 64px);
+    line-height: 1.15;
+    max-width: 24ch;
+    margin: 0 auto;
+  }
+  .ribbon-quote::before { content: "״"; opacity: 0.5; margin-inline-end: 4px; }
+  .ribbon-quote::after { content: "״"; opacity: 0.5; margin-inline-start: 4px; }
+  .ribbon-attrib {
+    font-family: var(--font-text);
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    color: var(--c-lime-soft);
+    margin-top: var(--s-5);
+  }
+
+  /* === Brand family preview === */
+  .family {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: var(--s-10) var(--content-pad);
+  }
+  .family-head {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: var(--s-7);
+    align-items: end;
+    margin-bottom: var(--s-7);
+  }
+  .family-head .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--c-muted);
+    text-transform: uppercase;
+    direction: ltr;
+    text-align: left;
+  }
+  .family-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5vw, 64px);
+    line-height: 1.05;
+    margin: 0;
+  }
+  .family-head .desc {
+    margin-top: var(--s-4);
+    max-width: 60ch;
+    color: var(--c-ink-soft);
+  }
+  .family-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--s-5);
+  }
+  .family-card {
+    background: var(--c-paper-2);
+    border: 1px solid var(--c-rule);
+    border-radius: var(--r-3);
+    padding: var(--s-5);
+    aspect-ratio: 4/3;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .family-card img {
+    width: 100%;
+    height: 100%;
+    max-height: 180px;
+    object-fit: contain;
+  }
+  .family-card .name {
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--c-ink);
+    line-height: 1;
+  }
+  .family-card .name-en {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--c-muted);
+    text-transform: uppercase;
+    direction: ltr;
+    margin-top: 4px;
+  }
+  .family-card .symbol {
+    font-family: var(--font-text);
+    font-size: 12px;
+    color: var(--c-ink-soft);
+  }
+
+  @media (max-width: 800px) {
+    .hero-bottom { grid-template-columns: repeat(2, 1fr); }
+    .toc-grid, .family-grid { grid-template-columns: 1fr; }
+    .toc-head, .family-head, .ds-page-head, .ds-section-head { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== HERO ====== -->
+<section class="hero">
+  <div class="hero-top">
+    <div><span class="dot"></span>Bishvil Design System · v0.1</div>
+    <div class="right-side">
+      <div>2026</div>
+      <div>Internal</div>
+    </div>
+  </div>
+
+  <div class="hero-center">
+    <div class="hero-eyebrow">מערכת עיצוב · Design System</div>
+    <h1 class="hero-title">בשביל</h1>
+    <div class="hero-tagline">מורשת בדרך ערך</div>
+    <div class="hero-divider"></div>
+    <p class="hero-subtitle">
+      מסמך זה הוא <b style="font-weight: 700;">מערכת העיצוב הרשמית</b> של מותג בשביל — אוסף מאוחד של צבעים, טיפוגרפיה, לוגואים, אייקונים ורכיבי ממשק. נועד למפתחי תוכנה, מעצבים חיצוניים וספקים, ומכסה גם דיגיטל וגם דפוס.
+    </p>
+    <div class="hero-pairing" aria-hidden="true">
+      <div class="hero-pair">
+        <div class="pair-display">המוסד</div>
+        <div class="pair-meta">Display · BA Hamossad <span style="color: var(--c-earth);">· placeholder for עץ הדעת</span></div>
+      </div>
+      <div class="hero-pair">
+        <div class="pair-text">Heebo · המבט הצלול</div>
+        <div class="pair-meta">Text · Heebo 400/500/700 · placeholder for קוהרנטי</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mountain silhouettes — visual DNA -->
+  <div class="hero-mountains" aria-hidden="true">
+    <svg viewBox="0 0 1600 400" preserveAspectRatio="xMidYMax slice">
+      <!-- back layer (mist) -->
+      <path d="M0,400 L0,260 L180,170 L320,230 L500,140 L720,200 L900,150 L1100,210 L1300,160 L1500,220 L1600,180 L1600,400 Z" fill="#b0c8a8" opacity="0.55"/>
+      <!-- mid layer (sage) -->
+      <path d="M0,400 L0,310 L160,240 L340,280 L520,210 L700,260 L880,220 L1080,270 L1260,240 L1440,290 L1600,260 L1600,400 Z" fill="#90b090" opacity="0.7"/>
+      <!-- front layer (lime) -->
+      <path d="M0,400 L0,340 L120,300 L260,330 L420,290 L580,320 L760,280 L920,330 L1100,300 L1280,330 L1460,310 L1600,340 L1600,400 Z" fill="#a0c040"/>
+      <!-- forest accent -->
+      <path d="M0,400 L0,370 L200,355 L460,365 L760,355 L1080,370 L1380,358 L1600,372 L1600,400 Z" fill="#306030" opacity="0.85"/>
+      <!-- trail -->
+      <path d="M-20,395 Q300,378 580,392 T1180,388 T1620,395" fill="none" stroke="#f0e6d4" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+
+      <!-- hiker silhouette -->
+      <g transform="translate(820, 290)" fill="#1f3d1a">
+        <path d="M8,0 Q5,-3 5,-7 Q5,-11 9,-11 Q13,-11 13,-7 Q13,-3 10,0 L11,2 L13,2 L14,4 L13,6 L13,16 L11,30 L13,40 L11,40 L8,30 L5,38 L3,38 L5,28 L4,16 L4,4 L6,2 L7,1 Z M0,8 L4,12 L4,14 L0,12 Z M14,4 L20,8 L20,10 L14,8 Z"/>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ====== Vision ribbon ====== -->
+<section class="ribbon">
+  <p class="ribbon-quote">ארץ ישראל היא לא רק עניין גיאוגרפי, אלא שורש חיינו הרוחניים והלאומיים</p>
+  <div class="ribbon-attrib">— אליעזר בן יהודה</div>
+</section>
+
+<!-- ====== Table of contents ====== -->
+<section class="toc">
+  <div class="toc-head">
+    <div class="label">01 — Contents</div>
+    <h2>פרקי המערכת</h2>
+  </div>
+
+  <div class="toc-grid">
+
+    <a class="toc-card" href="01-colors.html" data-tone="green">
+      <div class="toc-num">01</div>
+      <div class="toc-card-body">
+        <h3>פלטת צבעים</h3>
+        <p>צבעים ראשיים, משניים, נייטרלים וצבעי שימוש. כללים לטוקנים, ניגודיות ונגישות.</p>
+        <div class="tags"><span class="tag">Tokens</span><span class="tag">A11y</span><span class="tag">Print + Digital</span></div>
+      </div>
+      <div class="toc-arrow">←</div>
+    </a>
+
+    <a class="toc-card" href="02-typography.html" data-tone="ink">
+      <div class="toc-num">02</div>
+      <div class="toc-card-body">
+        <h3>טיפוגרפיה</h3>
+        <p>היררכיית כותרות, גדלים, משקלים, RTL וטקסט רץ. עץ הדעת + קוהרנטי + מקיאטו.</p>
+        <div class="tags"><span class="tag">Hebrew</span><span class="tag">Hierarchy</span><span class="tag">Scale</span></div>
+      </div>
+      <div class="toc-arrow">←</div>
+    </a>
+
+    <a class="toc-card" href="03-logo.html" data-tone="lime">
+      <div class="toc-num">03</div>
+      <div class="toc-card-body">
+        <h3>לוגו וסימן</h3>
+        <p>שימושים, מרחק נשימה, גדלים מינימליים, מה אסור, וריאציות לתתי-מותגים.</p>
+        <div class="tags"><span class="tag">Brand mark</span><span class="tag">Clear-space</span></div>
+      </div>
+      <div class="toc-arrow">←</div>
+    </a>
+
+    <a class="toc-card" href="04-visual-language.html" data-tone="earth">
+      <div class="toc-num">04</div>
+      <div class="toc-card-body">
+        <h3>שפה ויזואלית</h3>
+        <p>הרים, שבילים, סילואטות. גישה לצילום וטיפול בתמונה. מסגרות וטקסטורות.</p>
+        <div class="tags"><span class="tag">Imagery</span><span class="tag">Pattern</span></div>
+      </div>
+      <div class="toc-arrow">←</div>
+    </a>
+
+    <a class="toc-card" href="05-iconography.html" data-tone="green">
+      <div class="toc-num">05</div>
+      <div class="toc-card-body">
+        <h3>אייקונים</h3>
+        <p>סדרת אייקונים אחידה — נושאי טבע, היסטוריה, מורשת ופעילויות. מערכת קווים אחידה.</p>
+        <div class="tags"><span class="tag">SVG</span><span class="tag">Stroke 1.5</span></div>
+      </div>
+      <div class="toc-arrow">←</div>
+    </a>
+
+    <a class="toc-card" href="06-components.html" data-tone="ink">
+      <div class="toc-num">06</div>
+      <div class="toc-card-body">
+        <h3>רכיבי UI</h3>
+        <p>כפתורים, טפסים, כרטיסים, באדג׳ים, ניווט. מצבים: hover, focus, disabled.</p>
+        <div class="tags"><span class="tag">React-ready</span><span class="tag">States</span></div>
+      </div>
+      <div class="toc-arrow">←</div>
+    </a>
+
+    <a class="toc-card" href="07-print.html" data-tone="earth">
+      <div class="toc-num">07</div>
+      <div class="toc-card-body">
+        <h3>דוגמאות דפוס</h3>
+        <p>פוסטרים, פליירים וכריכות חוברת. דוגמת יישום של המערכת בפועל לחומרי דפוס.</p>
+        <div class="tags"><span class="tag">A4</span><span class="tag">Booklet</span></div>
+      </div>
+      <div class="toc-arrow">←</div>
+    </a>
+
+    <a class="toc-card" href="08-foundations.html" data-tone="lime">
+      <div class="toc-num">08</div>
+      <div class="toc-card-body">
+        <h3>יסודות</h3>
+        <p>גריד, ריווחים, רדיוסים, צללים ושכבות. הבסיס למבנה כל ממשק.</p>
+        <div class="tags"><span class="tag">Grid</span><span class="tag">Spacing</span><span class="tag">Elevation</span></div>
+      </div>
+      <div class="toc-arrow">←</div>
+    </a>
+
+  </div>
+</section>
+
+<!-- ====== Brand Family ====== -->
+<section class="family">
+  <div class="family-head">
+    <div class="label">02 — Brand Family</div>
+    <div>
+      <h2>משפחת המותגים</h2>
+      <p class="desc">
+        מותג ראשי וחמישה תתי-מותגים גיאוגרפיים. אותו DNA ויזואלי, אותם צבעים, אותה טיפוגרפיה — סמל ייחודי לכל איזור.
+      </p>
+    </div>
+  </div>
+
+  <div class="family-grid">
+    <div class="family-card">
+      <img src="assets/logos/logo-main.png" alt="בשביל">
+      <div>
+        <div class="name">בשביל</div>
+        <div class="name-en">Bishvil — Main</div>
+        <div class="symbol">סמל: מטייל בנוף הרים, דגל ישראל</div>
+      </div>
+    </div>
+    <div class="family-card">
+      <img src="assets/logos/logo-yehuda.png" alt="בשביל יהודה">
+      <div>
+        <div class="name">בשביל יהודה</div>
+        <div class="name-en">Yehuda</div>
+        <div class="symbol">סמל: עיר על ההר</div>
+      </div>
+    </div>
+    <div class="family-card">
+      <img src="assets/logos/logo-etzion.jpg" alt="בשביל עציון">
+      <div>
+        <div class="name">בשביל עציון</div>
+        <div class="name-en">Etzion</div>
+        <div class="symbol">סמל: עץ זית</div>
+      </div>
+    </div>
+    <div class="family-card">
+      <img src="assets/logos/logo-tzafon.png" alt="בשביל הצפון">
+      <div>
+        <div class="name">בשביל הצפון</div>
+        <div class="name-en">Tzafon</div>
+        <div class="symbol">סמל: איל</div>
+      </div>
+    </div>
+    <div class="family-card">
+      <img src="assets/logos/logo-haari.png" alt="בשביל הארי">
+      <div>
+        <div class="name">בשביל הארי</div>
+        <div class="name-en">Ha-Ari</div>
+        <div class="symbol">סמל: אריה</div>
+      </div>
+    </div>
+    <div class="family-card">
+      <img src="assets/logos/logo-haganat.png" alt="בשביל הגנת היישוב">
+      <div>
+        <div class="name">בשביל הגנת היישוב</div>
+        <div class="name-en">Haganat HaYishuv</div>
+        <div class="symbol">סמל: מצודה / חומה</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="ds-footer">
+  <div>Bishvil Design System · v0.1 · 2026 · Internal use</div>
+  <div style="margin-top: 6px;">
+    Fonts: BA Hamossad (placeholder for עץ הדעת) · Heebo (placeholder for קוהרנטי)
+  </div>
+</footer>
+
+</body>
+</html>

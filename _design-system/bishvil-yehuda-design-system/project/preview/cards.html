@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Cards</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 18px; background: var(--bsy-paper); font-family: var(--font-body); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .card {
+    background: #fff; border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm); overflow: hidden;
+    border: 1px solid var(--color-border);
+  }
+  .thumb { height: 110px; background: linear-gradient(135deg, var(--bsy-green-light), var(--bsy-green-bright) 60%, var(--bsy-tan)); position: relative; }
+  .thumb::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 70% 80%, transparent 50%, rgba(60,100,60,0.18));
+  }
+  .body { padding: 14px 16px 16px; }
+  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bsy-green-forest); margin-bottom: 4px; }
+  .title { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--bsy-brown); margin: 0 0 6px; line-height: 1.2; }
+  .meta { font-size: 12px; color: var(--bsy-stone-400); display: flex; gap: 10px; }
+  .meta span::before { content: "•"; margin-inline-end: 8px; opacity: 0.5; }
+  .meta span:first-child::before { content: ""; margin: 0; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="card">
+    <div class="thumb"></div>
+    <div class="body">
+      <div class="eyebrow">מסלול 03</div>
+      <h3 class="title">הר חברון</h3>
+      <div class="meta"><span>שעתיים וחצי</span><span>קושי קל</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="thumb" style="background: linear-gradient(135deg, var(--bsy-tan-light), var(--bsy-tan-mid));"></div>
+    <div class="body">
+      <div class="eyebrow">מסלול 07</div>
+      <h3 class="title">דרך האבות</h3>
+      <div class="meta"><span>3 שעות</span><span>קושי בינוני</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

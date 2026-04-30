@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Colors — Neutrals & Semantic</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .swatch {
+    border-radius: var(--radius-md);
+    aspect-ratio: 1.4 / 1;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    color: var(--bsy-ink);
+    box-shadow: var(--shadow-xs);
+    font-family: var(--font-body);
+    border: 1px solid rgba(0,0,0,0.04);
+  }
+  .swatch.dark { color: var(--bsy-paper); }
+  .name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+  .hex { font-family: var(--font-mono); font-size: 11px; opacity: 0.85; margin-top: 2px; direction: ltr; unicode-bidi: isolate; text-align: start; }
+  .label { font-size: 11px; opacity: 0.7; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="swatch" style="background: var(--bsy-paper);"><div class="label">surface</div><div class="name">Paper</div><div class="hex">#FAF7F0</div></div>
+  <div class="swatch" style="background: var(--bsy-paper-warm);"><div class="label">surface warm</div><div class="name">Paper Warm</div><div class="hex">#F4ECDC</div></div>
+  <div class="swatch" style="background: var(--bsy-stone-50);"><div class="name">Stone 50</div><div class="hex">#F2EEE6</div></div>
+  <div class="swatch" style="background: var(--bsy-stone-100);"><div class="name">Stone 100</div><div class="hex">#E5DFD2</div></div>
+  <div class="swatch" style="background: var(--bsy-stone-200);"><div class="name">Stone 200</div><div class="hex">#C9C0AC</div></div>
+  <div class="swatch dark" style="background: var(--bsy-stone-400);"><div class="name">Stone 400</div><div class="hex">#8A8472</div></div>
+  <div class="swatch dark" style="background: var(--bsy-stone-700);"><div class="name">Stone 700</div><div class="hex">#4F4A3D</div></div>
+  <div class="swatch dark" style="background: var(--bsy-ink);"><div class="name">Ink</div><div class="hex">#2A2620</div></div>
+  <div class="swatch dark" style="background: var(--bsy-info);"><div class="label">info</div><div class="name">Info</div><div class="hex">#2A7C9C</div></div>
+  <div class="swatch dark" style="background: var(--bsy-warn);"><div class="label">warn</div><div class="name">Warn</div><div class="hex">#C28A2A</div></div>
+  <div class="swatch dark" style="background: var(--bsy-error);"><div class="label">error</div><div class="name">Error</div><div class="hex">#A53A2A</div></div>
+  <div class="swatch dark" style="background: var(--bsy-success);"><div class="label">success</div><div class="name">Success</div><div class="hex">#3C643C</div></div>
+</div>
+</body>
+</html>

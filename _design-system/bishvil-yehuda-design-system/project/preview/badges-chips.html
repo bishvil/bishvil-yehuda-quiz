@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Badges & Chips</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 22px; background: var(--bsy-paper); font-family: var(--font-body); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: var(--radius-pill);
+    font-size: 12px; font-weight: 700; line-height: 1.2;
+  }
+  .b-forest { background: var(--bsy-green-forest); color: var(--bsy-paper); }
+  .b-light  { background: var(--bsy-green-light); color: var(--bsy-green-forest); }
+  .b-tan    { background: var(--bsy-tan-light); color: var(--bsy-brown); }
+  .b-stone  { background: var(--bsy-stone-100); color: var(--bsy-stone-700); }
+  .b-error  { background: rgba(165,58,42,0.12); color: var(--bsy-error); }
+  .b-warn   { background: rgba(194,138,42,0.15); color: var(--bsy-warn); }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: var(--radius-pill);
+    font-size: 13px; font-weight: 500; background: #fff; color: var(--bsy-stone-700);
+    border: 1px solid var(--color-border);
+  }
+  .chip.active { background: var(--bsy-green-forest); color: var(--bsy-paper); border-color: var(--bsy-green-forest); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+</style>
+</head>
+<body>
+<div class="row">
+  <span class="badge b-forest">מומלץ</span>
+  <span class="badge b-light">חדש</span>
+  <span class="badge b-tan">2.5 שעות</span>
+  <span class="badge b-stone">קושי קל</span>
+  <span class="badge b-error"><span class="dot"></span> מלא</span>
+  <span class="badge b-warn">מקומות אחרונים</span>
+</div>
+<div class="row">
+  <span class="chip active">הכל</span>
+  <span class="chip">יהודה</span>
+  <span class="chip">שומרון</span>
+  <span class="chip">גליל</span>
+  <span class="chip">עציון</span>
+  <span class="chip">ירושלים</span>
+</div>
+</body>
+</html>

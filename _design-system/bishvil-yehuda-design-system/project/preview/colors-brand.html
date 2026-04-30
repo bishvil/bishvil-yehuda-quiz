@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Colors — Brand Primary</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .swatch {
+    border-radius: var(--radius-md);
+    aspect-ratio: 1.4 / 1;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    color: var(--bsy-green-forest);
+    box-shadow: var(--shadow-xs);
+    font-family: var(--font-body);
+  }
+  .swatch.dark { color: var(--bsy-paper); }
+  .swatch .name { font-weight: 700; }
+  .swatch:not(.dark) { color: var(--bsy-brown-deep); }
+  .name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+  .hex { font-family: var(--font-mono); font-size: 11px; opacity: 0.85; margin-top: 2px; direction: ltr; unicode-bidi: isolate; text-align: start; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="swatch dark" style="background: var(--bsy-green-bright);"><div class="name">Green Lime</div><div class="hex">#A0C040</div></div>
+  <div class="swatch" style="background: var(--bsy-green-light);"><div class="name">Green Light</div><div class="hex">#B4DC64</div></div>
+  <div class="swatch" style="background: var(--bsy-green-sage);"><div class="name">Green Sage</div><div class="hex">#90B090</div></div>
+  <div class="swatch dark" style="background: var(--bsy-green-forest);"><div class="name">Green Forest</div><div class="hex">#306030</div></div>
+  <div class="swatch" style="background: var(--bsy-tan-light);"><div class="name">Tan Light</div><div class="hex">#E8D4B0</div></div>
+  <div class="swatch dark" style="background: var(--bsy-tan);"><div class="name">Tan</div><div class="hex">#A08050</div></div>
+  <div class="swatch dark" style="background: var(--bsy-tan-mid);"><div class="name">Tan Mid</div><div class="hex">#8C6E40</div></div>
+  <div class="swatch dark" style="background: var(--bsy-brown);"><div class="name">Brown</div><div class="hex">#6E5430</div></div>
+</div>
+</body>
+</html>

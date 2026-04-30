@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>בשביל יהודה — UI Kit</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<link rel="stylesheet" href="ui-kit.css">
+<style>
+  body {
+    margin: 0; min-height: 100vh;
+    background:
+      radial-gradient(ellipse at top, var(--bsy-paper-warm), var(--bsy-stone-50));
+    display: flex; align-items: center; justify-content: center;
+    padding: 32px 12px;
+  }
+  #root { width: 100%; max-width: 420px; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="Header.jsx"></script>
+<script type="text/babel" src="Hero.jsx"></script>
+<script type="text/babel" src="TrailCard.jsx"></script>
+<script type="text/babel" src="FilterChips.jsx"></script>
+<script type="text/babel" src="BottomNav.jsx"></script>
+<script type="text/babel" src="TrailDetail.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState } = React;
+
+const TRAILS = [
+  { id: 1, region: 'מסלול 03 · יהודה',  title: 'הר חברון',     duration: 'שעתיים וחצי', difficulty: 'קושי קל',     date: 'שישי, 18.11', badge: 'מומלץ', gradient: ['#8CC83C', '#B4DC64', '#C8A078'] },
+  { id: 2, region: 'מסלול 07 · עציון',   title: 'דרך האבות',    duration: '3 שעות',      difficulty: 'קושי בינוני', date: 'שבת, 26.11', gradient: ['#B4DC64', '#8CB48C', '#B48C50'] },
+  { id: 3, region: 'מסלול 12 · גליל',    title: 'שביל הארי',   duration: '4 שעות',      difficulty: 'קושי בינוני', date: 'שישי, 02.12', badge: 'חדש', gradient: ['#8CB48C', '#8CC83C', '#C8A078'] },
+  { id: 4, region: 'מסלול 02 · ירושלים', title: 'חומות העיר',   duration: 'שעה וחצי',    difficulty: 'קושי קל',     date: 'יום א, 04.12', gradient: ['#C8A078', '#B48C50', '#8CC83C'] },
+];
+
+const FILTERS = ['הכל', 'יהודה', 'שומרון', 'גליל', 'עציון', 'ירושלים'];
+
+const Drawer = ({ open, onClose }) => (
+  <>
+    <div className={`bsy-drawer-scrim ${open ? 'open' : ''}`} onClick={onClose}/>
+    <aside className={`bsy-drawer ${open ? 'open' : ''}`}>
+      <div className="bsy-drawer-head">
+        <img src="../../assets/logos/logo_main.png" alt="בשביל"/>
+        <button className="bsy-icon-btn" onClick={onClose} aria-label="סגירה">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <ul className="bsy-drawer-list">
+        <li><a href="#">בית</a></li>
+        <li><a href="#">המסלולים</a></li>
+        <li><a href="#">סיפורי מקום</a></li>
+        <li><a href="#">המדריכים שלנו</a></li>
+        <li><a href="#">אודות בשביל</a></li>
+        <li><a href="#">צרו קשר</a></li>
+      </ul>
+      <div className="bsy-drawer-tag">״מורשת בדרך ערך״</div>
+    </aside>
+  </>
+);
+
+const Home = ({ onSelectTrail, onMenu }) => {
+  const [filter, setFilter] = useState('הכל');
+  const visible = filter === 'הכל' ? TRAILS : TRAILS.filter(t => t.region.includes(filter));
+  return (
+    <>
+      <Header onMenu={onMenu}/>
+      <Hero/>
+      <div className="bsy-section">
+        <div className="bsy-section-head">
+          <h2 className="bsy-section-title" style={{margin:0}}>סיורים קרובים</h2>
+          <button className="bsy-link">לכל המסלולים <span style={{fontFamily:'var(--font-mono)'}}>←</span></button>
+        </div>
+      </div>
+      <FilterChips filters={FILTERS} active={filter} onChange={setFilter}/>
+      <div className="bsy-card-list">
+        {visible.map(t => <TrailCard key={t.id} trail={t} onSelect={onSelectTrail}/>)}
+      </div>
+      <div className="bsy-tagline-lockup">
+        <div className="mark">בשביל יהודה</div>
+        <div className="rule"><span className="line"/><span className="tag">מורשת בדרך ערך</span><span className="line"/></div>
+      </div>
+    </>
+  );
+};
+
+function App() {
+  const [view, setView] = useState({ name: 'home' });
+  const [tab, setTab] = useState('home');
+  const [drawer, setDrawer] = useState(false);
+
+  const phoneStyles = {
+    width: '100%', maxWidth: 420, height: 760,
+    background: 'var(--bsy-paper)',
+    borderRadius: 36, overflow: 'hidden', position: 'relative',
+    boxShadow: '0 30px 60px rgba(74, 63, 38, 0.18), 0 0 0 8px #2A2620',
+    fontFamily: 'var(--font-body)',
+  };
+
+  return (
+    <div style={phoneStyles}>
+      <div className="bsy-screen">
+        <div className="bsy-screen-body">
+          {view.name === 'home' && (
+            <Home
+              onMenu={() => setDrawer(true)}
+              onSelectTrail={(t) => setView({ name: 'detail', trail: t })}
+            />
+          )}
+          {view.name === 'detail' && (
+            <TrailDetail trail={view.trail} onBack={() => setView({ name: 'home' })}/>
+          )}
+        </div>
+        <BottomNav active={tab} onNavigate={setTab}/>
+        <Drawer open={drawer} onClose={() => setDrawer(false)}/>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

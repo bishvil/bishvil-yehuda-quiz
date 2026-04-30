@@ -1,0 +1,260 @@
+/* ==========================================================================
+   Bishvil Yehuda Design System — Colors & Type
+   "בשביל יהודה — מורשת בדרך ערך"  (Heritage along a path of value)
+   --------------------------------------------------------------------------
+   Hebrew, RTL. Mobile-first website + companion booklets.
+   Aesthetic: earthy, outdoors, Israeli landscape, hiking, heritage.
+   ========================================================================== */
+
+/* --- Webfonts --------------------------------------------------------------
+   Brand specifies Fontbit's Hebrew families:
+     • Fb TreeOfKnowledge (עץ הדעת) — display / headings
+     • Fb Coherenti Sans (קוהרנטי) — body / UI
+     • Fb Macchiato (מקיאטו)        — casual / handwritten accents
+   These are commercial fonts not available via free CDNs. Until license files
+   are supplied, we substitute the closest open-source Hebrew families on
+   Google Fonts. Designers should swap the @import below for self-hosted
+   @font-face blocks pointing at /fonts/*.woff2 once the real files arrive.
+
+   Substitutions (FLAG to client):
+     • Fb TreeOfKnowledge  →  "Frank Ruhl Libre"  (humanist Hebrew serif/display)
+     • Fb Coherenti Sans   →  "Heebo"             (geometric Hebrew sans)
+     • Fb Macchiato        →  "Suez One"          (chunky, friendly display)
+   --------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Suez+One&display=swap');
+
+/* The display font for this brand is BA Hamossad — a calligraphic, traditional
+   Hebrew face used as a placeholder for the licensed Fb TreeOfKnowledge (עץ
+   הדעת). It ships with the system at /fonts/BAHamossad-Regular.ttf and is the
+   correct face to use for all headlines and tagline lockups. */
+@font-face {
+  font-family: 'BA Hamossad';
+  src: url('fonts/BAHamossad-Regular.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* === BRAND COLORS — pulled from PNG dominants + brand sheet ============ */
+
+  /* Primary — landscape greens (sampled from logo PNGs, less saturated than
+     the CMYK in the brand book — these read better on screen and in UI). */
+  --bsy-green-bright:   #A0C040;   /* signature lime — primary brand green */
+  --bsy-green-light:    #B4DC64;   /* highlight / sun-on-grass */
+  --bsy-green-sage:     #90B090;   /* sage / distant ridge */
+  --bsy-green-forest:   #306030;   /* forest — text, silhouettes, accents */
+  --bsy-green-deep:     #1F4720;   /* darker shade for hover/contrast */
+
+  /* Secondary — earth */
+  --bsy-tan-light:      #E8D4B0;   /* sand / paper */
+  --bsy-tan:            #A08050;   /* warm sand — soft surface */
+  --bsy-tan-mid:        #8C6E40;   /* path / stone */
+  --bsy-brown:          #6E5430;   /* heading brown — primary text color */
+  --bsy-brown-deep:     #4A3F26;   /* deepest brown for emphasis */
+
+  /* Neutrals — warm-tinted for paper/parchment feel */
+  --bsy-paper:          #FAF7F0;   /* cream / page background */
+  --bsy-paper-warm:     #F4ECDC;   /* warmer tier */
+  --bsy-stone-50:       #F2EEE6;
+  --bsy-stone-100:      #E5DFD2;
+  --bsy-stone-200:      #C9C0AC;
+  --bsy-stone-400:      #8A8472;
+  --bsy-stone-700:      #4F4A3D;
+  --bsy-ink:            #2A2620;   /* primary body ink */
+
+  /* Semantic */
+  --bsy-info:           #2A7C9C;   /* dim blue — Israeli flag accent */
+  --bsy-warn:           #C28A2A;   /* burnt amber */
+  --bsy-error:          #A53A2A;   /* clay red */
+  --bsy-success:        var(--bsy-green-forest);
+
+  /* === SEMANTIC TOKENS =================================================== */
+  --color-bg:           var(--bsy-paper);
+  --color-bg-elevated:  #FFFFFF;
+  --color-bg-warm:      var(--bsy-paper-warm);
+  --color-bg-inverse:   var(--bsy-green-forest);
+
+  --color-fg:           var(--bsy-ink);
+  --color-fg-muted:     var(--bsy-stone-700);
+  --color-fg-subtle:    var(--bsy-stone-400);
+  --color-fg-on-dark:   var(--bsy-paper);
+  --color-fg-heading:   var(--bsy-brown);
+
+  --color-accent:       var(--bsy-green-bright);
+  --color-accent-fg:    var(--bsy-green-forest);
+  --color-link:         var(--bsy-green-forest);
+  --color-link-hover:   var(--bsy-green-deep);
+
+  --color-border:       var(--bsy-stone-100);
+  --color-border-strong:var(--bsy-stone-200);
+  --color-divider:      var(--bsy-stone-100);
+
+  /* === TYPE FAMILIES ===================================================== */
+  --font-display: 'BA Hamossad', 'Fb TreeOfKnowledge', 'Frank Ruhl Libre', 'David Libre', serif;
+  --font-body:    'Heebo', 'Fb Coherenti Sans', 'Assistant', system-ui, sans-serif;
+  /* "Suez One" only supports Latin glyphs — for Hebrew taglines it falls back
+     to the system, which looks broken alongside the rest of the design. Lead
+     with the licensed Hebrew face (BA Hamossad) and keep Suez One purely as a
+     Latin fallback. The tagline class also gets letter-spacing/italic tweaks
+     in tokens.css to recover some of the "handwritten" feel. */
+  --font-hand:    'BA Hamossad', 'Fb Macchiato', 'Frank Ruhl Libre', 'Suez One', serif;
+  --font-mono:    ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* === TYPE SCALE (mobile-first; scales up at md breakpoint) ============== */
+  --fs-2xs: 0.75rem;   /* 12 */
+  --fs-xs:  0.8125rem; /* 13 */
+  --fs-sm:  0.9375rem; /* 15 */
+  --fs-md:  1rem;      /* 16 */
+  --fs-lg:  1.125rem;  /* 18 */
+  --fs-xl:  1.375rem;  /* 22 */
+  --fs-2xl: 1.75rem;   /* 28 */
+  --fs-3xl: 2.25rem;   /* 36 */
+  --fs-4xl: 3rem;      /* 48 */
+  --fs-5xl: 4rem;      /* 64 — hero */
+
+  --lh-tight:   1.15;
+  --lh-snug:    1.3;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.7;
+
+  --fw-light:    300;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-bold:     700;
+  --fw-black:    900;
+
+  --tracking-tight:  -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+
+  /* === SPACING (4-pt grid) =============================================== */
+  --space-0:  0;
+  --space-1:  0.25rem;  /*  4 */
+  --space-2:  0.5rem;   /*  8 */
+  --space-3:  0.75rem;  /* 12 */
+  --space-4:  1rem;     /* 16 */
+  --space-5:  1.5rem;   /* 24 */
+  --space-6:  2rem;     /* 32 */
+  --space-7:  2.5rem;   /* 40 */
+  --space-8:  3rem;     /* 48 */
+  --space-9:  4rem;     /* 64 */
+  --space-10: 5rem;     /* 80 */
+
+  /* === RADII ============================================================= */
+  --radius-xs:   2px;
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   20px;
+  --radius-xl:   28px;
+  --radius-pill: 999px;
+
+  /* === SHADOWS — soft, warm, never blue ================================= */
+  --shadow-xs: 0 1px 2px rgba(74, 63, 38, 0.06);
+  --shadow-sm: 0 2px 6px rgba(74, 63, 38, 0.08);
+  --shadow-md: 0 6px 18px rgba(74, 63, 38, 0.10);
+  --shadow-lg: 0 18px 40px rgba(74, 63, 38, 0.14);
+  --shadow-inner: inset 0 1px 2px rgba(74, 63, 38, 0.08);
+
+  /* === MOTION ============================================================ */
+  --ease-out:    cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:    140ms;
+  --dur-base:    220ms;
+  --dur-slow:    400ms;
+
+  /* === LAYOUT ============================================================ */
+  --container-mobile: 420px;
+  --container-md:     760px;
+  --container-lg:     1100px;
+}
+
+/* ==========================================================================
+   Base — RTL Hebrew document
+   ========================================================================== */
+html { direction: rtl; }
+
+html, body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+  font-weight: var(--fw-regular);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Headings — display font has only one weight (BA Hamossad regular) so we
+   don't apply font-weight overrides; size carries hierarchy. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  color: var(--color-fg-heading);
+  margin: 0 0 var(--space-3);
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--tracking-tight);
+  text-wrap: balance;
+}
+h1 { font-size: var(--fs-4xl); }
+h2 { font-size: var(--fs-3xl); }
+h3 { font-size: var(--fs-2xl); }
+h4 { font-size: var(--fs-xl); }
+h5 { font-size: var(--fs-lg); }
+h6 { font-size: var(--fs-md); }
+
+@media (min-width: 760px) {
+  h1 { font-size: var(--fs-5xl); }
+  h2 { font-size: var(--fs-4xl); }
+  h3 { font-size: var(--fs-3xl); }
+}
+
+/* Paragraph + utility */
+p { margin: 0 0 var(--space-4); line-height: var(--lh-relaxed); text-wrap: pretty; }
+p.lead { font-size: var(--fs-lg); color: var(--bsy-stone-700); }
+small, .text-small { font-size: var(--fs-sm); color: var(--color-fg-muted); }
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--bsy-green-forest);
+}
+.tagline {
+  font-family: var(--font-hand);
+  color: var(--bsy-green-forest);
+  font-size: var(--fs-md);
+}
+
+/* Links */
+a {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(60, 100, 60, 0.35);
+  transition: color var(--dur-fast) var(--ease-out), text-decoration-color var(--dur-fast) var(--ease-out);
+}
+a:hover {
+  color: var(--color-link-hover);
+  text-decoration-color: currentColor;
+}
+
+/* Selection — sage green wash */
+::selection { background: var(--bsy-green-light); color: var(--bsy-green-forest); }
+
+/* Quote — used for historical excerpts */
+blockquote {
+  border-inline-start: 3px solid var(--bsy-green-bright);
+  margin: var(--space-5) 0;
+  padding: var(--space-2) var(--space-5);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  color: var(--bsy-brown);
+  font-style: normal;
+}
+
+/* Code (rare in this brand, but defined for completeness) */
+code, pre { font-family: var(--font-mono); font-size: 0.9em; }

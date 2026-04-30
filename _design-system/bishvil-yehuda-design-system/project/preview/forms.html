@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Form inputs</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 22px; background: var(--bsy-paper); font-family: var(--font-body); }
+  .field { margin-bottom: 14px; }
+  label { display: block; font-size: 13px; font-weight: 700; color: var(--bsy-stone-700); margin-bottom: 6px; }
+  .input, .textarea, .select {
+    width: 100%; box-sizing: border-box;
+    background: #fff; border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px; font-family: var(--font-body); font-size: 15px;
+    color: var(--bsy-ink); box-shadow: var(--shadow-inner);
+    transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  }
+  .input:focus { outline: none; border-color: var(--bsy-green-forest); box-shadow: 0 0 0 3px rgba(60,100,60,0.15); }
+  .input.error { border-color: var(--bsy-error); }
+  .help { font-size: 12px; color: var(--bsy-stone-400); margin-top: 4px; }
+  .help.error { color: var(--bsy-error); }
+  .row { display: flex; gap: 12px; }
+  .row .field { flex: 1; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="row">
+  <div class="field"><label>שם מלא</label><input class="input" value="ישראל ישראלי"></div>
+  <div class="field"><label>טלפון</label><input class="input" placeholder="050-1234567"></div>
+</div>
+<div class="field"><label>אימייל</label><input class="input error" value="לא תקין"><div class="help error">כתובת אימייל לא תקינה</div></div>
+<div class="field"><label>הערות</label><textarea class="textarea" rows="2" placeholder="ספרו לנו מה מעניין אתכם"></textarea></div>
+<label class="check"><input type="checkbox" checked> אני מסכים לקבל עדכונים על סיורים חדשים</label>
+</body>
+</html>

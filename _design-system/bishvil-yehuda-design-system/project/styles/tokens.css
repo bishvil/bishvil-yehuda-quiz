@@ -1,0 +1,347 @@
+/* ============================================
+   Bishvil Design System — Tokens & Base styles
+   Used across all design system pages.
+   ============================================ */
+
+@font-face {
+  font-family: 'BA Hamossad';
+  src: url('../fonts/BAHamossad-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  /* ====== Brand colors — sampled from logo + booklets ====== */
+
+  /* Primary green palette (forest, signature) */
+  --c-forest-deep: #18483f;     /* Deep slate-green — print booklets */
+  --c-forest:      #2a6b22;     /* Hiker silhouette / forest core */
+  --c-forest-mid:  #3d8a2e;
+  --c-leaf:        #6ba843;
+  --c-lime:        #a0c040;     /* Signature lime — front mountain */
+  --c-lime-soft:   #b0d060;
+  --c-sage:        #90b090;     /* Background mountain mid */
+  --c-mist:        #b0c8a8;     /* Far mist mountain */
+
+  /* Earth palette — trail, sandstone */
+  --c-earth-deep:  #5a4520;
+  --c-earth:       #a08050;     /* Brown earth */
+  --c-earth-mid:   #b89968;
+  --c-tan:         #c0a080;     /* Trail / far mountain */
+  --c-sand:        #ddc8a8;
+  --c-cream:       #f0e6d4;
+
+  /* Neutral / paper / ink */
+  --c-paper:       #faf7f0;     /* Warm paper */
+  --c-paper-2:     #f3eee2;
+  --c-paper-3:     #e8e1cf;
+  --c-rule:        #d8d0bd;     /* Hairlines */
+  --c-muted:       #8a8474;
+  --c-ink-soft:    #4a443a;
+  --c-ink:         #1f1d18;     /* Body text */
+
+  /* Accents (state) */
+  --c-flag-red:    #c8302a;     /* From flag accent — sparingly */
+
+  /* ====== Typography ====== */
+  --font-display: 'BA Hamossad', 'David Libre', 'Times New Roman', serif;
+  --font-text: 'Heebo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  /* Type scale (golden-ratio-ish, RTL friendly) */
+  --t-display-xl: clamp(80px, 12vw, 180px);
+  --t-display:    clamp(64px, 8vw, 120px);
+  --t-h1:         56px;
+  --t-h2:         40px;
+  --t-h3:         28px;
+  --t-h4:         22px;
+  --t-body-lg:    18px;
+  --t-body:       16px;
+  --t-small:      14px;
+  --t-mono:       12px;
+
+  /* ====== Spacing (4-pt grid) ====== */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+
+  /* ====== Radii ====== */
+  --r-1: 2px;
+  --r-2: 6px;
+  --r-3: 10px;
+  --r-4: 16px;
+  --r-pill: 999px;
+
+  /* ====== Shadows (soft, paper-like) ====== */
+  --shadow-1: 0 1px 2px rgba(31, 29, 24, 0.06), 0 1px 1px rgba(31, 29, 24, 0.04);
+  --shadow-2: 0 4px 12px rgba(31, 29, 24, 0.08), 0 2px 4px rgba(31, 29, 24, 0.04);
+  --shadow-3: 0 12px 32px rgba(31, 29, 24, 0.12), 0 4px 8px rgba(31, 29, 24, 0.06);
+
+  /* ====== Layout ====== */
+  --content-max: 1280px;
+  --content-pad: clamp(24px, 5vw, 80px);
+}
+
+/* ============================================
+   Base reset & body
+   ============================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-text);
+  font-size: var(--t-body);
+  line-height: 1.65;
+  color: var(--c-ink);
+  background: var(--c-paper);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================
+   Reusable typography helpers
+   ============================================ */
+.t-display-xl { font-family: var(--font-display); font-size: var(--t-display-xl); line-height: 0.95; font-weight: 400; letter-spacing: -0.01em; }
+.t-display    { font-family: var(--font-display); font-size: var(--t-display); line-height: 1.0; font-weight: 400; }
+.t-h1         { font-family: var(--font-display); font-size: var(--t-h1); line-height: 1.1; font-weight: 400; }
+.t-h2         { font-family: var(--font-display); font-size: var(--t-h2); line-height: 1.15; font-weight: 400; }
+.t-h3         { font-family: var(--font-text); font-size: var(--t-h3); line-height: 1.25; font-weight: 700; }
+.t-h4         { font-family: var(--font-text); font-size: var(--t-h4); line-height: 1.35; font-weight: 600; }
+.t-body-lg    { font-family: var(--font-text); font-size: var(--t-body-lg); line-height: 1.6; }
+.t-body       { font-family: var(--font-text); font-size: var(--t-body); line-height: 1.65; }
+.t-small      { font-family: var(--font-text); font-size: var(--t-small); line-height: 1.5; color: var(--c-ink-soft); }
+
+.t-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+  direction: ltr;
+}
+.t-eyebrow-he {
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--c-muted);
+}
+
+/* ============================================
+   Page chrome — top bar nav across docs
+   ============================================ */
+.ds-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(250, 247, 240, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--c-rule);
+}
+.ds-topbar-inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 14px var(--content-pad);
+  display: flex;
+  align-items: center;
+  gap: var(--s-7);
+}
+.ds-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--c-ink);
+}
+.ds-topbar-brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--c-lime) 0%, var(--c-forest) 100%);
+  display: grid;
+  place-items: center;
+  color: var(--c-paper);
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1;
+}
+.ds-topbar-brand-text {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1;
+}
+.ds-topbar-brand-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  direction: ltr;
+}
+
+.ds-nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-inline-start: auto;
+}
+.ds-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  text-decoration: none;
+  color: var(--c-ink-soft);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.ds-nav a:hover {
+  background: var(--c-paper-3);
+  color: var(--c-ink);
+}
+.ds-nav a.is-active {
+  background: var(--c-forest-deep);
+  color: var(--c-paper);
+}
+.ds-nav-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  opacity: 0.7;
+  direction: ltr;
+}
+
+/* ============================================
+   Page header (per-document)
+   ============================================ */
+.ds-page-head {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--s-9) var(--content-pad) var(--s-7);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s-7);
+  align-items: end;
+  border-bottom: 1px solid var(--c-rule);
+}
+.ds-page-head h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(56px, 9vw, 120px);
+  line-height: 0.95;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.ds-page-head .lede {
+  margin: var(--s-4) 0 0;
+  max-width: 56ch;
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--c-ink-soft);
+}
+.ds-page-head .meta {
+  text-align: end;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--c-muted);
+  direction: ltr;
+  text-align: left;
+}
+.ds-page-head .meta-row { display: block; margin-bottom: 4px; }
+
+/* ============================================
+   Section block
+   ============================================ */
+.ds-section {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--s-9) var(--content-pad);
+  border-bottom: 1px solid var(--c-rule);
+}
+.ds-section:last-child { border-bottom: none; }
+.ds-section-head {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--s-7);
+  margin-bottom: var(--s-7);
+  align-items: start;
+}
+.ds-section-head .label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--c-muted);
+  text-transform: uppercase;
+  direction: ltr;
+  text-align: left;
+}
+.ds-section-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(32px, 4vw, 56px);
+  line-height: 1.05;
+  font-weight: 400;
+}
+.ds-section-head .desc {
+  margin-top: var(--s-3);
+  color: var(--c-ink-soft);
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 60ch;
+}
+
+/* ============================================
+   Footer (small)
+   ============================================ */
+.ds-footer {
+  border-top: 1px solid var(--c-rule);
+  padding: var(--s-7) var(--content-pad);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--c-muted);
+  direction: ltr;
+}
+.ds-footer a { color: var(--c-ink-soft); text-decoration: none; }
+.ds-footer a:hover { text-decoration: underline; }
+
+/* ============================================
+   Utility — hidden marker for placeholder fonts
+   ============================================ */
+.placeholder-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--c-paper-3);
+  border: 1px dashed var(--c-rule);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--c-muted);
+  direction: ltr;
+  text-transform: uppercase;
+}
+.placeholder-tag::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-earth);
+}

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>בדיקת פונט המוסד</title>
+<style>
+  @font-face {
+    font-family: 'BA Hamossad';
+    src: url('fonts/BAHamossad-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --ink: #1a1a1a;
+    --paper: #faf8f3;
+    --rule: #d8d2c4;
+    --muted: #8a8579;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'BA Hamossad', 'David Libre', serif;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 64px 80px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .label {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    direction: ltr;
+    text-align: left;
+  }
+
+  .row {
+    border-bottom: 1px solid var(--rule);
+    padding: 40px 0;
+  }
+  .row:last-child { border-bottom: none; }
+
+  .specimen-128 { font-size: 128px; line-height: 1.0; letter-spacing: -0.01em; }
+  .specimen-72  { font-size: 72px;  line-height: 1.1; }
+  .specimen-48  { font-size: 48px;  line-height: 1.25; }
+  .specimen-32  { font-size: 32px;  line-height: 1.4; }
+  .specimen-24  { font-size: 24px;  line-height: 1.5; }
+  .specimen-18  { font-size: 18px;  line-height: 1.65; max-width: 720px; }
+
+  .alphabet {
+    font-size: 56px;
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    word-spacing: 0.3em;
+  }
+
+  .header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 24px;
+    margin-bottom: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .header h1 {
+    font-size: 64px;
+    font-weight: 400;
+  }
+  .header .meta {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 12px;
+    color: var(--muted);
+    direction: ltr;
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>פונט המוסד · בדיקה</h1>
+    <div class="meta">
+      BAHamossad-Regular.ttf<br>
+      Single weight · 400
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="label">Display · 128px</div>
+    <div class="specimen-128">בשביל יהודה</div>
+  </div>
+
+  <div class="row">
+    <div class="label">Headline · 72px</div>
+    <div class="specimen-72">מערכת עיצוב לארגון</div>
+  </div>
+
+  <div class="row">
+    <div class="label">Subhead · 48px</div>
+    <div class="specimen-48">בעין תחבולות יפול עם, ותשועה ברב יועץ</div>
+  </div>
+
+  <div class="row">
+    <div class="label">Title · 32px</div>
+    <div class="specimen-32">כותרת משנה לקטעי תוכן בתוך מסמך או דף ויזואלי</div>
+  </div>
+
+  <div class="row">
+    <div class="label">Body large · 24px</div>
+    <div class="specimen-24">פונט המוסד נוצר על ידי בית אלף, בית היוצר לאות העברית, ומשלב אופי קליגרפי-מסורתי עם נוכחות גרפית חזקה. הוא מתאים במיוחד לכותרות וטקסטים בעלי משקל רעיוני.</div>
+  </div>
+
+  <div class="row">
+    <div class="label">Body · 18px</div>
+    <div class="specimen-18">תפיסת העיצוב היא חופש וחדוות יצירה עם הערכה רבה למקור האלפבית העברי שמאכלס בתוכו מטען תרבותי רב-ערך. מטען זה מתבטא באופן בו התכונות לובשות צורה כאותיות המתקיימות יחד בהרמוניה. אות היא אמנם היחידה הקטנה והבסיסית ביותר במערך הטיפוגרפי השלם, אבל למרות מימדיה לאות יש השפעה משמעותית על המבנה החזותי של המילה.</div>
+  </div>
+
+  <div class="row">
+    <div class="label">Hebrew Alphabet</div>
+    <div class="alphabet">א ב ג ד ה ו ז ח ט י כ ך ל מ ם נ ן ס ע פ ף צ ץ ק ר ש ת</div>
+  </div>
+
+  <div class="row">
+    <div class="label">Numerals &amp; Punctuation</div>
+    <div class="alphabet">0 1 2 3 4 5 6 7 8 9 . , : ; ! ? – — ( ) « »</div>
+  </div>
+
+  <div class="row">
+    <div class="label">Latin (if supported)</div>
+    <div class="alphabet" style="direction: ltr; text-align: left;">A B C D E F G H I J K L M N O P Q R S T U V W X Y Z</div>
+  </div>
+
+</body>
+</html>

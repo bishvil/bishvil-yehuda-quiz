@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 22px; background: var(--bsy-paper); font-family: var(--font-body); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px; border-radius: var(--radius-pill);
+    font-family: var(--font-body); font-size: 15px; font-weight: 700;
+    border: 0; cursor: pointer; transition: all var(--dur-base) var(--ease-out);
+  }
+  .btn-primary { background: var(--bsy-green-forest); color: var(--bsy-paper); }
+  .btn-primary:hover { background: var(--bsy-green-deep); }
+  .btn-accent  { background: var(--bsy-green-bright); color: var(--bsy-green-forest); }
+  .btn-secondary { background: transparent; color: var(--bsy-green-forest); border: 1.5px solid var(--bsy-green-forest); }
+  .btn-tertiary { background: transparent; color: var(--bsy-green-forest); padding: 10px 8px; }
+  .btn-sm { padding: 6px 14px; font-size: 13px; }
+  .btn-lg { padding: 14px 28px; font-size: 17px; }
+  .btn-disabled { opacity: 0.4; cursor: not-allowed; }
+  .arrow { font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+<div class="row">
+  <button class="btn btn-primary">להמשך הסיפור <span class="arrow">←</span></button>
+  <button class="btn btn-accent">הצטרפו לסיור</button>
+  <button class="btn btn-secondary">פרטים נוספים</button>
+  <button class="btn btn-tertiary">לכל המסלולים <span class="arrow">←</span></button>
+</div>
+<div class="row">
+  <button class="btn btn-primary btn-sm">קטן</button>
+  <button class="btn btn-primary">רגיל</button>
+  <button class="btn btn-primary btn-lg">גדול</button>
+  <button class="btn btn-primary btn-disabled">מושבת</button>
+</div>
+</body>
+</html>
