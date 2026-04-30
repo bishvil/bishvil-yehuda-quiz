@@ -160,19 +160,20 @@ This means **bootstrap still installs `@playwright/test` and writes one smoke te
 
 ### 4.1 Supabase — local vs remote dev
 
-**Default: shared remote dev project on Supabase Cloud.**
+**Default: local Supabase via `pnpm supabase start` (Docker).**
 
-- One Supabase project per environment: `bishvil-yehuda-dev`, `bishvil-yehuda-preview` (later), `bishvil-yehuda-prod` (later).
-- Schema lives in `supabase/migrations/` and is the source of truth. Apply with `pnpm supabase db push --linked` (or via CI from `main`).
-- Pros: zero local setup for new contributors, real Realtime/Auth, matches Vercel preview behaviour.
-- Cons: requires network; cost is negligible at dev scale.
+- Use the local stack for day-to-day Wave 2 development until the client-owned Supabase Cloud project exists.
+- Schema lives in `supabase/migrations/` and is the source of truth for both local and cloud. Apply locally from scratch with `pnpm supabase db reset --local`.
+- Local ports: API `54321`, Postgres `54322`, Studio `54323`, Mailpit `54324`.
+- Local database URL: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
+- Pros: real Postgres, real Auth helpers, real RLS, real Realtime, no dependency on a client account.
+- Cons: requires Docker and first start pulls the Supabase service images.
 
-**Optional: local Supabase via `supabase start` (Docker).**
+**Deferred: linked Supabase Cloud dev project.**
 
-- Available because Docker is on this host.
-- Use when: working offline, doing destructive schema experiments, or measuring perf without cloud network noise.
-- Schema parity is maintained because both targets consume the same `supabase/migrations/`.
-- **Not the default** — adds a Docker dependency for every contributor. Document it as opt-in.
+- When the client account exists, link it with `pnpm supabase link --project-ref <ref>`.
+- Push the same migration history with `pnpm supabase db push --linked`.
+- Replace local `.env.local` values with the cloud project values. Do not put cloud secrets in `.env.example`.
 
 ### 4.2 Local dev vs Vercel preview
 
@@ -207,21 +208,21 @@ This means **bootstrap still installs `@playwright/test` and writes one smoke te
 
 ### 4.5 `.env.example` contract (for Project Bootstrap to create)
 
-`.env.example` is committed and **must contain placeholder names only — no real values, no real URLs**. Project Bootstrap will write this file with at least:
+`.env.example` is committed with the fixed local Supabase defaults so a new local stack can run without cloud credentials. Cloud project values still belong only in `.env.local` or Vercel environment variables.
 
 ```
 # === Public (browser-exposed) ===
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<local anon key from pnpm supabase status -o env>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # === Server-only ===
-SUPABASE_SERVICE_ROLE_KEY=
-SUPABASE_PROJECT_REF=
+SUPABASE_SERVICE_ROLE_KEY=<local service role key from pnpm supabase status -o env>
+SUPABASE_PROJECT_REF=local
 
 # Drizzle / Postgres
-DATABASE_URL=
-DIRECT_URL=
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 # App
 APP_ENV=dev
@@ -233,8 +234,9 @@ CRON_SECRET=
 
 Rules for the file:
 
-- Every variable referenced in code or `next.config.*` must appear here with an empty value.
+- Every variable referenced in code or `next.config.*` must appear here.
 - Comment groups by visibility (public vs server) so reviewers can spot a mis-prefixed leak instantly.
+- Only local Supabase defaults may have concrete values in `.env.example`; cloud secrets must stay out of the repo.
 - Update this file in the same PR as any new env-dependent code. CI should fail if a referenced var is missing from `.env.example` (lint rule to add later).
 
 ---
