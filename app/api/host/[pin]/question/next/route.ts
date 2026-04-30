@@ -17,7 +17,7 @@ interface HostQuestionNextSuccessBody {
 }
 
 interface HostQuestionNextErrorBody {
-  error: "SESSION_NOT_LIVE" | "QUESTION_NOT_REVEALED" | "WRITE_FAILED";
+  error: "SESSION_NOT_LIVE" | "SESSION_PAUSED" | "QUESTION_NOT_REVEALED" | "WRITE_FAILED";
   message: string;
 }
 
@@ -39,7 +39,17 @@ export async function POST(
   if (!ctx.ok) return ctx.response;
   const { session, serviceSupabase } = ctx;
 
-  if (session.status !== "live" && session.status !== "paused") {
+  if (session.status === "paused") {
+    return privateNoStoreJson<HostQuestionNextResponseBody>(
+      {
+        error: "SESSION_PAUSED",
+        message: "Resume the session before advancing to the next question.",
+      },
+      { status: 409 },
+    );
+  }
+
+  if (session.status !== "live") {
     return privateNoStoreJson<HostQuestionNextResponseBody>(
       {
         error: "SESSION_NOT_LIVE",
