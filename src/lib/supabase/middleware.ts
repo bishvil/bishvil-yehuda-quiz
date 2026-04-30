@@ -79,7 +79,9 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     return unauthorizedResponse("Admin authentication required");
   }
 
-  response.headers.set("Cache-Control", PRIVATE_NO_STORE_HEADER);
+  // Cache-Control is set per-route. Public quiz routes need `public, s-maxage=...`
+  // for CDN edge caching (ADR-0008 §1.1). Setting a global no-store here would
+  // collide with those headers — so the middleware leaves Cache-Control to handlers.
   return response;
 }
 

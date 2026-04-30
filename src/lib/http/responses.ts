@@ -23,3 +23,15 @@ export function privateNoStoreJson<TBody>(
     cacheControl: PRIVATE_NO_STORE_HEADER,
   });
 }
+
+export function publicCachedJson<TBody>(
+  body: TBody,
+  init: { cacheControl: string; status?: number },
+): NextResponse<TBody> {
+  return NextResponse.json(body, {
+    status: init.status,
+    headers: {
+      "Cache-Control": init.cacheControl,
+    },
+  });
+}

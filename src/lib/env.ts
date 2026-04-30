@@ -1,7 +1,8 @@
 type RequiredEnvironmentVariableName =
   | "NEXT_PUBLIC_SUPABASE_URL"
   | "NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  | "SUPABASE_SERVICE_ROLE_KEY";
+  | "SUPABASE_SERVICE_ROLE_KEY"
+  | "CRON_SECRET";
 
 export function getRequiredEnvironmentVariable(
   name: RequiredEnvironmentVariableName,
@@ -13,4 +14,10 @@ export function getRequiredEnvironmentVariable(
   }
 
   return value;
+}
+
+export function getOptionalEnvironmentVariable(
+  name: RequiredEnvironmentVariableName,
+): string | null {
+  return process.env[name] ?? null;
 }

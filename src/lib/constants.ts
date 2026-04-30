@@ -56,6 +56,19 @@ export type AuthRole = (typeof AUTH_ROLES)[number];
 export const PRIVATE_NO_STORE_HEADER = "private, no-store";
 export const WRITE_NO_STORE_HEADER = "no-store";
 
+// Public (CDN) cache headers per ADR-0008 §7.
+export const PUBLIC_QUIZ_INFO_CACHE_HEADER =
+  "public, s-maxage=60, stale-while-revalidate=30";
+export const PUBLIC_QUESTION_CONTENT_CACHE_HEADER =
+  "public, s-maxage=3600, stale-while-revalidate=300";
+export const PUBLIC_POST_REVEAL_COUNTS_CACHE_HEADER =
+  "public, s-maxage=86400, stale-while-revalidate=3600";
+
+// Bonus pool fraction per ADR-0006 §5 + Open Q1 RESOLVED:
+// `base = floor(points * 2/3)`, `time_max = points - base`.
+export const SCORING_BASE_FRACTION_NUMERATOR = 2;
+export const SCORING_BASE_FRACTION_DENOMINATOR = 3;
+
 export const PROTECTED_HOST_PATH_PREFIX = "/host";
 export const PROTECTED_ADMIN_PATH_PREFIX = "/admin";
 
