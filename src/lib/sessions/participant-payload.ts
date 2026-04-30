@@ -16,14 +16,20 @@ export interface ParticipantSessionPayload {
 }
 
 export interface ParticipantQuestionPayload {
+  /** Question UUID — load-bearing for the answer submit body. Per
+   *  ADR-0008 §2, this UUID is not on the forbidden list (correct_ids
+   *  and explanation are). */
+  id: string;
   index: number;
   total: number;
   type: QuestionTypeEnum;
   prompt: string;
   options: Array<{ id: string; text: string; image_url?: string }> | null;
   imageUrl: string | null;
-  map: { image_url: string } | null;
+  map: { image_url: string; target?: { x: number; y: number } } | null;
   timeSeconds: number;
+  /** Map question tolerance (% radius) for client-side reveal-ring sizing. */
+  tolerance: number | null;
   status: QuestionStatusEnum | AsyncQuestionStatusEnum;
   startedAt: string | null;
   deadlineAt: string | null;
@@ -62,6 +68,7 @@ interface RawQuestionOption {
 }
 interface RawQuestionMap {
   image_url: string;
+  target?: { x: number; y: number };
 }
 
 type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
@@ -72,7 +79,14 @@ export function buildParticipantQuestionPayload(args: {
   totalQuestions: number;
   question: Pick<
     QuestionRow,
-    "type" | "prompt" | "options" | "map" | "image_url" | "time_seconds"
+    | "id"
+    | "type"
+    | "prompt"
+    | "options"
+    | "map"
+    | "image_url"
+    | "time_seconds"
+    | "tolerance"
   >;
   status: QuestionStatusEnum | AsyncQuestionStatusEnum;
   startedAt: string | null;
@@ -89,12 +103,21 @@ export function buildParticipantQuestionPayload(args: {
 
   const mapPayload =
     args.question.map && typeof args.question.map === "object"
-      ? {
-          image_url: (args.question.map as unknown as RawQuestionMap).image_url,
-        }
+      ? (() => {
+          const raw = args.question.map as unknown as RawQuestionMap;
+          return {
+            image_url: raw.image_url,
+            target: raw.target,
+          };
+        })()
       : null;
 
+  const toleranceValue = args.question.tolerance
+    ? Number.parseFloat(args.question.tolerance)
+    : null;
+
   return {
+    id: args.question.id,
     index: args.ordinal,
     total: args.totalQuestions,
     type: args.question.type,
@@ -103,6 +126,8 @@ export function buildParticipantQuestionPayload(args: {
     imageUrl: args.question.image_url,
     map: mapPayload,
     timeSeconds: args.question.time_seconds,
+    tolerance:
+      toleranceValue !== null && Number.isFinite(toleranceValue) ? toleranceValue : null,
     status: args.status,
     startedAt: args.startedAt,
     deadlineAt: args.deadlineAt,
