@@ -54,10 +54,10 @@ export async function seedAdditionalQuestion(
       ${ordinal},
       'single',
       'Additional test prompt',
-      ${JSON.stringify([
+      ${sql.json([
         { id: "a", text: "Option A" },
         { id: "b", text: "Option B" },
-      ])}::jsonb,
+      ])},
       ${correctIds}::text[],
       25,
       1500
@@ -107,10 +107,10 @@ export async function seedSyncFixtures(
       ${ordinal},
       'single',
       'Test prompt',
-      ${JSON.stringify([
+      ${sql.json([
         { id: "a", text: "Option A" },
         { id: "b", text: "Option B" },
-      ])}::jsonb,
+      ])},
       ARRAY['a']::text[],
       25,
       1500
