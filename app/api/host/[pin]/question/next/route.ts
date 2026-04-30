@@ -1,9 +1,8 @@
 import { type NextRequest } from "next/server";
-import { revalidateTag } from "next/cache";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { loadHostContext } from "@/src/lib/sessions/host-context";
-import { sessionCacheTag } from "@/src/lib/cache/tags";
+import { safeRevalidateTag, sessionCacheTag } from "@/src/lib/cache/tags";
 
 interface HostQuestionNextRouteContext {
   params: Promise<{ pin: string }>;
@@ -95,7 +94,7 @@ export async function POST(
     );
   }
 
-  revalidateTag(sessionCacheTag(session.id), "default");
+  safeRevalidateTag(sessionCacheTag(session.id));
 
   return privateNoStoreJson<HostQuestionNextResponseBody>(
     {

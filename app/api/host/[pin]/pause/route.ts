@@ -1,10 +1,9 @@
 import { type NextRequest } from "next/server";
-import { revalidateTag } from "next/cache";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { loadHostContext } from "@/src/lib/sessions/host-context";
 import { canTransitionSession } from "@/src/lib/sessions/state-machine";
-import { sessionCacheTag } from "@/src/lib/cache/tags";
+import { safeRevalidateTag, sessionCacheTag } from "@/src/lib/cache/tags";
 
 interface HostPauseRouteContext {
   params: Promise<{ pin: string }>;
@@ -77,7 +76,7 @@ export async function POST(
     );
   }
 
-  revalidateTag(sessionCacheTag(session.id), "default");
+  safeRevalidateTag(sessionCacheTag(session.id));
   return privateNoStoreJson<HostPauseResponseBody>(
     { sessionId: updated.id, status: "paused" },
     { status: 200 },

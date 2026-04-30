@@ -1,5 +1,4 @@
 import { type NextRequest } from "next/server";
-import { revalidateTag } from "next/cache";
 import { z } from "zod";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
@@ -8,6 +7,7 @@ import { canTransitionQuestion } from "@/src/lib/sessions/state-machine";
 import {
   questionCacheTag,
   questionCountsCacheTag,
+  safeRevalidateTag,
 } from "@/src/lib/cache/tags";
 import { lazyExpireSyncQuestionState } from "@/src/lib/sessions/expiry";
 
@@ -131,8 +131,8 @@ export async function POST(
     );
   }
 
-  revalidateTag(questionCacheTag(session.id, state.question_id), "default");
-  revalidateTag(questionCountsCacheTag(session.id, state.question_id), "default");
+  safeRevalidateTag(questionCacheTag(session.id, state.question_id));
+  safeRevalidateTag(questionCountsCacheTag(session.id, state.question_id));
 
   return privateNoStoreJson<HostRevealResponseBody>(
     {

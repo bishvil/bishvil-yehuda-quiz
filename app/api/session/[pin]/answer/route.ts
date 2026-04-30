@@ -1,9 +1,8 @@
 import { type NextRequest } from "next/server";
-import { revalidateTag } from "next/cache";
 
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { submitAnswerRequestSchema } from "@/src/lib/auth/validation";
-import { questionCacheTag } from "@/src/lib/cache/tags";
+import { questionCacheTag, safeRevalidateTag } from "@/src/lib/cache/tags";
 import { noStoreJson } from "@/src/lib/http/responses";
 import {
   computeScore,
@@ -341,10 +340,10 @@ export async function POST(
   ]);
 
   // Async mode auto-reveals on lock; tell the participant the answer right
-  // away. Sync mode awaits host reveal — only `submitted` is shared.
-  // The tag pattern matches ADR-0008 §1.1; in Next 16 `revalidateTag` takes
-  // (tag, profile) — `default` is the standard expire-now profile.
-  revalidateTag(questionCacheTag(session.id, question.id), "default");
+  // away. Sync mode awaits host reveal — only `submitted` is shared. The
+  // tag pattern matches ADR-0008 §1.1; safeRevalidateTag tolerates non-Next
+  // runtimes (vitest) where the static-generation store is absent.
+  safeRevalidateTag(questionCacheTag(session.id, question.id));
 
   if (session.game_mode === "async") {
     return noStoreJson<AnswerResponseBody>(

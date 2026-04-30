@@ -1,11 +1,14 @@
 import { type NextRequest } from "next/server";
-import { revalidateTag } from "next/cache";
 import { z } from "zod";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { loadHostContext } from "@/src/lib/sessions/host-context";
 import { canTransitionQuestion } from "@/src/lib/sessions/state-machine";
-import { questionCacheTag, sessionCacheTag } from "@/src/lib/cache/tags";
+import {
+  questionCacheTag,
+  safeRevalidateTag,
+  sessionCacheTag,
+} from "@/src/lib/cache/tags";
 import { writeLog } from "@/src/lib/logging";
 
 interface HostQuestionStartRouteContext {
@@ -165,8 +168,8 @@ export async function POST(
     })
     .eq("id", session.id);
 
-  revalidateTag(questionCacheTag(session.id, question.id), "default");
-  revalidateTag(sessionCacheTag(session.id), "default");
+  safeRevalidateTag(questionCacheTag(session.id, question.id));
+  safeRevalidateTag(sessionCacheTag(session.id));
 
   return privateNoStoreJson<HostQuestionStartResponseBody>(
     {

@@ -1,3 +1,5 @@
+import { revalidateTag } from "next/cache";
+
 /**
  * Cache tag pattern per ADR-0008 §1.1. The tags themselves only bind
  * meaning when a route uses Next's data cache (`unstable_cache` or the
@@ -7,6 +9,19 @@
  */
 export function questionCacheTag(sessionId: string, questionId: string): string {
   return `question:${sessionId}:${questionId}`;
+}
+
+/**
+ * Wrap revalidateTag so a missing Next static-generation store (which
+ * happens in vitest and other non-Next runtimes) doesn't crash callers.
+ * In production this delegates straight through.
+ */
+export function safeRevalidateTag(tag: string): void {
+  try {
+    revalidateTag(tag, "default");
+  } catch {
+    // No active Next request store — tag invalidation has no audience yet.
+  }
 }
 
 export function sessionCacheTag(sessionId: string): string {
