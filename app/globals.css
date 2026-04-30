@@ -1,16 +1,180 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans Hebrew", sans-serif;
+/* === Self-hosted display font ============================================ */
+@font-face {
+  font-family: "BA Hamossad";
+  src: url("/fonts/BAHamossad-Regular.ttf") format("truetype");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
 }
 
+/* === Brand tokens — verbatim subset of design system colors_and_type.css */
+:root {
+  /* Brand palette */
+  --bsy-green-bright: #a0c040;
+  --bsy-green-light: #b4dc64;
+  --bsy-green-sage: #90b090;
+  --bsy-green-forest: #306030;
+  --bsy-green-deep: #1f4720;
+
+  --bsy-tan-light: #e8d4b0;
+  --bsy-tan: #a08050;
+  --bsy-tan-mid: #8c6e40;
+  --bsy-brown: #6e5430;
+  --bsy-brown-deep: #4a3f26;
+
+  --bsy-paper: #faf7f0;
+  --bsy-paper-warm: #f4ecdc;
+  --bsy-stone-50: #f2eee6;
+  --bsy-stone-100: #e5dfd2;
+  --bsy-stone-200: #c9c0ac;
+  --bsy-stone-400: #8a8472;
+  --bsy-stone-700: #4f4a3d;
+  --bsy-ink: #2a2620;
+
+  --bsy-info: #2a7c9c;
+  --bsy-warn: #c28a2a;
+  --bsy-error: #a53a2a;
+  --bsy-success: var(--bsy-green-forest);
+
+  --color-bg: var(--bsy-paper);
+  --color-bg-elevated: #ffffff;
+  --color-bg-warm: var(--bsy-paper-warm);
+  --color-fg: var(--bsy-ink);
+  --color-fg-muted: var(--bsy-stone-700);
+  --color-fg-subtle: var(--bsy-stone-400);
+  --color-fg-on-dark: var(--bsy-paper);
+  --color-fg-heading: var(--bsy-brown);
+  --color-border: var(--bsy-stone-100);
+  --color-border-strong: var(--bsy-stone-200);
+
+  /* Semantic for shadcn-style consumers (kept for parity with design intake) */
+  --background: var(--bsy-paper);
+  --foreground: var(--bsy-ink);
+  --card: var(--color-bg-elevated);
+  --card-foreground: var(--bsy-ink);
+  --primary: var(--bsy-green-forest);
+  --primary-foreground: var(--bsy-paper);
+  --secondary: var(--bsy-stone-100);
+  --secondary-foreground: var(--bsy-ink);
+  --muted: var(--bsy-stone-50);
+  --muted-foreground: var(--bsy-stone-400);
+  --accent: var(--bsy-green-bright);
+  --accent-foreground: var(--bsy-green-forest);
+  --destructive: var(--bsy-error);
+  --destructive-foreground: var(--bsy-paper);
+  --border: var(--color-border);
+  --ring: var(--bsy-green-forest);
+
+  /* Typography: --font-heebo and --font-suez are injected by next/font in
+     app/layout.tsx via the html className. The fallbacks here keep things
+     readable if those vars are missing for any reason. */
+  --font-display: "BA Hamossad", "Frank Ruhl Libre", "David Libre", serif;
+  --font-body:
+    var(--font-heebo, "Heebo"), "Assistant", system-ui, sans-serif;
+  --font-hand:
+    "BA Hamossad", var(--font-suez, "Suez One"), "Frank Ruhl Libre", serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Radii */
+  --radius-xs: 2px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(74, 63, 38, 0.06);
+  --shadow-sm: 0 2px 6px rgba(74, 63, 38, 0.08);
+  --shadow-md: 0 6px 18px rgba(74, 63, 38, 0.1);
+  --shadow-lg: 0 18px 40px rgba(74, 63, 38, 0.14);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+}
+
+/* === Tailwind 4 @theme bridge — exposes brand tokens as Tailwind utilities */
+@theme {
+  --color-bsy-forest: #306030;
+  --color-bsy-forest-deep: #1f4720;
+  --color-bsy-lime: #a0c040;
+  --color-bsy-lime-light: #b4dc64;
+  --color-bsy-paper: #faf7f0;
+  --color-bsy-paper-warm: #f4ecdc;
+  --color-bsy-ink: #2a2620;
+  --color-bsy-brown: #6e5430;
+  --color-bsy-brown-deep: #4a3f26;
+  --color-bsy-stone-50: #f2eee6;
+  --color-bsy-stone-100: #e5dfd2;
+  --color-bsy-stone-200: #c9c0ac;
+  --color-bsy-stone-400: #8a8472;
+  --color-bsy-stone-700: #4f4a3d;
+  --color-bsy-error: #a53a2a;
+  --color-bsy-warn: #c28a2a;
+  --color-bsy-info: #2a7c9c;
+
+  --font-display: "BA Hamossad", "Frank Ruhl Libre", serif;
+  --font-body: var(--font-heebo), "Heebo", system-ui, sans-serif;
+  --font-hand: "BA Hamossad", var(--font-suez), serif;
+
+  --radius-pill: 999px;
+  --radius-md: 12px;
+  --radius-sm: 6px;
+}
+
+/* Base */
 html,
 body {
   height: 100%;
 }
 
+html {
+  direction: rtl;
+}
+
 body {
-  font-family: var(--font-sans);
+  margin: 0;
+  background: var(--bsy-paper);
+  color: var(--bsy-ink);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--bsy-green-light);
+  color: var(--bsy-green-forest);
+}
+
+/* Headings — display font carries hierarchy via size, not weight */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  color: var(--bsy-brown);
+  margin: 0 0 0.75rem;
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
