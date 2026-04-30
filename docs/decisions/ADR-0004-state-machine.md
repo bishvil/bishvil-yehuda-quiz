@@ -4,6 +4,10 @@
 **Date:** 2026-04-30
 **Deciders:** Wave 1 design agent
 
+**Supersession note:** ADR-0009 supersedes the actor for the `scheduled -> ended`
+transition in §1. Hosts are explicitly allowed to cancel scheduled sessions
+before start. All other ADR-0004 rules remain accepted.
+
 ---
 
 ## Context
@@ -56,7 +60,7 @@ draft ──► scheduled ──► live ──┬──► paused ──► liv
 | `live` | `ended` | host | All questions revealed OR explicit end |
 | `live` | `ended` | system | Lazy expiry: all questions past their deadlines and async session inactive for >24h |
 | `paused` | `ended` | host | Early termination |
-| `scheduled` | `ended` | admin | Cancel before start |
+| `scheduled` | `ended` | admin | Cancel before start. Superseded by [ADR-0009](./ADR-0009-host-pre-start-cancellation.md): host is also allowed. |
 
 **Rejected transitions** (return current state, no error to client):
 - Any transition not in the table above.

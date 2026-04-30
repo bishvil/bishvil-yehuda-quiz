@@ -23,6 +23,7 @@ out of the plan into a new, higher-numbered ADR.
 | [ADR-0006](./ADR-0006-answer-policy.md) | Answer submission & scoring policy | First-submit-wins, server-time validation, scoring |
 | [ADR-0007](./ADR-0007-sync-async-model.md) | Sync vs async progression model | Session pointer vs `participant_question_progress`, resume |
 | [ADR-0008](./ADR-0008-cache-privacy.md) | Cache & privacy contract | Public cacheable vs private no-store, forbidden fields |
+| [ADR-0009](./ADR-0009-host-pre-start-cancellation.md) | Host pre-start cancellation | Host-authorized `scheduled -> ended` cancellation |
 
 ## How to add a new ADR
 
