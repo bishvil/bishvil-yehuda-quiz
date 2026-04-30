@@ -43,7 +43,9 @@ export function HostHeader({
           alt={active.label}
           width={120}
           height={40}
-          className="h-9 w-auto object-contain mix-blend-multiply md:h-10"
+          // h-9 w-auto / md:h-10 — keep aspect ratio when CSS overrides height.
+          style={{ width: "auto" }}
+          className="h-9 object-contain mix-blend-multiply md:h-10"
           priority
         />
         <div className="flex min-w-0 flex-col leading-tight">

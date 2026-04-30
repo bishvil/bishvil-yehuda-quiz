@@ -6,7 +6,7 @@ import { HostAnswerBars } from "@/src/components/host/HostAnswerBars";
 import { HostControlBar } from "@/src/components/host/HostControlBar";
 import { HostHeader } from "@/src/components/host/HostHeader";
 import { HostMapSummary } from "@/src/components/host/HostMapSummary";
-import { HostPlayerList } from "@/src/components/host/HostPlayerList";
+import { HostPlayerList, type HostPlayer } from "@/src/components/host/HostPlayerList";
 import { HostQuestionCard } from "@/src/components/host/HostQuestionCard";
 import { HostTimerPanel } from "@/src/components/host/HostTimerPanel";
 import {
@@ -416,14 +416,7 @@ interface DesktopIdleStateProps {
   sessionStatus: "draft" | "scheduled" | "live" | "paused" | "ended";
   nextOrdinal: number | null;
   totalQuestions: number;
-  players: HostScreenIdlePlayer[];
-}
-
-interface HostScreenIdlePlayer {
-  id: string;
-  displayName: string;
-  score: number;
-  answered: boolean;
+  players: HostPlayer[];
 }
 
 function DesktopIdleState({
