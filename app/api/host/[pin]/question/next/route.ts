@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { loadHostContext } from "@/src/lib/sessions/host-context";
+import { lazyExpireSyncQuestionState } from "@/src/lib/sessions/expiry";
 import { safeRevalidateTag, sessionCacheTag } from "@/src/lib/cache/tags";
 
 interface HostQuestionNextRouteContext {
@@ -16,7 +17,7 @@ interface HostQuestionNextSuccessBody {
 }
 
 interface HostQuestionNextErrorBody {
-  error: "SESSION_NOT_LIVE" | "WRITE_FAILED";
+  error: "SESSION_NOT_LIVE" | "QUESTION_NOT_REVEALED" | "WRITE_FAILED";
   message: string;
 }
 
@@ -48,13 +49,35 @@ export async function POST(
     );
   }
 
-  const { data: currentQuestion } = session.current_question_id
-    ? await serviceSupabase
-        .from("questions")
-        .select("ordinal")
-        .eq("id", session.current_question_id)
-        .maybeSingle()
-    : { data: null };
+  if (!session.current_question_id) {
+    return privateNoStoreJson<HostQuestionNextResponseBody>(
+      { error: "QUESTION_NOT_REVEALED", message: "No current question is active." },
+      { status: 409 },
+    );
+  }
+
+  const { row: currentState } = await lazyExpireSyncQuestionState(
+    serviceSupabase,
+    session.id,
+    session.current_question_id,
+    { autoReveal: session.auto_reveal },
+  );
+
+  if (currentState?.status !== "revealed") {
+    return privateNoStoreJson<HostQuestionNextResponseBody>(
+      {
+        error: "QUESTION_NOT_REVEALED",
+        message: "Current question must be revealed before advancing.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const { data: currentQuestion } = await serviceSupabase
+    .from("questions")
+    .select("ordinal")
+    .eq("id", session.current_question_id)
+    .maybeSingle();
 
   const currentOrdinal = currentQuestion?.ordinal ?? 0;
 
@@ -68,6 +91,25 @@ export async function POST(
     .maybeSingle();
 
   if (!nextQuestion) {
+    const endedAt = new Date().toISOString();
+    const { error } = await serviceSupabase
+      .from("sessions")
+      .update({
+        status: "ended",
+        ended_at: endedAt,
+        host_last_seen_at: endedAt,
+      })
+      .eq("id", session.id);
+
+    if (error) {
+      return privateNoStoreJson<HostQuestionNextResponseBody>(
+        { error: "WRITE_FAILED", message: "Could not end session." },
+        { status: 500 },
+      );
+    }
+
+    safeRevalidateTag(sessionCacheTag(session.id));
+
     return privateNoStoreJson<HostQuestionNextResponseBody>(
       {
         sessionId: session.id,
