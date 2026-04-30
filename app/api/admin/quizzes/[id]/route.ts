@@ -18,16 +18,14 @@ interface AdminQuizDetailBody {
     defaultGameMode: "sync" | "async";
     customLogo: string | null;
     customLogoLabel: string | null;
+    joinFields: string[];
     archivedAt: string | null;
     createdAt: string;
   };
 }
 
 interface AdminQuizErrorBody {
-  error:
-    | "INVALID_REQUEST"
-    | "QUIZ_NOT_FOUND"
-    | "WRITE_FAILED";
+  error: "INVALID_REQUEST" | "QUIZ_NOT_FOUND" | "WRITE_FAILED";
   message: string;
 }
 
@@ -48,7 +46,7 @@ export async function GET(
   const { data, error } = await serviceSupabase
     .from("quizzes")
     .select(
-      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, archived_at, created_at",
+      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, join_fields, archived_at, created_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -75,6 +73,7 @@ export async function GET(
       defaultGameMode: data.default_game_mode,
       customLogo: data.custom_logo,
       customLogoLabel: data.custom_logo_label,
+      joinFields: normalizeJoinFields(data.join_fields),
       archivedAt: data.archived_at,
       createdAt: data.created_at,
     },
@@ -112,6 +111,9 @@ export async function PUT(
   if (parsed.data.archivedAt !== undefined) {
     update.archived_at = parsed.data.archivedAt;
   }
+  if (parsed.data.joinFields !== undefined) {
+    update.join_fields = parsed.data.joinFields;
+  }
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
   const { data, error } = await serviceSupabase
@@ -119,7 +121,7 @@ export async function PUT(
     .update(update)
     .eq("id", id)
     .select(
-      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, archived_at, created_at",
+      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, join_fields, archived_at, created_at",
     )
     .maybeSingle();
 
@@ -145,10 +147,23 @@ export async function PUT(
       defaultGameMode: data.default_game_mode,
       customLogo: data.custom_logo,
       customLogoLabel: data.custom_logo_label,
+      joinFields: normalizeJoinFields(data.join_fields),
       archivedAt: data.archived_at,
       createdAt: data.created_at,
     },
   });
+}
+
+/**
+ * Coerce the `join_fields` jsonb column into a string array.
+ * The column defaults to `["name","phone","unit"]` but Drizzle types it as
+ * `Json`, so we narrow it on the way out.
+ */
+function normalizeJoinFields(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.filter((value): value is string => typeof value === "string");
+  }
+  return [];
 }
 
 /**

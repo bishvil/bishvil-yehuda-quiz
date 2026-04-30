@@ -14,6 +14,7 @@ interface AdminQuizListItem {
   defaultGameMode: "sync" | "async";
   archivedAt: string | null;
   createdAt: string;
+  questionCount?: number;
 }
 
 interface AdminQuizListBody {
@@ -36,7 +37,9 @@ export async function GET() {
   const serviceSupabase = await createServiceRoleSupabaseClient();
   const { data, error } = await serviceSupabase
     .from("quizzes")
-    .select("id, title, brand_id, default_game_mode, archived_at, created_at")
+    .select(
+      "id, title, brand_id, default_game_mode, archived_at, created_at, questions(id)",
+    )
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -53,6 +56,7 @@ export async function GET() {
     defaultGameMode: row.default_game_mode,
     archivedAt: row.archived_at,
     createdAt: row.created_at,
+    questionCount: Array.isArray(row.questions) ? row.questions.length : 0,
   }));
 
   return privateNoStoreJson<AdminQuizListBody>({ quizzes });
@@ -78,6 +82,7 @@ export async function POST(request: NextRequest) {
     default_game_mode: parsed.data.defaultGameMode,
     custom_logo: parsed.data.customLogo ?? null,
     custom_logo_label: parsed.data.customLogoLabel ?? null,
+    ...(parsed.data.joinFields ? { join_fields: parsed.data.joinFields } : {}),
   };
 
   const { data, error } = await serviceSupabase

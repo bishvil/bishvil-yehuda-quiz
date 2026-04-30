@@ -5,9 +5,19 @@ import {
   QUESTION_TYPES,
   DEFAULT_QUESTION_TIME_SECONDS,
   DEFAULT_QUESTION_POINTS,
+  DEFAULT_JOIN_FIELDS,
 } from "@/src/lib/constants";
 
 const brandIdSchema = z.string().min(1);
+
+/**
+ * Join-fields editor (admin) — optional list of profile fields the
+ * participant must fill on join. Persists as `quizzes.join_fields jsonb`
+ * (default `["name","phone","unit"]`). Wave 2 ships only the four
+ * built-in identifiers; custom field shapes are deferred to Wave 3.
+ */
+const joinFieldSchema = z.enum([...DEFAULT_JOIN_FIELDS, "team"] as const);
+export const joinFieldsSchema = z.array(joinFieldSchema).min(1);
 
 export const adminQuizCreateSchema = z.object({
   brandId: brandIdSchema,
@@ -15,6 +25,7 @@ export const adminQuizCreateSchema = z.object({
   defaultGameMode: z.enum(GAME_MODES),
   customLogo: z.string().url().optional(),
   customLogoLabel: z.string().min(1).optional(),
+  joinFields: joinFieldsSchema.optional(),
 });
 
 export const adminQuizUpdateSchema = adminQuizCreateSchema.partial().extend({

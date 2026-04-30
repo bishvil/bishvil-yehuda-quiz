@@ -11,6 +11,22 @@ import type { Database } from "@/src/lib/supabase/database.types";
 const POSTGRES_UNIQUE_VIOLATION_CODE = "23505";
 const PIN_GENERATION_RETRIES = 6;
 
+interface AdminSessionListRow {
+  id: string;
+  pin: string;
+  quizId: string;
+  status: Database["public"]["Tables"]["sessions"]["Row"]["status"];
+  gameMode: "sync" | "async";
+  autoReveal: boolean;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+}
+
+interface AdminSessionListBody {
+  sessions: AdminSessionListRow[];
+}
+
 interface AdminSessionCreateBody {
   session: {
     id: string;
@@ -31,6 +47,53 @@ interface AdminSessionErrorBody {
     | "PIN_GENERATION_FAILED"
     | "WRITE_FAILED";
   message: string;
+}
+
+/**
+ * Lists sessions, optionally filtered by `?quizId=`. Used by the admin
+ * "session list + launch" page (Subtask 6) to show prior sessions and
+ * present the launch CTA. Cache-Control: private, no-store.
+ */
+export async function GET(request: NextRequest) {
+  const auth = await requireRole("admin");
+  if (!auth.ok) return auth.response;
+
+  const quizId = request.nextUrl.searchParams.get("quizId");
+  const serviceSupabase = await createServiceRoleSupabaseClient();
+
+  let query = serviceSupabase
+    .from("sessions")
+    .select(
+      "id, pin, quiz_id, status, game_mode, auto_reveal, started_at, ended_at, created_at",
+    )
+    .order("created_at", { ascending: false });
+
+  if (quizId) {
+    query = query.eq("quiz_id", quizId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return privateNoStoreJson<AdminSessionErrorBody>(
+      { error: "WRITE_FAILED", message: "Failed to list sessions." },
+      { status: 500 },
+    );
+  }
+
+  const sessions: AdminSessionListRow[] = (data ?? []).map((row) => ({
+    id: row.id,
+    pin: row.pin,
+    quizId: row.quiz_id,
+    status: row.status,
+    gameMode: row.game_mode,
+    autoReveal: row.auto_reveal,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    createdAt: row.created_at,
+  }));
+
+  return privateNoStoreJson<AdminSessionListBody>({ sessions });
 }
 
 /**
@@ -90,7 +153,9 @@ export async function POST(request: NextRequest) {
     const { data, error } = await serviceSupabase
       .from("sessions")
       .insert(insert)
-      .select("id, pin, quiz_id, status, game_mode, auto_reveal, ended_at, created_at")
+      .select(
+        "id, pin, quiz_id, status, game_mode, auto_reveal, ended_at, created_at",
+      )
       .single();
 
     if (!error && data) {
