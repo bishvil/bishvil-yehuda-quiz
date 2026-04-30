@@ -4,6 +4,7 @@ import {
   decodeParticipantAccessToken,
   hasExpectedParticipantScope,
 } from "@/src/lib/auth/claims";
+import { normalizePhone } from "@/src/lib/auth/phone";
 import { participantJoinRequestSchema } from "@/src/lib/auth/validation";
 import { noStoreJson } from "@/src/lib/http/responses";
 import { writeLog } from "@/src/lib/logging";
@@ -96,6 +97,7 @@ export async function POST(
   }
 
   const participantId = authData.user.id;
+  const normalizedPhone = normalizePhone(parsedBody.data.phone);
   const { data: participant, error: participantError } = await serviceSupabase
     .from("session_participants")
     .insert({
@@ -103,40 +105,73 @@ export async function POST(
       session_id: session.id,
       first_name: parsedBody.data.firstName,
       last_name: parsedBody.data.lastName,
-      phone: parsedBody.data.phone,
+      phone: normalizedPhone,
       unit: parsedBody.data.unit ?? null,
       team: parsedBody.data.team ?? null,
     })
     .select("id, session_id")
-    .single();
+    .maybeSingle();
 
   if (participantError || !participant) {
-    writeLog({
-      level: "error",
-      message: "Participant row creation failed",
-      context: {
-        pin,
-        sessionId: session.id,
-        error: participantError?.message ?? null,
-      },
-    });
+    const { data: existingParticipant } = await serviceSupabase
+      .from("session_participants")
+      .select("id, session_id")
+      .eq("session_id", session.id)
+      .eq("phone", normalizedPhone)
+      .maybeSingle();
 
-    return noStoreJson<ParticipantJoinResponseBody>(
-      {
-        error: "PARTICIPANT_CREATE_FAILED",
-        message: "Could not join this session.",
-      },
-      { status: 409 },
-    );
+    if (!existingParticipant) {
+      writeLog({
+        level: "error",
+        message: "Participant row creation failed",
+        context: {
+          pin,
+          sessionId: session.id,
+          error: participantError?.message ?? null,
+        },
+      });
+
+      return noStoreJson<ParticipantJoinResponseBody>(
+        {
+          error: "PARTICIPANT_CREATE_FAILED",
+          message: "Could not join this session.",
+        },
+        { status: 409 },
+      );
+    }
+
+    return finishParticipantJoin({
+      browserScopedSupabase,
+      serviceSupabase,
+      authUserId: participantId,
+      refreshToken: authData.session.refresh_token,
+      participant: existingParticipant,
+    });
   }
 
-  const { error: metadataError } = await serviceSupabase.auth.admin.updateUserById(
-    participant.id,
+  return finishParticipantJoin({
+    browserScopedSupabase,
+    serviceSupabase,
+    authUserId: participantId,
+    refreshToken: authData.session.refresh_token,
+    participant,
+  });
+}
+
+async function finishParticipantJoin(args: {
+  browserScopedSupabase: Awaited<ReturnType<typeof createServerSupabaseClient>>;
+  serviceSupabase: Awaited<ReturnType<typeof createServiceRoleSupabaseClient>>;
+  authUserId: string;
+  refreshToken: string;
+  participant: { id: string; session_id: string };
+}) {
+  const { error: metadataError } = await args.serviceSupabase.auth.admin.updateUserById(
+    args.authUserId,
     {
       app_metadata: {
         role: "participant",
-        session_id: participant.session_id,
-        participant_id: participant.id,
+        session_id: args.participant.session_id,
+        participant_id: args.participant.id,
       },
     },
   );
@@ -152,8 +187,8 @@ export async function POST(
   }
 
   const { data: refreshedData, error: refreshError } =
-    await browserScopedSupabase.auth.refreshSession({
-      refresh_token: authData.session.refresh_token,
+    await args.browserScopedSupabase.auth.refreshSession({
+      refresh_token: args.refreshToken,
     });
 
   const accessToken = refreshedData.session?.access_token;
@@ -170,7 +205,13 @@ export async function POST(
 
   const claims = decodeParticipantAccessToken(accessToken);
 
-  if (!hasExpectedParticipantScope(claims, participant.session_id, participant.id)) {
+  if (
+    !hasExpectedParticipantScope(
+      claims,
+      args.participant.session_id,
+      args.participant.id,
+    )
+  ) {
     return noStoreJson<ParticipantJoinResponseBody>(
       {
         error: "TOKEN_SCOPE_FAILED",
@@ -181,8 +222,8 @@ export async function POST(
   }
 
   return noStoreJson<ParticipantJoinResponseBody>({
-    participantId: participant.id,
-    sessionId: participant.session_id,
+    participantId: args.participant.id,
+    sessionId: args.participant.session_id,
     accessToken,
     tokenType: "bearer",
   });

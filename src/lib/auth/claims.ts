@@ -24,7 +24,6 @@ export function hasExpectedParticipantScope(
   expectedParticipantId: string,
 ): boolean {
   return (
-    claims.sub === expectedParticipantId &&
     claims.app_metadata?.role === "participant" &&
     claims.app_metadata.session_id === expectedSessionId &&
     claims.app_metadata.participant_id === expectedParticipantId

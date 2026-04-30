@@ -46,7 +46,10 @@ function extractClaims(rawClaims: unknown): AuthenticatedClaims | null {
   }
 
   return {
-    userId,
+    userId:
+      role === "participant" && typeof appMeta?.participant_id === "string"
+        ? appMeta.participant_id
+        : userId,
     role,
     sessionId: appMeta?.session_id ?? null,
     participantId: appMeta?.participant_id ?? null,
