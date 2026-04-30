@@ -23,6 +23,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "db:push": "supabase db push --linked",
+    "db:reset:local": "supabase db reset --local",
     "db:pull": "supabase db pull --linked",
     "supabase": "supabase"
   },
