@@ -32,6 +32,7 @@ const cleanupTargets: Array<{
   questionId: string;
   participantId: string;
   extraQuestionIds: string[];
+  quizId: string;
 }> = [];
 
 afterAll(async () => {
@@ -45,6 +46,7 @@ afterAll(async () => {
     for (const questionId of target.extraQuestionIds) {
       await sql`delete from public.questions where id = ${questionId}::uuid`;
     }
+    await sql`delete from public.quizzes where id = ${target.quizId}::uuid`;
   }
   await sql.end();
 });
@@ -65,24 +67,45 @@ async function seedCurrentQuestionState(
   hasNext: boolean,
 ) {
   const fixtures = await seedSyncFixtures(sql, { gameMode: "sync" });
+  const [quiz] = await sql<{ id: string }[]>`
+    insert into public.quizzes (owner_id, brand_id, title, default_game_mode)
+    values (
+      '22222222-2222-4222-8222-222222222222'::uuid,
+      'default',
+      'Host next isolated quiz',
+      'sync'
+    )
+    returning id
+  `;
+  if (!quiz) {
+    throw new Error("Failed to create isolated quiz fixture.");
+  }
   const next = hasNext ? await seedAdditionalQuestion(sql) : null;
   cleanupTargets.push({
     sessionId: fixtures.sessionId,
     questionId: fixtures.questionId,
     participantId: fixtures.participantId,
     extraQuestionIds: next ? [next.questionId] : [],
+    quizId: quiz.id,
   });
 
   const ordinalBase = 2_000_000_000 + Math.floor(Math.random() * 100_000);
   await sql`
+    update public.sessions
+    set quiz_id = ${quiz.id}::uuid
+    where id = ${fixtures.sessionId}::uuid
+  `;
+  await sql`
     update public.questions
-    set ordinal = ${ordinalBase}
+    set quiz_id = ${quiz.id}::uuid,
+        ordinal = ${ordinalBase}
     where id = ${fixtures.questionId}::uuid
   `;
   if (next) {
     await sql`
       update public.questions
-      set ordinal = ${ordinalBase + 1}
+      set quiz_id = ${quiz.id}::uuid,
+          ordinal = ${ordinalBase + 1}
       where id = ${next.questionId}::uuid
     `;
   }
