@@ -1,0 +1,182 @@
+import { afterAll, describe, expect, it, vi } from "vitest";
+
+import {
+  cleanupFixtures,
+  getTestPostgres,
+  seedSyncFixtures,
+} from "./test-db";
+
+interface MockClaims {
+  userId: string;
+  role: "participant";
+  sessionId: string;
+  participantId: string;
+}
+
+let currentClaims: MockClaims | null = null;
+
+vi.mock("@/src/lib/auth/server-auth", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/src/lib/auth/server-auth")
+  >("@/src/lib/auth/server-auth");
+  return {
+    ...actual,
+    requireRole: vi.fn(async () => {
+      if (!currentClaims) {
+        return {
+          ok: false,
+          response: actual.unauthorizedJson("Test claims not set."),
+        };
+      }
+      return { ok: true, claims: currentClaims };
+    }),
+  };
+});
+
+const sql = getTestPostgres();
+const cleanupTargets: Array<{
+  sessionId: string;
+  questionId: string;
+  participantId: string;
+}> = [];
+
+afterAll(async () => {
+  for (const target of cleanupTargets) {
+    await cleanupFixtures(
+      sql,
+      target.sessionId,
+      target.questionId,
+      target.participantId,
+    );
+  }
+  await sql.end();
+});
+
+async function callAnswerPost(
+  pin: string,
+  participantId: string,
+  sessionId: string,
+  body: unknown,
+): Promise<{ status: number; body: unknown }> {
+  currentClaims = {
+    userId: participantId,
+    role: "participant",
+    sessionId,
+    participantId,
+  };
+
+  const { POST } = await import("@/app/api/session/[pin]/answer/route");
+
+  try {
+    const request = new Request(`http://localhost:3000/api/session/${pin}/answer`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const response = await POST(
+      request as unknown as Parameters<typeof POST>[0],
+      {
+        params: Promise.resolve({ pin }),
+      } as Parameters<typeof POST>[1],
+    );
+
+    return {
+      status: response.status,
+      body: await response.json(),
+    };
+  } finally {
+    currentClaims = null;
+  }
+}
+
+describe("POST /api/session/[pin]/answer", () => {
+  it("rejects an answer submitted past the deadline (LATE_SUBMISSION)", async () => {
+    const fixtures = await seedSyncFixtures(sql, { gameMode: "sync" });
+    cleanupTargets.push({
+      sessionId: fixtures.sessionId,
+      questionId: fixtures.questionId,
+      participantId: fixtures.participantId,
+    });
+
+    await sql`
+      insert into public.question_session_state (
+        session_id, question_id, question_index, status, started_at, deadline_at
+      ) values (
+        ${fixtures.sessionId}::uuid,
+        ${fixtures.questionId}::uuid,
+        1,
+        'answering',
+        now() - interval '1 minute',
+        now() - interval '10 seconds'
+      )
+    `;
+
+    const result = await callAnswerPost(
+      fixtures.pin,
+      fixtures.participantId,
+      fixtures.sessionId,
+      { questionId: fixtures.questionId, selectedIds: ["a"] },
+    );
+
+    expect(result.status).toBe(409);
+    const body = result.body as { error: string };
+    expect(body.error).toBe("LATE_SUBMISSION");
+  });
+
+  it("returns the existing row idempotently on duplicate submit (ADR-0006 §4)", async () => {
+    const fixtures = await seedSyncFixtures(sql, { gameMode: "async" });
+    cleanupTargets.push({
+      sessionId: fixtures.sessionId,
+      questionId: fixtures.questionId,
+      participantId: fixtures.participantId,
+    });
+
+    await sql`
+      insert into public.participant_question_progress (
+        session_id, participant_id, question_id, question_index,
+        status, started_at, deadline_at
+      ) values (
+        ${fixtures.sessionId}::uuid,
+        ${fixtures.participantId}::uuid,
+        ${fixtures.questionId}::uuid,
+        1,
+        'answering',
+        now(),
+        now() + interval '60 seconds'
+      )
+    `;
+
+    const first = await callAnswerPost(
+      fixtures.pin,
+      fixtures.participantId,
+      fixtures.sessionId,
+      { questionId: fixtures.questionId, selectedIds: ["a"] },
+    );
+    expect(first.status).toBe(200);
+    const firstBody = first.body as {
+      status: string;
+      submittedAt: string;
+      score: number;
+      isCorrect: boolean;
+    };
+    expect(firstBody.status).toBe("submitted");
+    expect(firstBody.isCorrect).toBe(true);
+    expect(firstBody.score).toBeGreaterThan(0);
+
+    const second = await callAnswerPost(
+      fixtures.pin,
+      fixtures.participantId,
+      fixtures.sessionId,
+      { questionId: fixtures.questionId, selectedIds: ["b"] },
+    );
+    expect(second.status).toBe(200);
+    const secondBody = second.body as {
+      status: string;
+      submittedAt: string;
+      score: number;
+    };
+    expect(secondBody.status).toBe("already_submitted");
+    expect(secondBody.submittedAt).toBe(firstBody.submittedAt);
+  });
+});
