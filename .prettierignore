@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+build
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
+*.min.*
+.agendo
+logs
+_design-system
+_prototype
+docs

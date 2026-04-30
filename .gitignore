@@ -36,6 +36,9 @@ coverage/
 *.swp
 *.swo
 
+# TypeScript incremental compile cache
+*.tsbuildinfo
+
 # Supabase
 supabase/.temp/
 

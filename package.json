@@ -1,0 +1,66 @@
+{
+  "name": "bishvil-yehuda-quiz",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Bishvil Yehuda quiz — Next.js + Supabase + Drizzle baseline",
+  "packageManager": "pnpm@10.27.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "pretypecheck": "next typegen",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "db:push": "supabase db push --linked",
+    "db:pull": "supabase db pull --linked",
+    "supabase": "supabase"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.2.4",
+    "postgres": "^3.4.9",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "supabase",
+      "unrs-resolver",
+      "@tailwindcss/oxide"
+    ]
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.36.0",
+    "eslint-config-next": "^16.2.4",
+    "eslint-config-prettier": "^10.1.8",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.5.12",
+    "prettier": "^3.8.3",
+    "supabase": "^2.96.0",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  }
+}
