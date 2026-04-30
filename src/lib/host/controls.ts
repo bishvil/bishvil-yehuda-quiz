@@ -12,7 +12,8 @@
  *     locked when the deadline passes (ADR-0005 §3.2).
  *   - The next route refuses to advance unless the current question is in
  *     `revealed` state.
- *   - The session must be `live` (or `paused`) for any per-question control.
+ *   - The session must be `live` for question start/advance controls.
+ *     Paused sessions can only resume/end before moving the question forward.
  */
 import type {
   QuestionStatusEnum,
@@ -60,7 +61,16 @@ export function decideHostPrimaryButton(
     };
   }
 
-  if (sessionStatus === "scheduled" || sessionStatus === "draft") {
+  if (sessionStatus === "draft") {
+    return {
+      action: "start_session",
+      label: "הפעלת חידון ←",
+      disabled: true,
+      hint: "יש לפרסם או לתזמן את החידון לפני ההפעלה.",
+    };
+  }
+
+  if (sessionStatus === "scheduled") {
     return {
       action: "start_session",
       label: "הפעלת חידון ←",
