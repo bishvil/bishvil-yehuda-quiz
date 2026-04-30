@@ -95,6 +95,15 @@ export function decideHostPrimaryButton(
   }
 
   if (questionStatus === "revealed") {
+    if (sessionStatus === "paused") {
+      return {
+        action: "advance",
+        label: !hasNextQuestion || isLastQuestion ? "סיום החידון ←" : "לתחנה הבאה ←",
+        disabled: true,
+        hint: "החידון מושהה — חזרו אליו לפני מעבר תחנה.",
+      };
+    }
+
     if (!hasNextQuestion) {
       return {
         action: "advance",
