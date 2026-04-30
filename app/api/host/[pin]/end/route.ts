@@ -1,0 +1,95 @@
+import { type NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
+
+import { privateNoStoreJson } from "@/src/lib/http/responses";
+import { loadHostContext } from "@/src/lib/sessions/host-context";
+import { canTransitionSession } from "@/src/lib/sessions/state-machine";
+import { sessionCacheTag } from "@/src/lib/cache/tags";
+
+interface HostEndRouteContext {
+  params: Promise<{ pin: string }>;
+}
+
+interface HostEndSuccessBody {
+  sessionId: string;
+  status: "ended";
+  endedAt: string;
+}
+
+interface HostEndErrorBody {
+  error: "INVALID_TRANSITION" | "WRITE_FAILED";
+  message: string;
+}
+
+type HostEndResponseBody = HostEndSuccessBody | HostEndErrorBody;
+
+/**
+ * Ends the session. Per ADR-0004 §1 the host can end from `live`, `paused`,
+ * or (admin can end from) `scheduled`. As part of ending, all `answering`
+ * question state rows are forced to `locked` (ADR-0005 §4 last row), so
+ * any participant who hasn't submitted gets score 0 for those questions
+ * (no answer row written, ADR-0006 §7 forfeit-row policy).
+ */
+export async function POST(
+  _request: NextRequest,
+  context: HostEndRouteContext,
+) {
+  const { pin } = await context.params;
+  const ctx = await loadHostContext(pin);
+  if (!ctx.ok) return ctx.response;
+  const { session, serviceSupabase } = ctx;
+
+  if (session.status === "ended") {
+    return privateNoStoreJson<HostEndResponseBody>(
+      {
+        sessionId: session.id,
+        status: "ended",
+        endedAt: session.ended_at ?? new Date().toISOString(),
+      },
+      { status: 200 },
+    );
+  }
+
+  if (!canTransitionSession(session.status, "ended")) {
+    return privateNoStoreJson<HostEndResponseBody>(
+      {
+        error: "INVALID_TRANSITION",
+        message: `Cannot end from status ${session.status}.`,
+      },
+      { status: 409 },
+    );
+  }
+
+  const endedAt = new Date().toISOString();
+
+  await serviceSupabase
+    .from("question_session_state")
+    .update({ status: "locked" })
+    .eq("session_id", session.id)
+    .eq("status", "answering");
+
+  const { data: updated, error } = await serviceSupabase
+    .from("sessions")
+    .update({ status: "ended", ended_at: endedAt })
+    .eq("id", session.id)
+    .neq("status", "ended")
+    .select("id, status, ended_at")
+    .maybeSingle();
+
+  if (error || !updated) {
+    return privateNoStoreJson<HostEndResponseBody>(
+      { error: "WRITE_FAILED", message: "Could not end session." },
+      { status: 500 },
+    );
+  }
+
+  revalidateTag(sessionCacheTag(session.id), "default");
+  return privateNoStoreJson<HostEndResponseBody>(
+    {
+      sessionId: updated.id,
+      status: "ended",
+      endedAt: updated.ended_at ?? endedAt,
+    },
+    { status: 200 },
+  );
+}
