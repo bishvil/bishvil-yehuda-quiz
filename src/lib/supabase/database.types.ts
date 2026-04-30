@@ -257,7 +257,37 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      submit_answer: {
+        Args: {
+          p_session_id: string;
+          p_participant_id: string;
+          p_question_id: string;
+          p_selected_ids?: string[] | null;
+          p_pin_x?: number | null;
+          p_pin_y?: number | null;
+        };
+        Returns: Array<{
+          result_status: string;
+          inserted: boolean | null;
+          answer_id: string | null;
+          session_id: string | null;
+          question_id: string | null;
+          participant_id: string | null;
+          submitted_at: string | null;
+          selected_ids: string[] | null;
+          pin_x: string | null;
+          pin_y: string | null;
+          is_correct: boolean | null;
+          time_bonus: number | null;
+          score: number | null;
+          question_status: string | null;
+          deadline_at: string | null;
+          correct_ids: string[] | null;
+          explanation: string | null;
+        }>;
+      };
+    };
     Enums: {
       game_mode: GameModeEnum;
       participant_status: ParticipantStatusEnum;
