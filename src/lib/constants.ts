@@ -49,3 +49,17 @@ export const DEFAULT_QUESTION_TIME_SECONDS = 25;
 export const DEFAULT_QUESTION_POINTS = 1500;
 export const PARTICIPANT_POLL_INTERVAL_MS = 5_000;
 export const HOST_SESSION_TIMEOUT_MINUTES = 30;
+
+export const AUTH_ROLES = ["participant", "host", "admin"] as const;
+export type AuthRole = (typeof AUTH_ROLES)[number];
+
+export const PRIVATE_NO_STORE_HEADER = "private, no-store";
+export const WRITE_NO_STORE_HEADER = "no-store";
+
+export const PROTECTED_HOST_PATH_PREFIX = "/host";
+export const PROTECTED_ADMIN_PATH_PREFIX = "/admin";
+
+export const LOCAL_TEST_HOST_EMAIL = "host@bishvil.test";
+export const LOCAL_TEST_ADMIN_EMAIL = "admin@bishvil.test";
+export const LOCAL_TEST_PASSWORD = "Password123!";
+export const LOCAL_TEST_SESSION_PIN = "123456";
