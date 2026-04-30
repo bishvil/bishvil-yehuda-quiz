@@ -65,6 +65,7 @@ async function callNextPost(pin: string): Promise<{ status: number; body: unknow
 async function seedCurrentQuestionState(
   status: "answering" | "locked" | "revealed",
   hasNext: boolean,
+  sessionStatus: "live" | "paused" = "live",
 ) {
   const fixtures = await seedSyncFixtures(sql, { gameMode: "sync" });
   const [quiz] = await sql<{ id: string }[]>`
@@ -112,7 +113,8 @@ async function seedCurrentQuestionState(
 
   await sql`
     update public.sessions
-    set current_question_id = ${fixtures.questionId}::uuid
+    set current_question_id = ${fixtures.questionId}::uuid,
+        status = ${sessionStatus}::public.session_status
     where id = ${fixtures.sessionId}::uuid
   `;
 
@@ -164,5 +166,21 @@ describe("POST /api/host/[pin]/question/next", () => {
       select status from public.sessions where id = ${last.sessionId}::uuid
     `;
     expect(session?.status).toBe("ended");
+  });
+
+  it("rejects paused revealed sessions without changing current_question_id", async () => {
+    const paused = await seedCurrentQuestionState("revealed", true, "paused");
+
+    const result = await callNextPost(paused.pin);
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ error: "SESSION_PAUSED" });
+
+    const [session] = await sql<{ current_question_id: string; status: string }[]>`
+      select current_question_id, status
+      from public.sessions
+      where id = ${paused.sessionId}::uuid
+    `;
+    expect(session?.status).toBe("paused");
+    expect(session?.current_question_id).toBe(paused.questionId);
   });
 });

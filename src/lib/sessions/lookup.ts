@@ -21,6 +21,22 @@ export async function findActiveSessionByPin(
 }
 
 /**
+ * Host-controlled sessions include paused runs so resume/end/question routes
+ * can return state-specific responses instead of losing the session by PIN.
+ */
+export async function findHostSessionByPin(
+  client: ServiceSupabase,
+  pin: string,
+) {
+  return client
+    .from("sessions")
+    .select("*")
+    .eq("pin", pin)
+    .in("status", ["scheduled", "live", "paused"])
+    .maybeSingle();
+}
+
+/**
  * Used by public routes (info, question, counts) which must also serve a
  * session that has already ended so historical results stay reachable.
  */

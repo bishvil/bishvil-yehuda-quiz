@@ -1,7 +1,7 @@
 import { type NextResponse } from "next/server";
 
 import { forbiddenJson, requireRole } from "@/src/lib/auth/server-auth";
-import { findActiveSessionByPin, findAnySessionByPin } from "@/src/lib/sessions/lookup";
+import { findAnySessionByPin, findHostSessionByPin } from "@/src/lib/sessions/lookup";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import type { ServiceSupabase } from "@/src/lib/sessions/lookup";
@@ -33,7 +33,7 @@ export async function loadHostContext(
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
-  const lookup = options.includeEnded ? findAnySessionByPin : findActiveSessionByPin;
+  const lookup = options.includeEnded ? findAnySessionByPin : findHostSessionByPin;
   const { data: session } = await lookup(serviceSupabase, pin);
 
   if (!session) {

@@ -211,6 +211,50 @@ describe("POST /api/session/[pin]/answer", () => {
     expect(secondBody.submittedAt).toBe(firstBody.submittedAt);
   });
 
+  it("omits reveal-only fields from sync pre-reveal submissions", async () => {
+    const fixtures = await seedSyncFixtures(sql, { gameMode: "sync" });
+    cleanupTargets.push({
+      sessionId: fixtures.sessionId,
+      questionId: fixtures.questionId,
+      participantId: fixtures.participantId,
+    });
+
+    await sql`
+      update public.sessions
+      set current_question_id = ${fixtures.questionId}::uuid
+      where id = ${fixtures.sessionId}::uuid
+    `;
+    await sql`
+      insert into public.question_session_state (
+        session_id, question_id, question_index, status, started_at, deadline_at
+      ) values (
+        ${fixtures.sessionId}::uuid,
+        ${fixtures.questionId}::uuid,
+        1,
+        'answering',
+        now(),
+        now() + interval '60 seconds'
+      )
+    `;
+
+    const result = await callAnswerPost(
+      fixtures.pin,
+      fixtures.participantId,
+      fixtures.sessionId,
+      { questionId: fixtures.questionId, selectedIds: ["a"] },
+    );
+
+    expect(result.status).toBe(200);
+    const body = result.body as Record<string, unknown>;
+    expect(body.status).toBe("submitted");
+    expect(body.submittedAt).toEqual(expect.any(String));
+    expect(body).not.toHaveProperty("isCorrect");
+    expect(body).not.toHaveProperty("score");
+    expect(body).not.toHaveProperty("timeBonus");
+    expect(body).not.toHaveProperty("correctIds");
+    expect(body).not.toHaveProperty("explanation");
+  });
+
   it("persists async progress as revealed after submit", async () => {
     const fixtures = await seedSyncFixtures(sql, { gameMode: "async" });
     cleanupTargets.push({
