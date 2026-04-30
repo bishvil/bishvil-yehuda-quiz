@@ -50,6 +50,21 @@ export const DEFAULT_QUESTION_POINTS = 1500;
 export const PARTICIPANT_POLL_INTERVAL_MS = 5_000;
 export const HOST_SESSION_TIMEOUT_MINUTES = 30;
 
+// Participant UI ----------------------------------------------------------
+export const PARTICIPANT_TIMER_WARNING_THRESHOLD_SECONDS = 5;
+export const PARTICIPANT_LEADERBOARD_LIMIT = 6;
+export const QUESTION_TYPE_LABELS: Record<
+  "single" | "multi" | "truefalse" | "image" | "map",
+  string
+> = {
+  single: "רב־ברירה",
+  multi: "בחירה מרובה",
+  truefalse: "נכון / לא נכון",
+  image: "זיהוי תמונה",
+  map: "דקירה על מפה",
+};
+export const QUESTION_OPTION_LETTERS = ["א", "ב", "ג", "ד", "ה", "ו"] as const;
+
 export const AUTH_ROLES = ["participant", "host", "admin"] as const;
 export type AuthRole = (typeof AUTH_ROLES)[number];
 
