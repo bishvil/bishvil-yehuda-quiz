@@ -13,5 +13,24 @@ export const passwordSignInRequestSchema = z.object({
   password: z.string().min(1),
 });
 
+export const choiceAnswerSchema = z.object({
+  questionId: z.string().uuid(),
+  selectedIds: z.array(z.string().min(1)).min(1),
+});
+
+export const mapAnswerSchema = z.object({
+  questionId: z.string().uuid(),
+  pin: z.object({
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100),
+  }),
+});
+
+export const submitAnswerRequestSchema = z.union([
+  choiceAnswerSchema,
+  mapAnswerSchema,
+]);
+
 export type ParticipantJoinRequest = z.infer<typeof participantJoinRequestSchema>;
 export type PasswordSignInRequest = z.infer<typeof passwordSignInRequestSchema>;
+export type SubmitAnswerRequest = z.infer<typeof submitAnswerRequestSchema>;
