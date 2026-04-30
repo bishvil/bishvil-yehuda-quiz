@@ -33,6 +33,20 @@ describe("decideHostPrimaryButton", () => {
     expect(decision.hint).not.toBeNull();
   });
 
+  it("disables session start for draft sessions even when questions exist", () => {
+    const decision = decideHostPrimaryButton({
+      sessionStatus: "draft",
+      questionStatus: null,
+      deadlinePassed: false,
+      hasNextQuestion: true,
+      isLastQuestion: false,
+    });
+
+    expect(decision.action).toBe("start_session");
+    expect(decision.disabled).toBe(true);
+    expect(decision.hint).toContain("לתזמן");
+  });
+
   it("offers start_question while live without an active question", () => {
     const decision = decideHostPrimaryButton({
       sessionStatus: "live",
@@ -113,6 +127,20 @@ describe("decideHostPrimaryButton", () => {
     });
     expect(finalAdvance.action).toBe("advance");
     expect(finalAdvance.label).toContain("סיום");
+  });
+
+  it("disables advance while a revealed question is paused", () => {
+    const decision = decideHostPrimaryButton({
+      sessionStatus: "paused",
+      questionStatus: "revealed",
+      deadlinePassed: true,
+      hasNextQuestion: true,
+      isLastQuestion: false,
+    });
+
+    expect(decision.action).toBe("advance");
+    expect(decision.disabled).toBe(true);
+    expect(decision.hint).toContain("חזרו אליו");
   });
 
   it("returns ended state when the session has finished", () => {
