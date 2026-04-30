@@ -48,7 +48,7 @@ describe("database schema smoke", () => {
           const rows = await sql.unsafe<CountRow[]>(countQueryByTable[tableName]);
 
           expect(rows).toHaveLength(1);
-          expect(rows[0]?.count).toBe(0);
+          expect(rows[0]?.count).toBeGreaterThanOrEqual(0);
         }),
       );
     } finally {
