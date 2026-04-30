@@ -1,3 +1,6 @@
-export default function AdminPage() {
-  return <main>Admin dashboard</main>;
+import { redirect } from "next/navigation";
+
+/** Admin landing → quizzes list. */
+export default function AdminRoot() {
+  redirect("/admin/quizzes");
 }
