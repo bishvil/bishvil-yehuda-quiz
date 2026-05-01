@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { AdminTopBar } from "@/src/components/admin/AdminTopBar";
+import { HostStatusPill } from "@/src/components/host/HostStatusPill";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import {
   createAdminSession,
@@ -15,17 +16,10 @@ import {
   type AdminSessionListRow,
 } from "@/src/lib/admin/api-client";
 import {
-  GAME_MODE_LABELS,
-  SESSION_STATUS_LABELS,
-} from "@/src/lib/constants";
-
-const STATUS_TONE: Record<AdminSessionListRow["status"], string> = {
-  draft: "bg-bsy-stone-50 text-bsy-stone-700",
-  scheduled: "bg-bsy-info/10 text-bsy-info",
-  live: "bg-bsy-lime/20 text-bsy-forest",
-  paused: "bg-bsy-warn/15 text-bsy-warn",
-  ended: "bg-bsy-stone-100 text-bsy-stone-700",
-};
+  SESSION_CREATE_HELPER,
+  SESSION_PUBLISH_CONFIRM,
+} from "@/src/lib/admin/lifecycle-copy";
+import { GAME_MODE_LABELS } from "@/src/lib/constants";
 
 export function SessionsScreen({ quizId }: { quizId: string }) {
   const [quiz, setQuiz] = useState<AdminQuizDetail | null>(null);
@@ -84,6 +78,13 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     if (!hasQuestions) {
       setErrorMessage(emptyQuizMessage);
       return;
+    }
+    // Lifecycle clarity (subtask D §2): the user is about to flip the
+    // session from draft → scheduled and it becomes joinable by code. The
+    // confirm copy spells that out so accidental publishes are rare.
+    if (typeof window !== "undefined") {
+      const proceed = window.confirm(SESSION_PUBLISH_CONFIRM);
+      if (!proceed) return;
     }
     setLaunching(true);
     setErrorMessage(null);
@@ -151,6 +152,13 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
         </div>
       ) : null}
 
+      <p
+        className="mx-4 mt-3 text-[12px] text-bsy-stone-700 md:mx-6"
+        data-testid="admin-create-helper"
+      >
+        {SESSION_CREATE_HELPER}
+      </p>
+
       <section className="flex-1 px-4 py-6 md:px-8">
         {status === "loading" ? (
           <div className="text-bsy-stone-700">טוען…</div>
@@ -217,11 +225,7 @@ function SessionCard({
     >
       <div>
         <div className="flex items-center gap-2">
-          <span
-            className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${STATUS_TONE[session.status]}`}
-          >
-            {SESSION_STATUS_LABELS[session.status]}
-          </span>
+          <HostStatusPill status={session.status} />
           <span className="text-[11px] text-bsy-stone-400">
             {GAME_MODE_LABELS[session.gameMode]}
           </span>
