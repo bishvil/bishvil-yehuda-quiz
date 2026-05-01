@@ -47,15 +47,31 @@ test("admin can author a quiz, add a question, and launch a session", async ({
     expect(signin.status(), "admin sign-in should succeed").toBe(200);
 
     await page.goto("/admin/quizzes");
-    await expect(
-      page.getByRole("heading", { name: /החידונים שלי|אין חידונים/ }).first(),
-    ).toBeVisible({ timeout: 15_000 });
 
+    // Wait on the stable affordance instead of a heading: the
+    // create-quiz button in the AdminTopBar is rendered in BOTH the
+    // empty-state and the populated-list state. (Earlier versions of
+    // this test waited for a heading matching /החידונים שלי|אין חידונים/,
+    // which only worked in the empty state — non-empty lists expose
+    // "החידונים שלי" as breadcrumb text inside AdminTopBar, not a heading.)
     const createButton = page
       .getByTestId("admin-create-quiz")
       .or(page.getByRole("button", { name: /חידון חדש|צור חידון/ }))
       .first();
+    await expect(createButton).toBeVisible({ timeout: 15_000 });
     await expect(createButton).toBeEnabled({ timeout: 10_000 });
+
+    // Then assert the page is in one of its two stable states: at least one
+    // existing quiz card, OR the empty-state heading. This makes the test
+    // deterministic against both the empty fixture and a seeded non-empty
+    // quiz list.
+    await expect(
+      page
+        .getByTestId("admin-quiz-card")
+        .or(page.getByRole("heading", { name: /אין חידונים/ }))
+        .first(),
+    ).toBeVisible({ timeout: 15_000 });
+
     await createButton.click();
 
     await page.waitForURL(/\/admin\/quizzes\/[^/]+$/, { timeout: 15_000 });
