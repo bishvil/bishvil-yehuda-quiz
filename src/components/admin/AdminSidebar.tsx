@@ -8,6 +8,7 @@ interface NavItem {
   href: string;
   label: string;
   glyph: string;
+  disabled?: boolean;
   /** Match prefix for "active" highlighting. */
   matches: (pathname: string) => boolean;
 }
@@ -21,16 +22,21 @@ const NAV: NavItem[] = [
       p === "/admin/quizzes" ||
       (p.startsWith("/admin/quizzes/") && !p.includes("/sessions")),
   },
+];
+
+const DISABLED_NAV: NavItem[] = [
   {
     href: "/admin/sessions",
     label: "משחקים פעילים",
     glyph: "◊",
+    disabled: true,
     matches: (p) => p.includes("/sessions") && !p.includes("/results"),
   },
   {
     href: "/admin/results",
     label: "תוצאות וניתוח",
     glyph: "◯",
+    disabled: true,
     matches: (p) => p.includes("/results"),
   },
 ];
@@ -88,6 +94,11 @@ export function AdminSidebar({
           </Link>
         );
       })}
+
+      <NavGroupHeading>בקרוב</NavGroupHeading>
+      {DISABLED_NAV.map((item) => (
+        <DisabledNav key={item.href} glyph={item.glyph} label={item.label} />
+      ))}
 
       <NavGroupHeading>הגדרות</NavGroupHeading>
       <DisabledNav glyph="◐" label="מותג ותצוגה" />

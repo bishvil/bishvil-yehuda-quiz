@@ -75,10 +75,29 @@ Doing A expands Phase 3 scope (landing + login were never on the punch list). Al
 
 ## What is left (linear todo)
 
-1. **Phase 2 fix-batch A** — landing + login (Sonnet) — IN PROGRESS
-2. **Phase 2 fix-batch B** — join screen (Codex) — IN PROGRESS
-3. Phase 2 fix-batch review (Codex review-only)
-4. Phase 2 punch item 6 — streamed CSV export
-5. Phase 2 punch item 7 — live preview
-6. Phase 2 final review
-7. Phase 3 — gated on user delivering remote/Supabase/Vercel accounts
+Done:
+- ~~A — landing + login~~ (`261e68c`, `455155f`)
+- ~~B — join screen prefill + status banner~~ (`de194e3`, `edf6716`, `1d6d5ae`, plus dev-server side `db0f40f`/`426f1e4`)
+- ~~C — auth role-agnostic elevation~~ (`bd5e3b9`, `c83c8dd`) — went too far, segmented control was removed; corrected by E
+- ~~D — `/host` home index + lifecycle copy + host live banner~~ (`25db08a`, `87778f5`, `7e66ea1`)
+
+Phase 2.5 (in flight, Codex-only):
+- **E** [QA-1b] — Restore segmented login (host/admin) — IN PROGRESS
+- **F** [QA-4] — Admin nav dead links + mobile drawer + host live loading-stuck UI — IN PROGRESS
+- **G** [QA-5] — Question reorder save bug (bulk endpoint w/ ordinal negation) — IN PROGRESS
+
+Phase 2.5 (queued, todo):
+- **H** [QA-6] — Map style switch no-op (3 distinct free style URLs + admin warning)
+- **I** [QA-7] — Unarchive button + lifecycle copy
+- **J** [QA-8] — Lobby/host-start UX clarity
+
+After Phase 2.5:
+- Phase 2 fix-batch review (Codex)
+- Phase 2 punch item 6 — streamed CSV export
+- Phase 2 punch item 7 — per-question live preview
+- Phase 2 final review
+- Phase 3 — gated on user accounts
+
+## Backlog (filed for later)
+
+- **Admin user-management UI** — invite hosts via Supabase Admin API + email invite, role auto-assigned. Today users are provisioned by SQL/Studio only. Less urgent.
