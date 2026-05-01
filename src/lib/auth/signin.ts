@@ -1,4 +1,3 @@
-import type { AuthRole } from "@/src/lib/constants";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { writeLog } from "@/src/lib/logging";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
@@ -12,16 +11,13 @@ interface SignInSuccessBody {
 }
 
 interface SignInErrorBody {
-  error: "INVALID_REQUEST" | "INVALID_CREDENTIALS" | "FORBIDDEN";
+  error: "INVALID_REQUEST" | "INVALID_CREDENTIALS";
   message: string;
 }
 
 type SignInResponseBody = SignInSuccessBody | SignInErrorBody;
 
-export async function handlePasswordSignIn(
-  request: Request,
-  expectedRole: Extract<AuthRole, "host" | "admin">,
-) {
+export async function handlePasswordSignIn(request: Request) {
   const parsedBody = passwordSignInRequestSchema.safeParse(await request.json());
 
   if (!parsedBody.success) {
@@ -41,7 +37,6 @@ export async function handlePasswordSignIn(
     writeLog({
       level: "warn",
       message: "Password sign-in failed",
-      context: { expectedRole },
     });
 
     return privateNoStoreJson<SignInResponseBody>(
@@ -53,20 +48,22 @@ export async function handlePasswordSignIn(
     );
   }
 
-  if (data.user.app_metadata.role !== expectedRole) {
+  const role = data.user.app_metadata.role;
+
+  if (role !== "host" && role !== "admin") {
     await supabase.auth.signOut();
 
     return privateNoStoreJson<SignInResponseBody>(
       {
-        error: "FORBIDDEN",
-        message: `Expected ${expectedRole} credentials.`,
+        error: "INVALID_CREDENTIALS",
+        message: "Invalid email or password.",
       },
-      { status: 403 },
+      { status: 401 },
     );
   }
 
   return privateNoStoreJson<SignInResponseBody>({
-    role: expectedRole,
+    role,
     userId: data.user.id,
     email: data.user.email ?? parsedBody.data.email,
   });

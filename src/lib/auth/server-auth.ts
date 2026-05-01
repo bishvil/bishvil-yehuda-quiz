@@ -119,6 +119,22 @@ export function timingSafeSecretMatch(actual: string, expected: string): boolean
   return timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
+export function authRoleSatisfiesRequirement(
+  actualRole: AuthRole,
+  requiredRole: AuthRole,
+): boolean {
+  if (requiredRole === "host") {
+    return actualRole === "host" || actualRole === "admin";
+  }
+
+  return actualRole === requiredRole;
+}
+
+/**
+ * Require an app role for a private route. Admin satisfies host requirements
+ * under the single-role hierarchy; participant and admin requirements remain
+ * strict.
+ */
 export async function requireRole(role: AuthRole): Promise<RequireRoleResult> {
   const supabase = await createServerSupabaseClient();
   const claims = await getAuthenticatedClaims(supabase);
@@ -127,7 +143,7 @@ export async function requireRole(role: AuthRole): Promise<RequireRoleResult> {
     return { ok: false, response: unauthorizedJson("Authentication required.") };
   }
 
-  if (claims.role !== role) {
+  if (!authRoleSatisfiesRequirement(claims.role, role)) {
     return {
       ok: false,
       response: forbiddenJson(`Expected ${role} credentials.`),

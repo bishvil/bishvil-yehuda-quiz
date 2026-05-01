@@ -1,5 +1,1 @@
-import { handlePasswordSignIn } from "@/src/lib/auth/signin";
-
-export async function POST(request: Request) {
-  return handlePasswordSignIn(request, "admin");
-}
+export { POST } from "../../signin/route";

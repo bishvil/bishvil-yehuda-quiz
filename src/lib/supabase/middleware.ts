@@ -31,6 +31,21 @@ export function getRoleFromClaims(claims: unknown): AuthRole | null {
   return null;
 }
 
+export function canAccessProtectedPath(
+  role: AuthRole | null,
+  pathname: string,
+): boolean {
+  if (pathname.startsWith(PROTECTED_HOST_PATH_PREFIX)) {
+    return role === "host" || role === "admin";
+  }
+
+  if (pathname.startsWith(PROTECTED_ADMIN_PATH_PREFIX)) {
+    return role === "admin";
+  }
+
+  return true;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -71,11 +86,17 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const role = error || !data ? null : getRoleFromClaims(data.claims);
   const pathname = request.nextUrl.pathname;
 
-  if (pathname.startsWith(PROTECTED_HOST_PATH_PREFIX) && role !== "host") {
+  if (
+    pathname.startsWith(PROTECTED_HOST_PATH_PREFIX) &&
+    !canAccessProtectedPath(role, pathname)
+  ) {
     return unauthorizedResponse("Host authentication required");
   }
 
-  if (pathname.startsWith(PROTECTED_ADMIN_PATH_PREFIX) && role !== "admin") {
+  if (
+    pathname.startsWith(PROTECTED_ADMIN_PATH_PREFIX) &&
+    !canAccessProtectedPath(role, pathname)
+  ) {
     return unauthorizedResponse("Admin authentication required");
   }
 
