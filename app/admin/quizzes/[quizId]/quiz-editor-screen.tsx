@@ -142,7 +142,9 @@ export function QuizEditorScreen({ quizId }: Props) {
     }
     // Check if question IDs are identical and in same order
     for (let i = 0; i < prev.length; i++) {
-      if (prev[i].id !== next[i].id) {
+      const prevRow = prev[i];
+      const nextRow = next[i];
+      if (!prevRow || !nextRow || prevRow.id !== nextRow.id) {
         return false;
       }
     }

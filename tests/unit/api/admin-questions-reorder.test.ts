@@ -88,6 +88,7 @@ describe("POST /api/admin/quizzes/[id]/questions/reorder", () => {
   it("reorders questions successfully (swap ordinals 1 and 2)", async () => {
     const { quizId, questions } = await seedQuizWithQuestions();
     const [q1, q2, q3] = questions;
+    if (!q1 || !q2 || !q3) throw new Error("seed missing questions");
 
     const { status, body } = await callReorder(quizId, {
       ordinals: [
@@ -114,6 +115,7 @@ describe("POST /api/admin/quizzes/[id]/questions/reorder", () => {
   it("rejects incomplete reorder (missing question)", async () => {
     const { quizId, questions } = await seedQuizWithQuestions();
     const [q1, q2] = questions;
+    if (!q1 || !q2) throw new Error("seed missing questions");
 
     const { status, body } = await callReorder(quizId, {
       ordinals: [
