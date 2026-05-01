@@ -15,6 +15,7 @@ import {
   summarizeResponses,
   topScorers,
 } from "@/src/lib/admin/results";
+import { SESSION_STATUS_LABELS } from "@/src/lib/constants";
 
 interface Props {
   quizId: string;
@@ -64,7 +65,7 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
   }, [results]);
 
   const leaderboard = useMemo(
-    () => (results ? topScorers(results.players, 6) : []),
+    () => (results ? topScorers(results.players) : []),
     [results],
   );
 
@@ -73,8 +74,14 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
     [results],
   );
 
-  const accuracyByQuestion = new Map(
-    accuracy.map((row) => [row.questionId, row]),
+  const accuracyByQuestion = useMemo(
+    () => new Map(accuracy.map((row) => [row.questionId, row])),
+    [accuracy],
+  );
+
+  const orderedQuestions = useMemo(
+    () => [...questions].sort((a, b) => a.ordinal - b.ordinal),
+    [questions],
   );
 
   return (
@@ -108,15 +115,7 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
               <Stat label="סה״כ תשובות" value={summary.totalAnswers} />
               <Stat
                 label="סטטוס"
-                value={
-                  results.session.status === "ended"
-                    ? "הסתיים"
-                    : results.session.status === "live"
-                      ? "פעיל"
-                      : results.session.status === "paused"
-                        ? "בהשהיה"
-                        : "מתוזמן"
-                }
+                value={SESSION_STATUS_LABELS[results.session.status]}
               />
             </header>
 
@@ -161,10 +160,7 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
                 <p className="text-[13px] text-bsy-stone-700">אין תחנות.</p>
               ) : (
                 <ul className="flex flex-col gap-2">
-                  {questions
-                    .slice()
-                    .sort((a, b) => a.ordinal - b.ordinal)
-                    .map((question) => {
+                  {orderedQuestions.map((question) => {
                       const row = accuracyByQuestion.get(question.id);
                       const pct = row?.accuracyPct ?? 0;
                       const total = row?.total ?? 0;

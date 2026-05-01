@@ -54,8 +54,7 @@ interface AdminSessionResultsErrorBody {
 
 /**
  * Admin sees full participant data including phone and full name per
- * ADR-0008 §5. Cache-Control: private, no-store. Streamed CSV exports are
- * a Wave 3 follow-up.
+ * ADR-0008 §5. Cache-Control: private, no-store.
  */
 export async function GET(
   _request: NextRequest,

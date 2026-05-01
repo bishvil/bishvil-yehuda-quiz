@@ -35,12 +35,6 @@ const NAV: NavItem[] = [
   },
 ];
 
-/**
- * Vertical sidebar nav from `_prototype/.../desktop.jsx AdminSurface`.
- * Items that don't have full pages yet (results / participants / branding)
- * are still shown to preserve the spec's information scent — they navigate
- * to placeholder anchors that resolve to `#`. Wave 3 will replace those.
- */
 export function AdminSidebar({
   brandName,
   brandTagline,

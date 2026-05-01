@@ -49,11 +49,6 @@ interface AdminSessionErrorBody {
   message: string;
 }
 
-/**
- * Lists sessions, optionally filtered by `?quizId=`. Used by the admin
- * "session list + launch" page (Subtask 6) to show prior sessions and
- * present the launch CTA. Cache-Control: private, no-store.
- */
 export async function GET(request: NextRequest) {
   const auth = await requireRole("admin");
   if (!auth.ok) return auth.response;

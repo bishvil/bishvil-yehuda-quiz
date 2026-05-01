@@ -13,20 +13,16 @@ import type {
   QuestionOption,
 } from "@/src/lib/supabase/database.types";
 
-import type { EditableQuestion } from "@/src/lib/admin/quiz-editor";
+import {
+  SCAFFOLDED_OPTIONS,
+  type EditableQuestion,
+} from "@/src/lib/admin/quiz-editor";
 
 interface QuestionEditorProps {
   question: EditableQuestion;
   onChange: (next: EditableQuestion) => void;
   onDelete?: () => void;
 }
-
-const SCAFFOLDED_OPTIONS: QuestionOption[] = [
-  { id: "a", text: "תשובה א" },
-  { id: "b", text: "תשובה ב" },
-  { id: "c", text: "תשובה ג" },
-  { id: "d", text: "תשובה ד" },
-];
 
 const TRUE_FALSE_OPTIONS: QuestionOption[] = [
   { id: "yes", text: "נכון" },
@@ -225,8 +221,7 @@ export function QuestionEditor({
         <Field label="תשובות">
           <div className="flex flex-col gap-2">
             {(question.options ?? []).map((option) => {
-              const checked =
-                (question.correctIds ?? []).includes(option.id) ?? false;
+              const checked = (question.correctIds ?? []).includes(option.id);
               return (
                 <div key={option.id} className="flex items-center gap-2">
                   <button

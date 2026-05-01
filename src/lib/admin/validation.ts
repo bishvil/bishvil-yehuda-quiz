@@ -10,12 +10,6 @@ import {
 
 const brandIdSchema = z.string().min(1);
 
-/**
- * Join-fields editor (admin) — optional list of profile fields the
- * participant must fill on join. Persists as `quizzes.join_fields jsonb`
- * (default `["name","phone","unit"]`). Wave 2 ships only the four
- * built-in identifiers; custom field shapes are deferred to Wave 3.
- */
 const joinFieldSchema = z.enum([...DEFAULT_JOIN_FIELDS, "team"] as const);
 export const joinFieldsSchema = z.array(joinFieldSchema).min(1);
 

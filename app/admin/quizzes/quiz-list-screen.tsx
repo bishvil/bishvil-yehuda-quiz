@@ -12,8 +12,12 @@ import {
   listAdminQuizzes,
   type AdminQuizListItem,
 } from "@/src/lib/admin/api-client";
+import { GAME_MODE_LABELS } from "@/src/lib/constants";
+import {
+  DEFAULT_PARTICIPANT_BRAND,
+  PARTICIPANT_BRANDS,
+} from "@/src/lib/participant/brands";
 
-const DEFAULT_BRAND_ID = "yehuda";
 const DEFAULT_QUIZ_TITLE = "חידון חדש";
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
@@ -49,7 +53,7 @@ export function QuizListScreen() {
     setCreating(true);
     setErrorMessage(null);
     const body = await createAdminQuiz({
-      brandId: DEFAULT_BRAND_ID,
+      brandId: DEFAULT_PARTICIPANT_BRAND.id,
       title: DEFAULT_QUIZ_TITLE,
       defaultGameMode: "sync",
     });
@@ -201,9 +205,7 @@ function QuizCard({
     >
       <div>
         <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-bsy-stone-400">
-          <span>
-            {quiz.defaultGameMode === "sync" ? "סינכרוני" : "אסינכרוני"}
-          </span>
+          <span>{GAME_MODE_LABELS[quiz.defaultGameMode]}</span>
           {archived ? <span className="text-bsy-warn">· מאורכב</span> : null}
         </div>
         <h3 className="font-[var(--font-display)] text-xl text-bsy-brown">
@@ -214,7 +216,7 @@ function QuizCard({
             ? `${quiz.questionCount} תחנות`
             : "—"}
           <span className="px-1">·</span>
-          <span dir="ltr">{quiz.brandId}</span>
+          <span>{PARTICIPANT_BRANDS[quiz.brandId]?.name ?? quiz.brandId}</span>
         </p>
       </div>
       <div className="mt-4 flex items-center justify-between gap-2">

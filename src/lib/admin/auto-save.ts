@@ -40,13 +40,3 @@ export function autoSaveCopy(status: AutoSaveStatus): AutoSaveCopy {
 
 export const AUTO_SAVE_DEBOUNCE_MS = 800;
 export const AUTO_SAVE_SAVED_DWELL_MS = 1_500;
-
-/**
- * Picks the next status given a fresh request to commit edits. The mapping
- * deliberately keeps things conservative — we never go straight from
- * `error` to `saved` without observing a fresh `saving` tick first.
- */
-export function nextStatusOnCommit(current: AutoSaveStatus): AutoSaveStatus {
-  if (current === "saving") return "saving";
-  return "saving";
-}

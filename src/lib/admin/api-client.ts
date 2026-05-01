@@ -12,7 +12,11 @@ import type {
   QuestionMap,
   QuestionOption,
 } from "@/src/lib/supabase/database.types";
-import type { GameMode, QuestionType } from "@/src/lib/constants";
+import type {
+  GameMode,
+  QuestionType,
+  SessionStatus,
+} from "@/src/lib/constants";
 
 const JSON_HEADERS: HeadersInit = {
   "Content-Type": "application/json",
@@ -192,8 +196,8 @@ export interface AdminSessionResultsResponse {
   session: {
     id: string;
     pin: string;
-    status: string;
-    gameMode: string;
+    status: SessionStatus;
+    gameMode: GameMode;
     startedAt: string | null;
     endedAt: string | null;
   };

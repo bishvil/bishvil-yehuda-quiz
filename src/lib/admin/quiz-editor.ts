@@ -3,11 +3,18 @@
  * shape of `AdminQuestionListItem` but allows local-only ids before a
  * save round-trip seeds the row's UUID.
  */
-import type { QuestionType } from "@/src/lib/constants";
+import type { GameMode, QuestionType } from "@/src/lib/constants";
 import type {
   QuestionMap,
   QuestionOption,
 } from "@/src/lib/supabase/database.types";
+
+export const SCAFFOLDED_OPTIONS: QuestionOption[] = [
+  { id: "a", text: "תשובה א" },
+  { id: "b", text: "תשובה ב" },
+  { id: "c", text: "תשובה ג" },
+  { id: "d", text: "תשובה ד" },
+];
 
 export interface EditableQuestion {
   /** Server-issued UUID (null until first save). */
@@ -32,7 +39,7 @@ export interface EditableQuiz {
   id: string;
   title: string;
   brandId: string;
-  defaultGameMode: "sync" | "async";
+  defaultGameMode: GameMode;
   customLogo: string | null;
   customLogoLabel: string | null;
   joinFields: string[];
@@ -57,12 +64,7 @@ export function makeBlankQuestion(ordinal: number): EditableQuestion {
     ordinal,
     type: "single",
     prompt: "שאלה חדשה",
-    options: [
-      { id: "a", text: "תשובה א" },
-      { id: "b", text: "תשובה ב" },
-      { id: "c", text: "תשובה ג" },
-      { id: "d", text: "תשובה ד" },
-    ],
+    options: SCAFFOLDED_OPTIONS.map((option) => ({ ...option })),
     correctIds: ["a"],
     map: null,
     imageUrl: null,

@@ -7,6 +7,7 @@ import type {
   AdminSessionResultAnswer,
   AdminSessionResultPlayer,
 } from "@/src/lib/admin/api-client";
+import { PARTICIPANT_LEADERBOARD_LIMIT } from "@/src/lib/constants";
 
 export interface PerQuestionAccuracy {
   questionId: string;
@@ -36,7 +37,7 @@ export function aggregateAccuracy(
 
 export function topScorers(
   players: AdminSessionResultPlayer[],
-  limit = 6,
+  limit = PARTICIPANT_LEADERBOARD_LIMIT,
 ): AdminSessionResultPlayer[] {
   return [...players]
     .sort((a, b) => {

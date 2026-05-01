@@ -8,7 +8,8 @@ import { AdminTopBar } from "@/src/components/admin/AdminTopBar";
 import { QuestionEditor } from "@/src/components/admin/QuestionEditor";
 import { SaveIndicator } from "@/src/components/admin/SaveIndicator";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
-import { QUESTION_TYPE_LABELS } from "@/src/lib/constants";
+import { GAME_MODES, QUESTION_TYPE_LABELS, type GameMode } from "@/src/lib/constants";
+import { PARTICIPANT_BRANDS } from "@/src/lib/participant/brands";
 import {
   createAdminQuestion,
   createAdminSession,
@@ -223,16 +224,13 @@ export function QuizEditorScreen({ quizId }: Props) {
   }, []);
 
   const removeQuestion = useCallback(
-    async (clientId: string) => {
-      const target = questions.find((q) => q.clientId === clientId);
-      if (!target) return;
+    async (clientId: string, serverId: string | null) => {
       if (typeof window !== "undefined" && !window.confirm("למחוק את התחנה?")) {
         return;
       }
 
-      // If it has a server id, delete on the server first.
-      if (target.id) {
-        const body = await deleteAdminQuestion(quizId, target.id);
+      if (serverId) {
+        const body = await deleteAdminQuestion(quizId, serverId);
         if (isAdminApiError(body)) {
           setErrorMessage(body.message);
           return;
@@ -248,7 +246,7 @@ export function QuizEditorScreen({ quizId }: Props) {
         return next;
       });
     },
-    [questions, quizId],
+    [quizId],
   );
 
   const moveQuestion = useCallback((clientId: string, dir: -1 | 1) => {
@@ -438,7 +436,9 @@ export function QuizEditorScreen({ quizId }: Props) {
               key={activeQuestion.clientId}
               question={activeQuestion}
               onChange={updateQuestion}
-              onDelete={() => removeQuestion(activeQuestion.clientId)}
+              onDelete={() =>
+                removeQuestion(activeQuestion.clientId, activeQuestion.id)
+              }
             />
           ) : (
             <p className="text-[13px] text-bsy-stone-700">
@@ -495,13 +495,16 @@ function QuizMetaCard({
             onChange={(event) =>
               onChange({
                 ...quiz,
-                defaultGameMode: event.target.value as "sync" | "async",
+                defaultGameMode: event.target.value as GameMode,
               })
             }
             disabled={disabled}
           >
-            <option value="sync">סינכרוני (מודרך)</option>
-            <option value="async">אסינכרוני (חופשי)</option>
+            {GAME_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {mode === "sync" ? "סינכרוני (מודרך)" : "אסינכרוני (חופשי)"}
+              </option>
+            ))}
           </select>
         </label>
         <label className="flex flex-col gap-1.5">
@@ -516,10 +519,11 @@ function QuizMetaCard({
             }
             disabled={disabled}
           >
-            <option value="yehuda">בשביל יהודה</option>
-            <option value="haari">בשביל הארי</option>
-            <option value="tzafon">בשביל הצפון</option>
-            <option value="etzion">בשביל עציון</option>
+            {Object.values(PARTICIPANT_BRANDS).map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+              </option>
+            ))}
           </select>
         </label>
       </div>

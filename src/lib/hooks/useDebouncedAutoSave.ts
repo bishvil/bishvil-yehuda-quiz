@@ -32,6 +32,8 @@ export interface UseDebouncedAutoSaveValue {
   errorMessage: string | null;
 }
 
+const DEFAULT_SERIALIZE = <T>(value: T): string => JSON.stringify(value);
+
 /**
  * Generic debounced auto-save with an `idle | saving | saved | error`
  * status indicator. Wraps a stable serializer (`JSON.stringify` by default)
@@ -50,7 +52,7 @@ export function useDebouncedAutoSave<T>(
     enabled = true,
     debounceMs = AUTO_SAVE_DEBOUNCE_MS,
     savedDwellMs = AUTO_SAVE_SAVED_DWELL_MS,
-    serialize = (v) => JSON.stringify(v),
+    serialize = DEFAULT_SERIALIZE,
   } = args;
 
   const [status, setStatus] = useState<AutoSaveStatus>("idle");

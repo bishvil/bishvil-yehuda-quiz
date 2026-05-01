@@ -65,6 +65,19 @@ export const QUESTION_TYPE_LABELS: Record<
 };
 export const QUESTION_OPTION_LETTERS = ["א", "ב", "ג", "ד", "ה", "ו"] as const;
 
+export const GAME_MODE_LABELS: Record<GameMode, string> = {
+  sync: "סינכרוני",
+  async: "אסינכרוני",
+};
+
+export const SESSION_STATUS_LABELS: Record<SessionStatus, string> = {
+  draft: "טיוטה",
+  scheduled: "מתוזמן",
+  live: "פעיל",
+  paused: "בהשהיה",
+  ended: "הסתיים",
+};
+
 export const AUTH_ROLES = ["participant", "host", "admin"] as const;
 export type AuthRole = (typeof AUTH_ROLES)[number];
 

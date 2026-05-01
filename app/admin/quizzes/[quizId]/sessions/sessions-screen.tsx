@@ -13,14 +13,10 @@ import {
   type AdminQuizDetail,
   type AdminSessionListRow,
 } from "@/src/lib/admin/api-client";
-
-const STATUS_LABEL: Record<AdminSessionListRow["status"], string> = {
-  draft: "טיוטה",
-  scheduled: "מתוזמן",
-  live: "פעיל",
-  paused: "בהשהיה",
-  ended: "הסתיים",
-};
+import {
+  GAME_MODE_LABELS,
+  SESSION_STATUS_LABELS,
+} from "@/src/lib/constants";
 
 const STATUS_TONE: Record<AdminSessionListRow["status"], string> = {
   draft: "bg-bsy-stone-50 text-bsy-stone-700",
@@ -177,10 +173,10 @@ function SessionCard({
           <span
             className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${STATUS_TONE[session.status]}`}
           >
-            {STATUS_LABEL[session.status]}
+            {SESSION_STATUS_LABELS[session.status]}
           </span>
           <span className="text-[11px] text-bsy-stone-400">
-            {session.gameMode === "sync" ? "סינכרוני" : "אסינכרוני"}
+            {GAME_MODE_LABELS[session.gameMode]}
           </span>
         </div>
         <div className="mt-3 flex items-baseline gap-3">
