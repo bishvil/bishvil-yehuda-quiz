@@ -21,6 +21,7 @@ import {
   getAdminQuiz,
   isAdminApiError,
   listAdminQuestions,
+  reorderAdminQuestions,
   updateAdminQuestion,
   updateAdminQuiz,
   type AdminQuestionListItem,
@@ -72,6 +73,7 @@ export function QuizEditorScreen({ quizId }: Props) {
   const initialQuestionsLoadedRef = useRef(false);
   const [questionsAutosaveEnabled, setQuestionsAutosaveEnabled] =
     useState(false);
+  const previousSnapshotRef = useRef<EditableQuestion[] | null>(null);
 
   // ---- Initial load ----------------------------------------------------
   useEffect(() => {
@@ -130,9 +132,47 @@ export function QuizEditorScreen({ quizId }: Props) {
     enabled: status === "ready" && quiz !== null,
   });
 
+  // Helper to detect if only ordinals changed (reorder case)
+  const isOrdinalOnlyChange = (
+    prev: EditableQuestion[] | null,
+    next: EditableQuestion[],
+  ): boolean => {
+    if (!prev || prev.length !== next.length) {
+      return false;
+    }
+    // Check if question IDs are identical and in same order
+    for (let i = 0; i < prev.length; i++) {
+      if (prev[i].id !== next[i].id) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   // ---- Auto-save: questions ------------------------------------------
   const saveQuestions = useCallback(
     async (snapshot: EditableQuestion[]) => {
+      const prevSnapshot = previousSnapshotRef.current;
+      previousSnapshotRef.current = snapshot;
+
+      // Check if this is an ordinal-only change and use bulk reorder endpoint
+      if (
+        isOrdinalOnlyChange(prevSnapshot, snapshot) &&
+        snapshot.every((q) => q.id !== null)
+      ) {
+        const reorderPayload = snapshot.map((q) => ({
+          id: q.id!,
+          ordinal: q.ordinal,
+        }));
+        const result = await reorderAdminQuestions(quizId, {
+          ordinals: reorderPayload,
+        });
+        if (isAdminApiError(result)) {
+          throw new Error(result.message);
+        }
+        return;
+      }
+
       // We need to commit each question individually. New ones get POSTed,
       // existing ones get PUTed. We do this serially so the UI shows
       // ordinal swaps consistently (and to avoid hammering the API).
