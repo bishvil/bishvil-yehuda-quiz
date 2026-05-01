@@ -6,6 +6,10 @@ import type {
   AsyncQuestionStatusEnum,
   QuestionStatusEnum,
 } from "@/src/lib/supabase/database.types";
+import {
+  parseStoredQuestionMap,
+  validateStoredQuestionContent,
+} from "@/src/lib/schemas/question-content";
 
 export interface ParticipantSessionPayload {
   status: SessionStatusEnum;
@@ -65,26 +69,12 @@ export interface ParticipantStateResponse {
   reveal: ParticipantQuestionRevealPayload | null;
 }
 
-interface RawQuestionOption {
-  id: string;
-  text: string;
-  image_url?: string;
-}
-interface RawQuestionMap {
-  image_url: string;
-  target?: { x: number; y: number };
-}
-
 export function extractMapTarget(
   map: QuestionRow["map"] | null,
 ): { x: number; y: number } | null {
-  if (!map || typeof map !== "object") return null;
-  const raw = map as unknown as RawQuestionMap;
-  if (!raw.target) return null;
-  if (typeof raw.target.x !== "number" || typeof raw.target.y !== "number") {
-    return null;
-  }
-  return { x: raw.target.x, y: raw.target.y };
+  const parsed = parseStoredQuestionMap(map);
+  if (!parsed.success || !parsed.data) return null;
+  return parsed.data.target;
 }
 
 type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
@@ -108,22 +98,26 @@ export function buildParticipantQuestionPayload(args: {
   startedAt: string | null;
   deadlineAt: string | null;
   serverNow: Date;
-}): ParticipantQuestionPayload {
-  const optionsArray = Array.isArray(args.question.options)
-    ? (args.question.options as unknown as RawQuestionOption[]).map((option) => ({
-        id: option.id,
-        text: option.text,
-        image_url: option.image_url,
-      }))
-    : null;
+}): ParticipantQuestionPayload | null {
+  const parsedContent = validateStoredQuestionContent({
+    type: args.question.type,
+    options: args.question.options,
+    map: args.question.map,
+  });
 
-  const mapPayload =
-    args.question.map && typeof args.question.map === "object"
-      ? (() => {
-          const raw = args.question.map as unknown as RawQuestionMap;
-          return { image_url: raw.image_url };
-        })()
-      : null;
+  if (!parsedContent.success) {
+    return null;
+  }
+
+  const optionsArray = parsedContent.data.options?.map((option) => ({
+    id: option.id,
+    text: option.text,
+    image_url: option.image_url,
+  })) ?? null;
+
+  const mapPayload = parsedContent.data.map
+    ? { image_url: parsedContent.data.map.image_url }
+    : null;
 
   const toleranceValue = args.question.tolerance
     ? Number.parseFloat(args.question.tolerance)

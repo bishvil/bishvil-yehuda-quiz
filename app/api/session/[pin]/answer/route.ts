@@ -4,6 +4,7 @@ import { requireRole } from "@/src/lib/auth/server-auth";
 import { submitAnswerRequestSchema } from "@/src/lib/auth/validation";
 import { questionCacheTag, safeRevalidateTag } from "@/src/lib/cache/tags";
 import { noStoreJson } from "@/src/lib/http/responses";
+import { validateStoredQuestionContent } from "@/src/lib/schemas/question-content";
 import { findActiveSessionByPin } from "@/src/lib/sessions/lookup";
 import { writeLog } from "@/src/lib/logging";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
@@ -34,6 +35,7 @@ interface AnswerErrorBody {
     | "QUESTION_NOT_ACTIVE"
     | "LATE_SUBMISSION"
     | "PARTICIPANT_NOT_FOUND"
+    | "STORED_QUESTION_INVALID"
     | "ANSWER_WRITE_FAILED";
   message: string;
   deadlineAt?: string;
@@ -112,6 +114,47 @@ export async function POST(
   }
 
   const participantId = auth.claims.userId;
+  const { data: questionForScoring } = await serviceSupabase
+    .from("questions")
+    .select("id, type, options, map")
+    .eq("id", submission.questionId)
+    .eq("quiz_id", session.quiz_id)
+    .maybeSingle();
+
+  if (!questionForScoring) {
+    return noStoreJson<AnswerResponseBody>(
+      { error: "QUESTION_NOT_FOUND", message: "Question not part of this quiz." },
+      { status: 404 },
+    );
+  }
+
+  const storedContent = validateStoredQuestionContent({
+    type: questionForScoring.type,
+    options: questionForScoring.options,
+    map: questionForScoring.map,
+  });
+
+  if (!storedContent.success) {
+    writeLog({
+      level: "error",
+      message: "Stored question JSON failed scoring validation",
+      context: {
+        sessionId: session.id,
+        questionId: submission.questionId,
+        participantId,
+        issues: JSON.stringify(storedContent.issues),
+      },
+    });
+
+    return noStoreJson<AnswerResponseBody>(
+      {
+        error: "STORED_QUESTION_INVALID",
+        message: "Stored question content is invalid and cannot be scored.",
+      },
+      { status: 500 },
+    );
+  }
+
   const submittedAtDate = new Date();
   const { data: submitResult, error: submitError } = await serviceSupabase
     .rpc("submit_answer", {

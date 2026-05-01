@@ -2,7 +2,9 @@ import { type NextRequest } from "next/server";
 
 import { PUBLIC_QUESTION_CONTENT_CACHE_HEADER } from "@/src/lib/constants";
 import { publicCachedJson } from "@/src/lib/http/responses";
+import { validateStoredQuestionContent } from "@/src/lib/schemas/question-content";
 import { findAnySessionByPin } from "@/src/lib/sessions/lookup";
+import { writeLog } from "@/src/lib/logging";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 import type { QuestionTypeEnum } from "@/src/lib/supabase/database.types";
 
@@ -29,17 +31,6 @@ interface PublicQuestionErrorBody {
 type PublicQuestionResponseBody =
   | PublicQuestionSuccessBody
   | PublicQuestionErrorBody;
-
-interface RawQuestionOption {
-  id: string;
-  text: string;
-  image_url?: string;
-}
-
-interface RawQuestionMap {
-  image_url: string;
-  target: { x: number; y: number };
-}
 
 export async function GET(
   _request: NextRequest,
@@ -88,22 +79,44 @@ export async function GET(
     );
   }
 
-  const options = Array.isArray(question.options)
-    ? (question.options as unknown as RawQuestionOption[]).map((option) => ({
-        id: option.id,
-        text: option.text,
-        image_url: option.image_url,
-      }))
-    : null;
+  const parsedContent = validateStoredQuestionContent({
+    type: question.type,
+    options: question.options,
+    map: question.map,
+  });
+
+  if (!parsedContent.success) {
+    writeLog({
+      level: "error",
+      message: "Stored question JSON failed public serialization",
+      context: {
+        pin,
+        quizId: session.quiz_id,
+        ordinal,
+        issues: JSON.stringify(parsedContent.issues),
+      },
+    });
+
+    return publicCachedJson<PublicQuestionResponseBody>(
+      {
+        error: "QUESTION_NOT_FOUND",
+        message: "Question content is unavailable.",
+      },
+      { status: 404, cacheControl: PUBLIC_QUESTION_CONTENT_CACHE_HEADER },
+    );
+  }
+
+  const options = parsedContent.data.options?.map((option) => ({
+    id: option.id,
+    text: option.text,
+    image_url: option.image_url,
+  })) ?? null;
 
   // ADR-0008 §2: never expose `target` coordinates pre-reveal — strip the
   // target dot and only ship the map background image.
-  const mapPayload =
-    question.map && typeof question.map === "object"
-      ? {
-          image_url: (question.map as unknown as RawQuestionMap).image_url,
-        }
-      : null;
+  const mapPayload = parsedContent.data.map
+    ? { image_url: parsedContent.data.map.image_url }
+    : null;
 
   return publicCachedJson<PublicQuestionResponseBody>(
     {

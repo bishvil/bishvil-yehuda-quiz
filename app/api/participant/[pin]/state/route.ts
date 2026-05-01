@@ -168,6 +168,24 @@ export async function GET(
       serverNow: new Date(),
     });
 
+    if (!questionPayload) {
+      writeLog({
+        level: "error",
+        message: "Stored question JSON failed participant serialization",
+        context: { sessionId: session.id, questionId: currentQuestion.id },
+      });
+      return privateNoStoreJson<ParticipantStateResponseBody>(
+        {
+          session: sessionPayload,
+          question: null,
+          myAnswer: null,
+          myScore,
+          reveal: null,
+        },
+        { status: 200 },
+      );
+    }
+
     const { data: existingAnswer } = await serviceSupabase
       .from("answers")
       .select("*")
@@ -322,6 +340,24 @@ export async function GET(
     deadlineAt: progress?.deadline_at ?? currentProgress.deadline_at,
     serverNow: new Date(),
   });
+
+  if (!questionPayload) {
+    writeLog({
+      level: "error",
+      message: "Stored question JSON failed participant serialization",
+      context: { sessionId: session.id, questionId: question.id },
+    });
+    return privateNoStoreJson<ParticipantStateResponseBody>(
+      {
+        session: sessionPayload,
+        question: null,
+        myAnswer: null,
+        myScore,
+        reveal: null,
+      },
+      { status: 200 },
+    );
+  }
 
   const { data: existingAnswer } = await serviceSupabase
     .from("answers")

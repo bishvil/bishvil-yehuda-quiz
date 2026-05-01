@@ -152,4 +152,51 @@ describe("GET /api/participant/[pin]/state", () => {
     expect(JSON.stringify(body)).not.toContain("correctIds");
     expect(JSON.stringify(body)).not.toContain("\"target\"");
   });
+
+  it("omits malformed stored question JSON without failing participant state", async () => {
+    const fixtures = await seedSyncFixtures(sql, { gameMode: "sync" });
+    cleanupTargets.push({
+      sessionId: fixtures.sessionId,
+      questionId: fixtures.questionId,
+      participantId: fixtures.participantId,
+    });
+
+    await sql`
+      update public.questions
+      set type = 'map',
+          options = null,
+          correct_ids = null,
+          map = ${sql.json({ image_url: "/broken-map.jpg" })},
+          tolerance = 5
+      where id = ${fixtures.questionId}::uuid
+    `;
+    await sql`
+      update public.sessions
+      set current_question_id = ${fixtures.questionId}::uuid
+      where id = ${fixtures.sessionId}::uuid
+    `;
+    await sql`
+      insert into public.question_session_state (
+        session_id, question_id, question_index, status, started_at, deadline_at
+      ) values (
+        ${fixtures.sessionId}::uuid,
+        ${fixtures.questionId}::uuid,
+        1,
+        'answering',
+        now(),
+        now() + interval '60 seconds'
+      )
+    `;
+
+    const result = await callParticipantStateGet(
+      fixtures.pin,
+      fixtures.participantId,
+      fixtures.sessionId,
+    );
+
+    expect(result.status).toBe(200);
+    const body = result.body as { question: unknown; reveal: unknown };
+    expect(body.question).toBeNull();
+    expect(body.reveal).toBeNull();
+  });
 });

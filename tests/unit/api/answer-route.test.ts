@@ -302,4 +302,47 @@ describe("POST /api/session/[pin]/answer", () => {
     expect(body.myAnswer?.isCorrect).toBe(true);
     expect(body.reveal?.correctIds).toEqual(["a"]);
   });
+
+  it("returns a structured 500 before scoring malformed stored map JSON", async () => {
+    const fixtures = await seedSyncFixtures(sql, { gameMode: "sync" });
+    cleanupTargets.push({
+      sessionId: fixtures.sessionId,
+      questionId: fixtures.questionId,
+      participantId: fixtures.participantId,
+    });
+
+    await sql`
+      update public.questions
+      set type = 'map',
+          options = null,
+          correct_ids = null,
+          map = ${sql.json({ image_url: "/broken-map.jpg" })},
+          tolerance = 5
+      where id = ${fixtures.questionId}::uuid
+    `;
+    await sql`
+      insert into public.question_session_state (
+        session_id, question_id, question_index, status, started_at, deadline_at
+      ) values (
+        ${fixtures.sessionId}::uuid,
+        ${fixtures.questionId}::uuid,
+        1,
+        'answering',
+        now(),
+        now() + interval '60 seconds'
+      )
+    `;
+
+    const result = await callAnswerPost(
+      fixtures.pin,
+      fixtures.participantId,
+      fixtures.sessionId,
+      { questionId: fixtures.questionId, pin: { x: 10, y: 20 } },
+    );
+
+    expect(result.status).toBe(500);
+    expect(result.body).toMatchObject({
+      error: "STORED_QUESTION_INVALID",
+    });
+  });
 });
