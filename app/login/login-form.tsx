@@ -91,14 +91,17 @@ export default function LoginForm() {
             aria-pressed={segment === id}
             style={{
               flex: 1,
-              borderRadius: "var(--radius-pill)",
+              borderRadius: "999px",
               border: "none",
+              /* Explicit min-height for 44 px touch target on mobile */
+              minHeight: "44px",
               padding: "0.55rem 1rem",
               fontSize: "1rem",
               fontWeight: segment === id ? 700 : 500,
               cursor: "pointer",
-              transition:
-                "background var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out)",
+              /* Literal values — CSS custom-property refs in inline transition
+                 shorthand are unreliable on iOS Safari */
+              transition: "background 220ms ease-out, color 220ms ease-out",
               background:
                 segment === id
                   ? "var(--bsy-green-forest)"
@@ -107,8 +110,13 @@ export default function LoginForm() {
                 segment === id
                   ? "var(--bsy-paper)"
                   : "var(--bsy-stone-700)",
-              boxShadow:
-                segment === id ? "var(--shadow-sm)" : "none",
+              /* iOS: reset native button chrome that can swallow taps */
+              WebkitAppearance: "none",
+              appearance: "none",
+              /* Prevent 300 ms tap delay + double-tap zoom on mobile */
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              userSelect: "none",
             }}
           >
             {label}
@@ -149,7 +157,7 @@ export default function LoginForm() {
               background: "var(--color-bg-elevated)",
               color: "var(--bsy-ink)",
               outline: "none",
-              transition: "border-color var(--dur-fast) var(--ease-out)",
+              transition: "border-color 140ms ease-out",
               width: "100%",
               boxSizing: "border-box",
             }}
@@ -192,7 +200,7 @@ export default function LoginForm() {
               background: "var(--color-bg-elevated)",
               color: "var(--bsy-ink)",
               outline: "none",
-              transition: "border-color var(--dur-fast) var(--ease-out)",
+              transition: "border-color 140ms ease-out",
               width: "100%",
               boxSizing: "border-box",
             }}
@@ -238,8 +246,11 @@ export default function LoginForm() {
             cursor:
               loading || !email || !password ? "not-allowed" : "pointer",
             opacity: loading || !email || !password ? 0.55 : 1,
-            transition:
-              "opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out)",
+            transition: "opacity 140ms ease-out",
+            touchAction: "manipulation",
+            WebkitTapHighlightColor: "transparent",
+            WebkitAppearance: "none",
+            appearance: "none",
             width: "100%",
           }}
         >
