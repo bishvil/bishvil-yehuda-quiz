@@ -42,16 +42,21 @@ export async function findHostSessionByPin(
 }
 
 /**
- * ADR-0007/0008 public policy: unauthenticated quiz routes may expose only
- * non-PII session/question metadata for published sessions. `scheduled`,
- * `live`, and `paused` are active participant states; `ended` keeps public
- * result/question URLs reachable. `draft` remains private/admin-only.
+ * ADR-0007 public-API visibility policy: `paused` is a host-controlled mid-
+ * session freeze. Unauthenticated PIN-only callers must treat the session as
+ * if it doesn't exist while paused so cached public payloads cannot refresh
+ * through the paused state. Participants still see the paused state via their
+ * authenticated participant route, which uses a host-aware lookup helper.
+ *
+ * Allowed statuses: `scheduled` and `live` cover the active lobby/play
+ * window; `ended` keeps public result/question URLs reachable. `draft` and
+ * `paused` are private/host-only.
  */
 export async function findPublicSessionByPin(
   client: ServiceSupabase,
   pin: string,
 ) {
-  return findSessionByPin(client, pin, ["scheduled", "live", "paused", "ended"]);
+  return findSessionByPin(client, pin, ["scheduled", "live", "ended"]);
 }
 
 /**
