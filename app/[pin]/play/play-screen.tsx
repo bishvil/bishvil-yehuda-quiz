@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -19,6 +20,14 @@ import {
 import type { ParticipantBrand } from "@/src/lib/participant/brands";
 import type { ParticipantStateResponse } from "@/src/lib/sessions/participant-payload";
 import { useServerCountdown } from "@/src/lib/time/countdown";
+
+const MapQuestionInteractive = dynamic(
+  () =>
+    import("@/src/components/MapQuestionInteractive").then(
+      (m) => m.MapQuestionInteractive,
+    ),
+  { ssr: false },
+);
 
 interface PlayScreenProps {
   pin: string;
@@ -48,6 +57,7 @@ export function PlayScreen({
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [mapPin, setMapPin] = useState<{ x: number; y: number } | null>(null);
+  const [mapGeoPin, setMapGeoPin] = useState<{ lat: number; lng: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -71,6 +81,7 @@ export function PlayScreen({
     if (previousQuestionKeyRef.current !== currentQuestionKey) {
       setSelectedIds([]);
       setMapPin(null);
+      setMapGeoPin(null);
       setPendingReveal(null);
       setSubmitError(null);
       previousQuestionKeyRef.current = currentQuestionKey;
@@ -123,6 +134,11 @@ export function PlayScreen({
     setMapPin(next);
   }
 
+  function handleMapGeoPin(next: { lat: number; lng: number }) {
+    if (!question || !isAnswering || hasSubmitted) return;
+    setMapGeoPin(next);
+  }
+
   const handleSubmit = useCallback(async () => {
     if (!question || !isAnswering || hasSubmitted || submitting) return;
 
@@ -130,11 +146,13 @@ export function PlayScreen({
     setSubmitError(null);
 
     const body =
-      question.type === "map" && mapPin
-        ? { questionId: question.id, pin: mapPin }
-        : selectedIds.length > 0
-          ? { questionId: question.id, selectedIds }
-          : null;
+      question.type === "map" && mapGeoPin
+        ? { questionId: question.id, pin: { lat: mapGeoPin.lat, lng: mapGeoPin.lng } }
+        : question.type === "map" && mapPin
+          ? { questionId: question.id, pin: mapPin }
+          : selectedIds.length > 0
+            ? { questionId: question.id, selectedIds }
+            : null;
 
     if (!body || !body.questionId) {
       setSubmitting(false);
@@ -176,6 +194,7 @@ export function PlayScreen({
     hasSubmitted,
     submitting,
     mapPin,
+    mapGeoPin,
     selectedIds,
     pin,
     refetch,
@@ -227,7 +246,7 @@ export function PlayScreen({
     submitting ||
     hasSubmitted ||
     !isAnswering ||
-    (question.type === "map" ? !mapPin : selectedIds.length === 0);
+    (question.type === "map" ? !mapPin && !mapGeoPin : selectedIds.length === 0);
 
   const isLastQuestion = question.index === question.total;
 
@@ -258,9 +277,12 @@ export function PlayScreen({
           renderMapQuestion({
             question,
             mapPin,
+            mapGeoPin,
             isRevealed,
             mapTarget: reveal?.mapTarget ?? null,
+            mapGeoTarget: reveal?.mapGeoTarget ?? null,
             onPin: handleMapPin,
+            onGeoPin: handleMapGeoPin,
           })
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -348,18 +370,38 @@ export function PlayScreen({
 interface RenderMapArgs {
   question: NonNullable<ParticipantStateResponse["question"]>;
   mapPin: { x: number; y: number } | null;
+  mapGeoPin: { lat: number; lng: number } | null;
   isRevealed: boolean;
   mapTarget: { x: number; y: number } | null;
+  mapGeoTarget: { lat: number; lng: number } | null;
   onPin: (pin: { x: number; y: number }) => void;
+  onGeoPin: (pin: { lat: number; lng: number }) => void;
 }
 
 function renderMapQuestion({
   question,
   mapPin,
+  mapGeoPin,
   isRevealed,
   mapTarget,
+  mapGeoTarget,
   onPin,
+  onGeoPin,
 }: RenderMapArgs) {
+  // Geographic path — ADR-0011 §5.
+  if (question.map && "geo" in question.map && question.map.geo) {
+    return (
+      <MapQuestionInteractive
+        geo={question.map.geo}
+        pin={mapGeoPin}
+        onPin={onGeoPin}
+        revealed={isRevealed}
+        target={isRevealed ? mapGeoTarget : null}
+      />
+    );
+  }
+
+  // Legacy raster path — kept verbatim.
   const mapMeta = extractMapMeta(question.map);
   if (!mapMeta) {
     return (

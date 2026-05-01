@@ -9,7 +9,6 @@
  */
 import type {
   Json,
-  QuestionMap,
   QuestionOption,
 } from "@/src/lib/supabase/database.types";
 import type {
@@ -17,6 +16,7 @@ import type {
   QuestionType,
   SessionStatus,
 } from "@/src/lib/constants";
+import type { EditableQuestionMap } from "@/src/lib/admin/quiz-editor";
 
 const JSON_HEADERS: HeadersInit = {
   "Content-Type": "application/json",
@@ -103,7 +103,7 @@ export interface AdminQuestionListItem {
   prompt: string;
   options: QuestionOption[] | null;
   correctIds: string[] | null;
-  map: QuestionMap | null;
+  map: EditableQuestionMap | null;
   imageUrl: string | null;
   explanation: string | null;
   timeSeconds: number;
@@ -122,7 +122,7 @@ export interface AdminQuestionCreateRequest {
   prompt: string;
   options?: QuestionOption[];
   correctIds?: string[];
-  map?: QuestionMap;
+  map?: EditableQuestionMap;
   imageUrl?: string;
   explanation?: string;
   timeSeconds?: number;

@@ -46,10 +46,9 @@ export interface SubmitChoiceAnswerBody {
   selectedIds: string[];
 }
 
-export interface SubmitMapAnswerBody {
-  questionId: string;
-  pin: { x: number; y: number };
-}
+export type SubmitMapAnswerBody =
+  | { questionId: string; pin: { x: number; y: number } }
+  | { questionId: string; pin: { lat: number; lng: number } };
 
 export type SubmitAnswerBody = SubmitChoiceAnswerBody | SubmitMapAnswerBody;
 

@@ -4,10 +4,7 @@
  * save round-trip seeds the row's UUID.
  */
 import type { GameMode, QuestionType } from "@/src/lib/constants";
-import type {
-  QuestionMap,
-  QuestionOption,
-} from "@/src/lib/supabase/database.types";
+import type { QuestionOption } from "@/src/lib/supabase/database.types";
 
 export const SCAFFOLDED_OPTIONS: QuestionOption[] = [
   { id: "a", text: "תשובה א" },
@@ -21,10 +18,19 @@ export const TRUE_FALSE_OPTIONS: QuestionOption[] = [
   { id: "no", text: "לא נכון" },
 ];
 
-const DEFAULT_MAP: QuestionMap = {
-  image_url: "",
-  target: { x: 50, y: 50 },
-};
+export type EditableQuestionMap =
+  | { image_url: string; target: { x: number; y: number }; geo?: never }
+  | {
+      image_url?: never;
+      target?: never;
+      geo: {
+        target: { lat: number; lng: number };
+        center?: { lat: number; lng: number };
+        zoom?: number;
+        toleranceKm: number;
+        styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+      };
+    };
 
 export interface EditableQuestion {
   /** Server-issued UUID (null until first save). */
@@ -36,7 +42,7 @@ export interface EditableQuestion {
   prompt: string;
   options: QuestionOption[] | null;
   correctIds: string[] | null;
-  map: QuestionMap | null;
+  map: EditableQuestionMap | null;
   imageUrl: string | null;
   explanation: string | null;
   timeSeconds: number;
@@ -261,8 +267,13 @@ export function normalizeQuestionForType(
         type: nextType,
         options: null,
         correctIds: [],
-        map: question.map ?? { ...DEFAULT_MAP, target: { ...DEFAULT_MAP.target } },
-        // tolerance carries over (may be null — UI defaults to 5 visually)
+        map: {
+          geo: {
+            target: { lat: 31.5, lng: 34.9 },
+            toleranceKm: 5,
+          },
+        },
+        tolerance: null,
         imageUrl: null,
       };
     default: {

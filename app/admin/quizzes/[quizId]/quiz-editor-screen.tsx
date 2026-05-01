@@ -7,7 +7,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminTopBar } from "@/src/components/admin/AdminTopBar";
 import { QuestionEditor } from "@/src/components/admin/QuestionEditor";
 import { SaveIndicator } from "@/src/components/admin/SaveIndicator";
+import { SortableQuestionCard } from "@/src/components/admin/SortableQuestionCard";
+import { SortableQuestionList } from "@/src/components/admin/SortableQuestionList";
+import { LogoUploader } from "@/src/components/admin/upload/LogoUploader";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
+import { useQuestionReorder } from "@/src/hooks/useQuestionReorder";
 import { GAME_MODES, QUESTION_TYPE_LABELS, type GameMode } from "@/src/lib/constants";
 import { PARTICIPANT_BRANDS } from "@/src/lib/participant/brands";
 import {
@@ -245,22 +249,11 @@ export function QuizEditorScreen({ quizId }: Props) {
     [quizId],
   );
 
-  const moveQuestion = useCallback((clientId: string, dir: -1 | 1) => {
-    setQuestions((prev) => {
-      const idx = prev.findIndex((q) => q.clientId === clientId);
-      const target = idx + dir;
-      if (idx < 0 || target < 0 || target >= prev.length) return prev;
-      const next = [...prev];
-      const [moved] = next.splice(idx, 1);
-      if (!moved) return prev;
-      next.splice(target, 0, moved);
-      // Renumber so ordinal is dense — server will accept any unique value
-      // per quiz, but we keep them dense to mirror the prototype.
-      const renumbered = next.map((q, i) => ({ ...q, ordinal: i + 1 }));
-      setActiveIndex(target);
-      return renumbered;
-    });
-  }, []);
+  const { reorderQuestion } = useQuestionReorder({
+    questions,
+    onSave: setQuestions,
+    onActiveIndexChange: setActiveIndex,
+  });
 
   // ---- Launch session -------------------------------------------------
   const handleLaunch = useCallback(async () => {
@@ -367,9 +360,13 @@ export function QuizEditorScreen({ quizId }: Props) {
           <h3 className="mt-6 mb-3 text-[12px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400">
             {questions.length} תחנות
           </h3>
-          <ul className="flex flex-col gap-2">
+          <SortableQuestionList
+            items={questions.map((q) => q.clientId)}
+            onReorder={reorderQuestion}
+            className="flex flex-col gap-2"
+          >
             {questions.map((q, i) => (
-              <li key={q.clientId}>
+              <SortableQuestionCard key={q.clientId} id={q.clientId}>
                 <QuestionRow
                   question={q}
                   index={i}
@@ -378,18 +375,10 @@ export function QuizEditorScreen({ quizId }: Props) {
                     setActiveIndex(i);
                     setMobileView("edit");
                   }}
-                  onMoveUp={
-                    i === 0 ? undefined : () => moveQuestion(q.clientId, -1)
-                  }
-                  onMoveDown={
-                    i === questions.length - 1
-                      ? undefined
-                      : () => moveQuestion(q.clientId, 1)
-                  }
                 />
-              </li>
+              </SortableQuestionCard>
             ))}
-          </ul>
+          </SortableQuestionList>
           <button
             type="button"
             onClick={addQuestion}
@@ -566,35 +555,19 @@ function QuizMetaCard({
         <legend className="px-2 text-[11px] font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
           מיתוג ייעודי
         </legend>
-        <label className="flex items-center gap-2 text-[12px]">
-          <input
-            type="checkbox"
-            checked={quiz.customLogo !== null}
-            onChange={(event) =>
+        <div className="mt-2 grid gap-2">
+          <LogoUploader
+            value={quiz.customLogo}
+            onChange={(customLogo) =>
               onChange({
                 ...quiz,
-                customLogo: event.target.checked
-                  ? (quiz.customLogo ?? "https://")
-                  : null,
+                customLogo,
+                customLogoLabel: customLogo ? quiz.customLogoLabel : null,
               })
             }
             disabled={disabled}
-            className="h-3.5 w-3.5 accent-bsy-forest"
           />
-          <span>פעיל</span>
-        </label>
-        {quiz.customLogo !== null ? (
-          <div className="mt-2 grid gap-2">
-            <input
-              className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 font-mono text-[12px]"
-              dir="ltr"
-              placeholder="https://…/logo.png"
-              value={quiz.customLogo}
-              onChange={(event) =>
-                onChange({ ...quiz, customLogo: event.target.value })
-              }
-              disabled={disabled}
-            />
+          {quiz.customLogo !== null ? (
             <input
               className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px]"
               placeholder="שם האירוע (לדוגמה: גדוד 890)"
@@ -607,11 +580,8 @@ function QuizMetaCard({
               }
               disabled={disabled}
             />
-            <p className="text-[11px] text-bsy-stone-400">
-              העלאת קבצים תיכנס בגל הבא — עד אז ניתן להדביק כתובת תמונה ציבורית.
-            </p>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </fieldset>
     </div>
   );

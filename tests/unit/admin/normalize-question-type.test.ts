@@ -29,7 +29,12 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
       expect(next.options).toBeNull();
       expect(next.correctIds).toEqual([]);
       expect(next.imageUrl).toBeNull();
-      expect(next.map).toEqual({ image_url: "", target: { x: 50, y: 50 } });
+      expect(next.map).toEqual({
+        geo: {
+          target: { lat: 31.5, lng: 34.9 },
+          toleranceKm: 5,
+        },
+      });
     });
 
     it("preserves an existing map when entering from another type via no-op chain", () => {
@@ -47,7 +52,12 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
       const back = normalizeQuestionForType(single, "map");
       // Default map seeded because we lost it on the way out — this is
       // the documented behavior (only map keeps map/tolerance).
-      expect(back.map).toEqual({ image_url: "", target: { x: 50, y: 50 } });
+      expect(back.map).toEqual({
+        geo: {
+          target: { lat: 31.5, lng: 34.9 },
+          toleranceKm: 5,
+        },
+      });
     });
   });
 
