@@ -12,7 +12,7 @@ export interface ParticipantJwtClaims {
   sub?: string;
 }
 
-export function decodeParticipantAccessToken(
+export function decodeParticipantAccessTokenUnsafe(
   accessToken: string,
 ): ParticipantJwtClaims {
   return decodeJwt(accessToken) as ParticipantJwtClaims;

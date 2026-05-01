@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  decodeParticipantAccessToken,
+  decodeParticipantAccessTokenUnsafe,
   hasExpectedParticipantScope,
 } from "@/src/lib/auth/claims";
 
@@ -20,7 +20,7 @@ describe("participant JWT claims", () => {
       sub: participantId,
     });
 
-    const claims = decodeParticipantAccessToken(accessToken);
+    const claims = decodeParticipantAccessTokenUnsafe(accessToken);
 
     expect(hasExpectedParticipantScope(claims, sessionId, participantId)).toBe(
       true,
@@ -38,7 +38,7 @@ describe("participant JWT claims", () => {
       sub: participantId,
     });
 
-    const claims = decodeParticipantAccessToken(accessToken);
+    const claims = decodeParticipantAccessTokenUnsafe(accessToken);
 
     expect(
       hasExpectedParticipantScope(

@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 
 import {
-  decodeParticipantAccessToken,
+  decodeParticipantAccessTokenUnsafe,
   hasExpectedParticipantScope,
 } from "@/src/lib/auth/claims";
 import { normalizePhone } from "@/src/lib/auth/phone";
@@ -203,7 +203,7 @@ async function finishParticipantJoin(args: {
     );
   }
 
-  const claims = decodeParticipantAccessToken(accessToken);
+  const claims = decodeParticipantAccessTokenUnsafe(accessToken);
 
   if (
     !hasExpectedParticipantScope(
