@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import type { AuthRole } from "@/src/lib/constants";
@@ -107,6 +108,17 @@ export type RequireRoleResult =
   | { ok: true; claims: AuthenticatedClaims }
   | { ok: false; response: NextResponse };
 
+export function timingSafeSecretMatch(actual: string, expected: string): boolean {
+  const actualBuffer = Buffer.from(actual, "utf8");
+  const expectedBuffer = Buffer.from(expected, "utf8");
+
+  if (actualBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
 export async function requireRole(role: AuthRole): Promise<RequireRoleResult> {
   const supabase = await createServerSupabaseClient();
   const claims = await getAuthenticatedClaims(supabase);
@@ -132,8 +144,9 @@ export async function requireRole(role: AuthRole): Promise<RequireRoleResult> {
 export function requireCronAuth(request: Request): RequireRoleResult {
   const expected = getRequiredEnvironmentVariable("CRON_SECRET");
   const header = request.headers.get("authorization");
+  const token = header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
 
-  if (!header || header !== `Bearer ${expected}`) {
+  if (!token || !timingSafeSecretMatch(token, expected)) {
     return { ok: false, response: unauthorizedJson("Cron secret required.") };
   }
 
