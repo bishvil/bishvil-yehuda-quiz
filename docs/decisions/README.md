@@ -24,6 +24,7 @@ out of the plan into a new, higher-numbered ADR.
 | [ADR-0007](./ADR-0007-sync-async-model.md) | Sync vs async progression model | Session pointer vs `participant_question_progress`, resume |
 | [ADR-0008](./ADR-0008-cache-privacy.md) | Cache & privacy contract | Public cacheable vs private no-store, forbidden fields |
 | [ADR-0009](./ADR-0009-host-pre-start-cancellation.md) | Host pre-start cancellation | Host-authorized `scheduled -> ended` cancellation |
+| [ADR-0010](./ADR-0010-storage-policy.md) | Storage policy for admin uploads | Public buckets, admin writes, upload validation, URL strategy |
 
 ## How to add a new ADR
 
