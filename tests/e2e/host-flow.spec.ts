@@ -41,7 +41,7 @@ test("host flow starts, reveals, and advances without partial mutation errors", 
       values (
         ${quizId}::uuid,
         '11111111-1111-4111-8111-111111111111'::uuid,
-        'bishvil-yehuda',
+        'yehuda',
         'E2E host flow',
         'sync'
       )
