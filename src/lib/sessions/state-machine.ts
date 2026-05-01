@@ -6,6 +6,11 @@ import type {
 /**
  * Session-level allowed transitions per ADR-0004 §1. Encoded as a constant
  * lookup so handlers and tests share a single source of truth.
+ *
+ * ADR-0004 says rejected transitions should not mutate state; ADR-0009 keeps
+ * host `scheduled -> ended` cancellation valid. Host routes expose that as:
+ * same-target idempotency -> 200 with current state, invalid transition -> 409
+ * with `{ error, code, currentStatus }` for clients to recover explicitly.
  */
 const SESSION_TRANSITIONS: Record<SessionStatusEnum, SessionStatusEnum[]> = {
   draft: ["scheduled"],

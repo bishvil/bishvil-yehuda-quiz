@@ -17,6 +17,8 @@ interface HostPauseSuccessBody {
 interface HostPauseErrorBody {
   error: "INVALID_TRANSITION" | "ASYNC_NOT_PAUSABLE" | "WRITE_FAILED";
   message: string;
+  code?: string;
+  currentStatus?: string;
 }
 
 type HostPauseResponseBody = HostPauseSuccessBody | HostPauseErrorBody;
@@ -55,6 +57,8 @@ export async function POST(
     return privateNoStoreJson<HostPauseResponseBody>(
       {
         error: "INVALID_TRANSITION",
+        code: "SESSION_INVALID_TRANSITION",
+        currentStatus: session.status,
         message: `Cannot pause from status ${session.status}.`,
       },
       { status: 409 },

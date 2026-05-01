@@ -18,6 +18,8 @@ interface HostEndSuccessBody {
 interface HostEndErrorBody {
   error: "INVALID_TRANSITION" | "WRITE_FAILED";
   message: string;
+  code?: string;
+  currentStatus?: string;
 }
 
 type HostEndResponseBody = HostEndSuccessBody | HostEndErrorBody;
@@ -53,6 +55,8 @@ export async function POST(
     return privateNoStoreJson<HostEndResponseBody>(
       {
         error: "INVALID_TRANSITION",
+        code: "SESSION_INVALID_TRANSITION",
+        currentStatus: session.status,
         message: `Cannot end from status ${session.status}.`,
       },
       { status: 409 },

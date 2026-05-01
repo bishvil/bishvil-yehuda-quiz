@@ -17,6 +17,8 @@ interface HostResumeSuccessBody {
 interface HostResumeErrorBody {
   error: "INVALID_TRANSITION" | "WRITE_FAILED";
   message: string;
+  code?: string;
+  currentStatus?: string;
 }
 
 type HostResumeResponseBody = HostResumeSuccessBody | HostResumeErrorBody;
@@ -44,6 +46,8 @@ export async function POST(
     return privateNoStoreJson<HostResumeResponseBody>(
       {
         error: "INVALID_TRANSITION",
+        code: "SESSION_INVALID_TRANSITION",
+        currentStatus: session.status,
         message: `Cannot resume from status ${session.status}.`,
       },
       { status: 409 },

@@ -19,6 +19,8 @@ interface HostStartSuccessBody {
 interface HostStartErrorBody {
   error: "INVALID_TRANSITION" | "QUESTIONS_REQUIRED" | "WRITE_FAILED";
   message: string;
+  code?: string;
+  currentStatus?: string;
 }
 
 type HostStartResponseBody = HostStartSuccessBody | HostStartErrorBody;
@@ -52,6 +54,8 @@ export async function POST(
     return privateNoStoreJson<HostStartResponseBody>(
       {
         error: "INVALID_TRANSITION",
+        code: "SESSION_INVALID_TRANSITION",
+        currentStatus: session.status,
         message: `Cannot start session in status ${session.status}.`,
       },
       { status: 409 },

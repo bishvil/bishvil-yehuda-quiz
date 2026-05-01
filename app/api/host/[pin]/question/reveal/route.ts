@@ -30,6 +30,8 @@ interface HostRevealErrorBody {
     | "ASYNC_NOT_REVEALABLE"
     | "WRITE_FAILED";
   message: string;
+  code?: string;
+  currentStatus?: string;
 }
 
 type HostRevealResponseBody = HostRevealSuccessBody | HostRevealErrorBody;
@@ -107,6 +109,8 @@ export async function POST(
     return privateNoStoreJson<HostRevealResponseBody>(
       {
         error: "INVALID_TRANSITION",
+        code: "QUESTION_INVALID_TRANSITION",
+        currentStatus: state.status,
         message: `Cannot reveal from status ${state.status}.`,
       },
       { status: 409 },

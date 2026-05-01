@@ -19,6 +19,8 @@ interface HostQuestionNextSuccessBody {
 interface HostQuestionNextErrorBody {
   error: "SESSION_NOT_LIVE" | "SESSION_PAUSED" | "QUESTION_NOT_REVEALED" | "WRITE_FAILED";
   message: string;
+  code?: string;
+  currentStatus?: string;
 }
 
 type HostQuestionNextResponseBody =
@@ -43,6 +45,8 @@ export async function POST(
     return privateNoStoreJson<HostQuestionNextResponseBody>(
       {
         error: "SESSION_PAUSED",
+        code: "SESSION_INVALID_TRANSITION",
+        currentStatus: session.status,
         message: "Resume the session before advancing to the next question.",
       },
       { status: 409 },
@@ -53,6 +57,8 @@ export async function POST(
     return privateNoStoreJson<HostQuestionNextResponseBody>(
       {
         error: "SESSION_NOT_LIVE",
+        code: "SESSION_INVALID_TRANSITION",
+        currentStatus: session.status,
         message: `Session status is ${session.status}.`,
       },
       { status: 409 },
@@ -61,7 +67,12 @@ export async function POST(
 
   if (!session.current_question_id) {
     return privateNoStoreJson<HostQuestionNextResponseBody>(
-      { error: "QUESTION_NOT_REVEALED", message: "No current question is active." },
+      {
+        error: "QUESTION_NOT_REVEALED",
+        code: "QUESTION_INVALID_TRANSITION",
+        currentStatus: "none",
+        message: "No current question is active.",
+      },
       { status: 409 },
     );
   }
@@ -77,6 +88,8 @@ export async function POST(
     return privateNoStoreJson<HostQuestionNextResponseBody>(
       {
         error: "QUESTION_NOT_REVEALED",
+        code: "QUESTION_INVALID_TRANSITION",
+        currentStatus: currentState?.status ?? "missing",
         message: "Current question must be revealed before advancing.",
       },
       { status: 409 },

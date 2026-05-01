@@ -140,12 +140,20 @@ describe("POST /api/host/[pin]/question/next", () => {
     const answering = await seedCurrentQuestionState("answering", true);
     const answeringResult = await callNextPost(answering.pin);
     expect(answeringResult.status).toBe(409);
-    expect(answeringResult.body).toMatchObject({ error: "QUESTION_NOT_REVEALED" });
+    expect(answeringResult.body).toMatchObject({
+      error: "QUESTION_NOT_REVEALED",
+      code: "QUESTION_INVALID_TRANSITION",
+      currentStatus: "answering",
+    });
 
     const locked = await seedCurrentQuestionState("locked", true);
     const lockedResult = await callNextPost(locked.pin);
     expect(lockedResult.status).toBe(409);
-    expect(lockedResult.body).toMatchObject({ error: "QUESTION_NOT_REVEALED" });
+    expect(lockedResult.body).toMatchObject({
+      error: "QUESTION_NOT_REVEALED",
+      code: "QUESTION_INVALID_TRANSITION",
+      currentStatus: "locked",
+    });
   });
 
   it("advances after reveal and ends after the last revealed question", async () => {
@@ -173,7 +181,11 @@ describe("POST /api/host/[pin]/question/next", () => {
 
     const result = await callNextPost(paused.pin);
     expect(result.status).toBe(409);
-    expect(result.body).toMatchObject({ error: "SESSION_PAUSED" });
+    expect(result.body).toMatchObject({
+      error: "SESSION_PAUSED",
+      code: "SESSION_INVALID_TRANSITION",
+      currentStatus: "paused",
+    });
 
     const [session] = await sql<{ current_question_id: string; status: string }[]>`
       select current_question_id, status

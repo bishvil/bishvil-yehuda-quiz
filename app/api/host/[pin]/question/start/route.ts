@@ -32,6 +32,8 @@ interface HostQuestionStartErrorBody {
     | "SESSION_NOT_LIVE"
     | "WRITE_FAILED";
   message: string;
+  code?: string;
+  currentStatus?: string;
 }
 
 type HostQuestionStartResponseBody =
@@ -60,6 +62,8 @@ export async function POST(
     return privateNoStoreJson<HostQuestionStartResponseBody>(
       {
         error: "SESSION_NOT_LIVE",
+        code: "SESSION_INVALID_TRANSITION",
+        currentStatus: session.status,
         message: `Session status is ${session.status}.`,
       },
       { status: 409 },
@@ -99,6 +103,8 @@ export async function POST(
     return privateNoStoreJson<HostQuestionStartResponseBody>(
       {
         error: "INVALID_TRANSITION",
+        code: "QUESTION_INVALID_TRANSITION",
+        currentStatus: existingState.status,
         message: `Cannot start question from status ${existingState.status}.`,
       },
       { status: 409 },
