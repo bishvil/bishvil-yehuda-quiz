@@ -5,7 +5,7 @@ import {
   PUBLIC_POST_REVEAL_COUNTS_CACHE_HEADER,
 } from "@/src/lib/constants";
 import { publicCachedJson, privateNoStoreJson } from "@/src/lib/http/responses";
-import { findAnySessionByPin } from "@/src/lib/sessions/lookup";
+import { findPublicSessionByPin } from "@/src/lib/sessions/lookup";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 
 interface PublicCountsRouteContext {
@@ -49,7 +49,7 @@ export async function GET(
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
-  const { data: session } = await findAnySessionByPin(serviceSupabase, pin);
+  const { data: session } = await findPublicSessionByPin(serviceSupabase, pin);
 
   if (!session) {
     return privateNoStoreJson<PublicCountsResponseBody>(

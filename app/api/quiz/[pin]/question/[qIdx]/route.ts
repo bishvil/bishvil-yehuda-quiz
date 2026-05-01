@@ -3,7 +3,7 @@ import { type NextRequest } from "next/server";
 import { PUBLIC_QUESTION_CONTENT_CACHE_HEADER } from "@/src/lib/constants";
 import { publicCachedJson } from "@/src/lib/http/responses";
 import { validateStoredQuestionContent } from "@/src/lib/schemas/question-content";
-import { findAnySessionByPin } from "@/src/lib/sessions/lookup";
+import { findPublicSessionByPin } from "@/src/lib/sessions/lookup";
 import { writeLog } from "@/src/lib/logging";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 import type { QuestionTypeEnum } from "@/src/lib/supabase/database.types";
@@ -50,7 +50,7 @@ export async function GET(
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
-  const { data: session } = await findAnySessionByPin(serviceSupabase, pin);
+  const { data: session } = await findPublicSessionByPin(serviceSupabase, pin);
 
   if (!session) {
     return publicCachedJson<PublicQuestionResponseBody>(

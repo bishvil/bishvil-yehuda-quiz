@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { PUBLIC_QUIZ_INFO_CACHE_HEADER } from "@/src/lib/constants";
 import { publicCachedJson } from "@/src/lib/http/responses";
-import { findAnySessionByPin } from "@/src/lib/sessions/lookup";
+import { findPublicSessionByPin } from "@/src/lib/sessions/lookup";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 
 interface QuizInfoRouteContext {
@@ -11,7 +11,7 @@ interface QuizInfoRouteContext {
 
 interface QuizInfoSuccessBody {
   pin: string;
-  status: "scheduled" | "live" | "paused" | "ended" | "draft";
+  status: "scheduled" | "live" | "paused" | "ended";
   gameMode: "sync" | "async";
   quizTitle: string;
   brandId: string;
@@ -34,9 +34,19 @@ export async function GET(
   const { pin } = await context.params;
   const serviceSupabase = await createServiceRoleSupabaseClient();
 
-  const { data: session } = await findAnySessionByPin(serviceSupabase, pin);
+  const { data: session } = await findPublicSessionByPin(serviceSupabase, pin);
 
   if (!session) {
+    return publicCachedJson<QuizInfoResponseBody>(
+      {
+        error: "SESSION_NOT_FOUND",
+        message: "No session exists for this PIN.",
+      },
+      { status: 404, cacheControl: PUBLIC_QUIZ_INFO_CACHE_HEADER },
+    );
+  }
+
+  if (session.status === "draft") {
     return publicCachedJson<QuizInfoResponseBody>(
       {
         error: "SESSION_NOT_FOUND",
