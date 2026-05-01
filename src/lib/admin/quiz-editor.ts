@@ -16,6 +16,16 @@ export const SCAFFOLDED_OPTIONS: QuestionOption[] = [
   { id: "d", text: "תשובה ד" },
 ];
 
+export const TRUE_FALSE_OPTIONS: QuestionOption[] = [
+  { id: "yes", text: "נכון" },
+  { id: "no", text: "לא נכון" },
+];
+
+const DEFAULT_MAP: QuestionMap = {
+  image_url: "",
+  target: { x: 50, y: 50 },
+};
+
 export interface EditableQuestion {
   /** Server-issued UUID (null until first save). */
   id: string | null;
@@ -163,6 +173,104 @@ export interface QuizSavePayload {
   customLogo: string | null;
   customLogoLabel: string | null;
   joinFields: string[];
+}
+
+/**
+ * Wave-2 review M3 — normalize a question to the next type, stripping
+ * any field that does not belong to that type so the auto-save never
+ * persists stale `map`, `tolerance`, `imageUrl`, or `correctIds` rows
+ * that contradict the chosen `type`. Returns the same instance when
+ * `nextType === question.type` so React identity stays stable.
+ *
+ * Rules (matched to the question schema in ADR-0004 §"Required Table:
+ * questions" and the `supportsOptions` predicate in QuestionEditor):
+ *
+ * | nextType   | options                | correctIds                          | map           | tolerance | imageUrl    |
+ * | ---------- | ---------------------- | ----------------------------------- | ------------- | --------- | ----------- |
+ * | single     | scaffold if absent     | first id only                       | null          | null      | null        |
+ * | multi      | scaffold if absent     | carry over                          | null          | null      | null        |
+ * | image      | scaffold if absent     | carry over                          | null          | null      | carry over  |
+ * | truefalse  | replace with [yes,no]  | filter to {yes,no}; default ["yes"] | null          | null      | null        |
+ * | map        | null                   | []                                  | default if -  | carry     | null        |
+ *
+ * Image questions keep `options` + `correctIds` because the renderer
+ * (`QuestionEditor.supportsOptions`) treats `image` as a choice question
+ * with an illustration above the options.
+ */
+export function normalizeQuestionForType(
+  question: EditableQuestion,
+  nextType: QuestionType,
+): EditableQuestion {
+  if (nextType === question.type) return question;
+
+  const carryOptions =
+    question.options && question.options.length > 0
+      ? question.options
+      : SCAFFOLDED_OPTIONS.map((option) => ({ ...option }));
+
+  switch (nextType) {
+    case "single": {
+      const correctIds = (question.correctIds ?? []).slice(0, 1);
+      return {
+        ...question,
+        type: nextType,
+        options: carryOptions,
+        correctIds,
+        map: null,
+        tolerance: null,
+        imageUrl: null,
+      };
+    }
+    case "multi":
+      return {
+        ...question,
+        type: nextType,
+        options: carryOptions,
+        correctIds: question.correctIds ?? [],
+        map: null,
+        tolerance: null,
+        imageUrl: null,
+      };
+    case "image":
+      return {
+        ...question,
+        type: nextType,
+        options: carryOptions,
+        correctIds: question.correctIds ?? [],
+        map: null,
+        tolerance: null,
+        // imageUrl carries over verbatim (may already be null)
+      };
+    case "truefalse": {
+      const allowed = new Set(TRUE_FALSE_OPTIONS.map((o) => o.id));
+      const filtered = (question.correctIds ?? []).filter((id) => allowed.has(id));
+      const correctIds = filtered.length > 0 ? filtered : ["yes"];
+      return {
+        ...question,
+        type: nextType,
+        options: TRUE_FALSE_OPTIONS.map((option) => ({ ...option })),
+        correctIds,
+        map: null,
+        tolerance: null,
+        imageUrl: null,
+      };
+    }
+    case "map":
+      return {
+        ...question,
+        type: nextType,
+        options: null,
+        correctIds: [],
+        map: question.map ?? { ...DEFAULT_MAP, target: { ...DEFAULT_MAP.target } },
+        // tolerance carries over (may be null — UI defaults to 5 visually)
+        imageUrl: null,
+      };
+    default: {
+      // Exhaustiveness check — unreachable for the current QUESTION_TYPES.
+      const _exhaustive: never = nextType;
+      return _exhaustive;
+    }
+  }
 }
 
 /**

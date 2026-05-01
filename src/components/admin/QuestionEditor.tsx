@@ -8,13 +8,10 @@ import {
   QUESTION_TYPE_LABELS,
   type QuestionType,
 } from "@/src/lib/constants";
-import type {
-  QuestionMap,
-  QuestionOption,
-} from "@/src/lib/supabase/database.types";
+import type { QuestionOption } from "@/src/lib/supabase/database.types";
 
 import {
-  SCAFFOLDED_OPTIONS,
+  normalizeQuestionForType,
   type EditableQuestion,
 } from "@/src/lib/admin/quiz-editor";
 
@@ -23,11 +20,6 @@ interface QuestionEditorProps {
   onChange: (next: EditableQuestion) => void;
   onDelete?: () => void;
 }
-
-const TRUE_FALSE_OPTIONS: QuestionOption[] = [
-  { id: "yes", text: "נכון" },
-  { id: "no", text: "לא נכון" },
-];
 
 /**
  * The shared editor for a single question. Used by both the desktop
@@ -46,48 +38,13 @@ export function QuestionEditor({
 
   const handleTypeChange = useCallback(
     (nextType: QuestionType) => {
-      if (nextType === question.type) return;
-
-      let options: QuestionOption[] | null = question.options ?? null;
-      let correctIds: string[] = question.correctIds ?? [];
-      let map: QuestionMap | null = question.map ?? null;
-
-      if (
-        nextType === "single" ||
-        nextType === "multi" ||
-        nextType === "image"
-      ) {
-        if (!options || options.length === 0) {
-          options = [...SCAFFOLDED_OPTIONS];
-        }
-      } else if (nextType === "truefalse") {
-        options = [...TRUE_FALSE_OPTIONS];
-        correctIds = correctIds.filter((id) =>
-          TRUE_FALSE_OPTIONS.some((o) => o.id === id),
-        );
-      } else if (nextType === "map") {
-        options = null;
-        correctIds = [];
-        map = map ?? {
-          image_url: "",
-          target: { x: 50, y: 50 },
-        };
-      }
-
-      // single → only one correct allowed
-      if (nextType === "single" && correctIds.length > 1) {
-        correctIds = correctIds.slice(0, 1);
-      }
-
-      update({ type: nextType, options, correctIds, map });
+      // Wave-2 review M3 — delegate to a pure normalizer that strips
+      // every field that does not belong to `nextType`. This prevents
+      // stale `map` / `tolerance` / `imageUrl` / `correctIds` rows from
+      // riding along to the API on a type switch.
+      onChange(normalizeQuestionForType(question, nextType));
     },
-    [
-      question.type,
-      question.options,
-      question.correctIds,
-      question.map,
-      update,
-    ],
+    [onChange, question],
   );
 
   const toggleCorrect = useCallback(
