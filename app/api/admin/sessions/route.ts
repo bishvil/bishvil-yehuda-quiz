@@ -44,6 +44,7 @@ interface AdminSessionErrorBody {
   error:
     | "INVALID_REQUEST"
     | "QUIZ_NOT_FOUND"
+    | "QUIZ_HAS_NO_QUESTIONS"
     | "PIN_GENERATION_FAILED"
     | "WRITE_FAILED";
   message: string;
@@ -127,6 +128,36 @@ export async function POST(request: NextRequest) {
     return privateNoStoreJson<AdminSessionErrorBody>(
       { error: "QUIZ_NOT_FOUND", message: "Quiz is archived." },
       { status: 404 },
+    );
+  }
+
+  // ADR-0004 §"Allowed transitions" requires `draft → scheduled` to have at
+  // least one authored question. Wave-2 review M2 — the editor blocks empty
+  // launch but the sessions page did not, so guard at the API too.
+  const { count: questionCount, error: questionCountError } = await serviceSupabase
+    .from("questions")
+    .select("id", { count: "exact", head: true })
+    .eq("quiz_id", quiz.id);
+
+  if (questionCountError) {
+    writeLog({
+      level: "error",
+      message: "Question count lookup failed",
+      context: { error: questionCountError.message },
+    });
+    return privateNoStoreJson<AdminSessionErrorBody>(
+      { error: "WRITE_FAILED", message: "Could not verify quiz contents." },
+      { status: 500 },
+    );
+  }
+
+  if ((questionCount ?? 0) === 0) {
+    return privateNoStoreJson<AdminSessionErrorBody>(
+      {
+        error: "QUIZ_HAS_NO_QUESTIONS",
+        message: "Add at least one question before launching a session.",
+      },
+      { status: 400 },
     );
   }
 

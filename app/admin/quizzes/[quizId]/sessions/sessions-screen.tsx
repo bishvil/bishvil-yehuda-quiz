@@ -9,6 +9,7 @@ import {
   createAdminSession,
   getAdminQuiz,
   isAdminApiError,
+  listAdminQuestions,
   listAdminSessions,
   type AdminQuizDetail,
   type AdminSessionListRow,
@@ -29,6 +30,7 @@ const STATUS_TONE: Record<AdminSessionListRow["status"], string> = {
 export function SessionsScreen({ quizId }: { quizId: string }) {
   const [quiz, setQuiz] = useState<AdminQuizDetail | null>(null);
   const [sessions, setSessions] = useState<AdminSessionListRow[]>([]);
+  const [questionCount, setQuestionCount] = useState<number | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -39,9 +41,10 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     let cancelled = false;
     void (async () => {
       setStatus((prev) => (prev === "ready" ? prev : "loading"));
-      const [quizBody, sessionsBody] = await Promise.all([
+      const [quizBody, sessionsBody, questionsBody] = await Promise.all([
         getAdminQuiz(quizId),
         listAdminSessions(quizId),
+        listAdminQuestions(quizId),
       ]);
       if (cancelled) return;
       if (isAdminApiError(quizBody)) {
@@ -54,8 +57,14 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
         setErrorMessage(sessionsBody.message);
         return;
       }
+      if (isAdminApiError(questionsBody)) {
+        setStatus("error");
+        setErrorMessage(questionsBody.message);
+        return;
+      }
       setQuiz(quizBody.quiz);
       setSessions(sessionsBody.sessions);
+      setQuestionCount(questionsBody.questions.length);
       setStatus("ready");
     })();
     return () => {
@@ -63,7 +72,19 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     };
   }, [quizId]);
 
+  // ADR-0004 `draft → scheduled` requires at least one authored question.
+  // The API also enforces this (Wave-2 review M2) — disabling here keeps
+  // the affordance honest and matches the editor's launch button behavior.
+  const hasQuestions = (questionCount ?? 0) > 0;
+  const launchDisabled = launching || status !== "ready" || !hasQuestions;
+  const emptyQuizMessage =
+    "אי אפשר להפעיל חידון בלי תחנות — הוסיפו לפחות תחנה אחת בעורך.";
+
   const handleLaunch = useCallback(async () => {
+    if (!hasQuestions) {
+      setErrorMessage(emptyQuizMessage);
+      return;
+    }
     setLaunching(true);
     setErrorMessage(null);
     const body = await createAdminSession({ quizId });
@@ -86,7 +107,7 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
       },
       ...prev,
     ]);
-  }, [quizId]);
+  }, [quizId, hasQuestions]);
 
   return (
     <>
@@ -100,7 +121,7 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
           <PrimaryButton
             onClick={handleLaunch}
             withArrow
-            disabled={launching || status !== "ready"}
+            disabled={launchDisabled}
             data-testid="admin-create-session"
           >
             {launching ? "מפעיל…" : "הפעלת חידון"}
@@ -114,11 +135,31 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
         </div>
       ) : null}
 
+      {status === "ready" && !hasQuestions ? (
+        <div
+          className="mx-4 mt-3 rounded-md border border-bsy-warn/40 bg-bsy-warn/10 px-4 py-2 text-[13px] text-bsy-warn md:mx-6"
+          data-testid="admin-no-questions-warning"
+          role="status"
+        >
+          {emptyQuizMessage}{" "}
+          <Link
+            href={`/admin/quizzes/${quizId}`}
+            className="font-bold underline"
+          >
+            פתח עורך
+          </Link>
+        </div>
+      ) : null}
+
       <section className="flex-1 px-4 py-6 md:px-8">
         {status === "loading" ? (
           <div className="text-bsy-stone-700">טוען…</div>
         ) : sessions.length === 0 ? (
-          <EmptyState onLaunch={handleLaunch} launching={launching} />
+          <EmptyState
+            onLaunch={handleLaunch}
+            launching={launching}
+            hasQuestions={hasQuestions}
+          />
         ) : (
           <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {sessions.map((session) => (
@@ -136,9 +177,11 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
 function EmptyState({
   onLaunch,
   launching,
+  hasQuestions,
 }: {
   onLaunch: () => void;
   launching: boolean;
+  hasQuestions: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-4 rounded-md border border-dashed border-bsy-stone-200 bg-white px-6 py-16 text-center">
@@ -148,7 +191,11 @@ function EmptyState({
       <p className="text-[13px] text-bsy-stone-700">
         ההפעלה תיצור קוד הצטרפות ותעביר את החידון למצב “מתוזמן”.
       </p>
-      <PrimaryButton onClick={onLaunch} withArrow disabled={launching}>
+      <PrimaryButton
+        onClick={onLaunch}
+        withArrow
+        disabled={launching || !hasQuestions}
+      >
         {launching ? "מפעיל…" : "הפעלת חידון"}
       </PrimaryButton>
     </div>
