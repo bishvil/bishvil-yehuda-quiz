@@ -135,7 +135,7 @@ export function AdminImageUploadControl({
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
-      const file = files?.item(0);
+      const file = files?.[0] ?? files?.item(0);
       if (!file) return;
       void uploadFile(file);
       if (inputRef.current) inputRef.current.value = "";
