@@ -95,14 +95,29 @@ export async function POST(
   }
 
   try {
-    // Negate all ordinals to avoid UNIQUE constraint collision
-    const { error: negateError } = await serviceSupabase
+    // Negate all existing ordinals to avoid UNIQUE constraint collision.
+    // Fetch current ordinals first so we can map them to unique negatives.
+    const { data: currentQuestions, error: fetchCurrentError } = await serviceSupabase
       .from("questions")
-      .update({ ordinal: -1 })
+      .select("id, ordinal")
       .eq("quiz_id", quizId);
 
-    if (negateError) {
-      throw new Error(`Negate step failed: ${negateError.message}`);
+    if (fetchCurrentError || !currentQuestions) {
+      throw new Error("Failed to fetch current questions");
+    }
+
+    // Update each question with a unique negative ordinal (-(current+1))
+    for (const row of currentQuestions) {
+      const negOrdinal = -(row.ordinal + 1000); // Use offset to ensure unique negatives
+      const { error: negError } = await serviceSupabase
+        .from("questions")
+        .update({ ordinal: negOrdinal })
+        .eq("id", row.id)
+        .eq("quiz_id", quizId);
+
+      if (negError) {
+        throw new Error(`Negate step failed for ${row.id}: ${negError.message}`);
+      }
     }
 
     // Update each question to its final positive ordinal
