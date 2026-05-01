@@ -182,6 +182,12 @@ h6 {
   }
 }
 
+/* === Typography utility classes =========================================== */
+/* font-display: applies the brand display face (BA Hamossad) */
+.font-display { font-family: var(--font-display); }
+/* font-hand: applies the hand/accent face (BA Hamossad → Suez One fallback) */
+.font-hand { font-family: var(--font-hand); }
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
