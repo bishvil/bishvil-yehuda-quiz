@@ -74,8 +74,19 @@ export interface AdminQuizDetailResponse {
   quiz: AdminQuizDetail;
 }
 
-export interface AdminQuizUpdateRequest extends Partial<AdminQuizCreateRequest> {
+/**
+ * Update payload deliberately differs from create on the nullable logo
+ * fields. Wave-2 review M1 — the editor must be able to send explicit
+ * `null` to clear `customLogo` / `customLogoLabel` (omitting them leaves
+ * the previously-saved value in place because the PUT route only writes
+ * keys that are `!== undefined`). Create stays string-only because there
+ * is nothing to clear at construction time.
+ */
+export interface AdminQuizUpdateRequest
+  extends Partial<Omit<AdminQuizCreateRequest, "customLogo" | "customLogoLabel">> {
   archivedAt?: string | null;
+  customLogo?: string | null;
+  customLogoLabel?: string | null;
 }
 
 export interface AdminQuizDeleteResponse {

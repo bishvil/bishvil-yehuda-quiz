@@ -22,6 +22,7 @@ import {
   type AdminQuestionListItem,
 } from "@/src/lib/admin/api-client";
 import {
+  buildQuizSavePayload,
   makeBlankQuestion,
   nextClientId,
   type EditableQuestion,
@@ -108,17 +109,12 @@ export function QuizEditorScreen({ quizId }: Props) {
   }, [quizId]);
 
   // ---- Auto-save: quiz metadata ---------------------------------------
+  // See `buildQuizSavePayload` for the payload shape rationale (Wave-2
+  // review M1: brand changes were dropped and nullable logo fields could
+  // not be cleared because the previous closure spread truthy-only).
   const saveQuiz = useCallback(async (next: EditableQuiz | null) => {
     if (!next) return;
-    const body = await updateAdminQuiz(next.id, {
-      title: next.title,
-      defaultGameMode: next.defaultGameMode,
-      ...(next.customLogo ? { customLogo: next.customLogo } : {}),
-      ...(next.customLogoLabel
-        ? { customLogoLabel: next.customLogoLabel }
-        : {}),
-      joinFields: next.joinFields,
-    });
+    const body = await updateAdminQuiz(next.id, buildQuizSavePayload(next));
     if (isAdminApiError(body)) {
       throw new Error(body.message);
     }

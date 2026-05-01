@@ -22,8 +22,17 @@ export const adminQuizCreateSchema = z.object({
   joinFields: joinFieldsSchema.optional(),
 });
 
+/**
+ * Update schema deliberately diverges from create on the nullable logo
+ * fields. Wave-2 review M1: clearing `customLogo` / `customLogoLabel` from
+ * the editor must persist as `null`, so the PUT body has to accept
+ * `null` (not just omit-or-string). Create stays strict because there is
+ * no nothing-to-clear at construction time.
+ */
 export const adminQuizUpdateSchema = adminQuizCreateSchema.partial().extend({
   archivedAt: z.string().datetime().nullable().optional(),
+  customLogo: z.string().url().nullable().optional(),
+  customLogoLabel: z.string().min(1).nullable().optional(),
 });
 
 const optionSchema = z.object({

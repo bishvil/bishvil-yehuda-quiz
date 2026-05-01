@@ -149,3 +149,39 @@ export function isQuizTitleValid(title: string): boolean {
   const trimmed = title.trim();
   return trimmed.length > 0 && trimmed.length <= QUIZ_TITLE_MAX;
 }
+
+/**
+ * Shape of the auto-save PUT body for `/api/admin/quizzes/[id]`.
+ * Mirrors `AdminQuizUpdateRequest` in `src/lib/admin/api-client.ts` but is
+ * declared locally so this module stays pure (no Next.js / fetch imports)
+ * and the unit tests can exercise it without polyfilling globals.
+ */
+export interface QuizSavePayload {
+  brandId: string;
+  title: string;
+  defaultGameMode: GameMode;
+  customLogo: string | null;
+  customLogoLabel: string | null;
+  joinFields: string[];
+}
+
+/**
+ * Build the auto-save payload for a quiz edit. Wave-2 review M1 — the
+ * previous closure (a) dropped `brandId` entirely so brand changes never
+ * persisted, and (b) only sent `customLogo` / `customLogoLabel` when
+ * truthy, so unchecking the toggle or clearing the label updated local
+ * state but never cleared the database value. We always send `brandId`
+ * and forward explicit `null` for the nullable logo fields so the PUT
+ * route writes the cleared value (the route already maps
+ * `parsed.data.customLogo !== undefined` → `update.custom_logo`).
+ */
+export function buildQuizSavePayload(quiz: EditableQuiz): QuizSavePayload {
+  return {
+    brandId: quiz.brandId,
+    title: quiz.title,
+    defaultGameMode: quiz.defaultGameMode,
+    customLogo: quiz.customLogo,
+    customLogoLabel: quiz.customLogoLabel,
+    joinFields: quiz.joinFields,
+  };
+}
