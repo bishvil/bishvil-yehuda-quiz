@@ -140,6 +140,15 @@ export interface AdminQuestionDeleteResponse {
   status: "deleted";
 }
 
+export interface AdminQuestionReorderRequest {
+  ordinals: Array<{ id: string; ordinal: number }>;
+}
+
+export interface AdminQuestionReorderResponse {
+  status: "reordered";
+  count: number;
+}
+
 // ---------- Sessions -----------------------------------------------------
 
 export interface AdminSessionCreateRequest {
@@ -332,6 +341,18 @@ export function deleteAdminQuestion(quizId: string, questionId: string) {
     "DELETE",
   );
 }
+
+export function reorderAdminQuestions(
+  quizId: string,
+  body: AdminQuestionReorderRequest,
+) {
+  return bodyJson<AdminQuestionReorderResponse>(
+    `/api/admin/quizzes/${encodeURIComponent(quizId)}/questions/reorder`,
+    "POST",
+    body as unknown as Json,
+  );
+}
+
 
 // ---------- Sessions -----------------------------------------------------
 

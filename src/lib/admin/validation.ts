@@ -93,6 +93,15 @@ export const adminQuestionCreateSchema = z.object({
 
 export const adminQuestionUpdateSchema = adminQuestionCreateSchema.partial();
 
+export const adminQuestionReorderSchema = z.object({
+  ordinals: z.array(
+    z.object({
+      id: z.string().uuid(),
+      ordinal: z.number().int().min(1),
+    }),
+  ),
+});
+
 export const adminSessionCreateSchema = z.object({
   quizId: z.string().uuid(),
   hostUserId: z.string().uuid().optional(),
@@ -103,4 +112,5 @@ export type AdminQuizCreate = z.infer<typeof adminQuizCreateSchema>;
 export type AdminQuizUpdate = z.infer<typeof adminQuizUpdateSchema>;
 export type AdminQuestionCreate = z.infer<typeof adminQuestionCreateSchema>;
 export type AdminQuestionUpdate = z.infer<typeof adminQuestionUpdateSchema>;
+export type AdminQuestionReorder = z.infer<typeof adminQuestionReorderSchema>;
 export type AdminSessionCreate = z.infer<typeof adminSessionCreateSchema>;

@@ -5,6 +5,7 @@ import {
   type ParticipantBrand,
 } from "@/src/lib/participant/brands";
 
+import { AdminMobileNav } from "./AdminMobileNav";
 import { AdminSidebar } from "./AdminSidebar";
 
 interface AdminShellProps {
@@ -22,13 +23,20 @@ export function AdminShell({
   brand = DEFAULT_PARTICIPANT_BRAND,
 }: AdminShellProps) {
   return (
-    <div className="flex min-h-screen w-full bg-bsy-paper">
-      <AdminSidebar
+    <div className="flex min-h-screen w-full bg-bsy-paper flex-col">
+      <AdminMobileNav
         brandName={brand.name}
         brandTagline={brand.tagline}
         brandLogoUrl={brand.logoUrl}
       />
-      <main className="flex min-h-screen flex-1 flex-col">{children}</main>
+      <div className="flex flex-1 min-h-screen w-full">
+        <AdminSidebar
+          brandName={brand.name}
+          brandTagline={brand.tagline}
+          brandLogoUrl={brand.logoUrl}
+        />
+        <main className="flex min-h-screen flex-1 flex-col">{children}</main>
+      </div>
     </div>
   );
 }
