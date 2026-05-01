@@ -223,9 +223,29 @@ export function HostScreen({
   const isMapQuestion = question?.type === "map";
   const hasOptions = !isMapQuestion && Array.isArray(question?.options);
 
+  const banner = lifecycleBanner({
+    sessionStatus,
+    questionStatus,
+    remainingSeconds: countdown.remainingSeconds,
+  });
+
   return (
     <main className="flex min-h-screen flex-col bg-bsy-paper">
       <HostHeader {...headerProps} />
+
+      {banner ? (
+        <p
+          dir="rtl"
+          role="status"
+          data-testid="host-lifecycle-banner"
+          className={[
+            "mx-4 mt-3 rounded-md border px-4 py-2 text-[13px] md:mx-6",
+            banner.tone,
+          ].join(" ")}
+        >
+          {banner.message}
+        </p>
+      ) : null}
 
       {/* Desktop projector layout */}
       <div className="hidden flex-1 flex-col px-6 pb-6 pt-4 md:flex">
@@ -569,6 +589,63 @@ function TabButton({ active, onClick, children }: TabButtonProps) {
       {children}
     </button>
   );
+}
+
+interface LifecycleBannerArgs {
+  sessionStatus: "draft" | "scheduled" | "live" | "paused" | "ended";
+  questionStatus: QuestionStatusEnum | null;
+  remainingSeconds: number;
+}
+
+interface LifecycleBanner {
+  message: string;
+  tone: string;
+}
+
+/**
+ * One-sentence Hebrew status banner for the host live screen — subtask D §3.
+ * The control bar already shows the next action; this banner gives the host
+ * an at-a-glance read of the current lifecycle state and (when a question is
+ * open) the seconds remaining.
+ */
+function lifecycleBanner({
+  sessionStatus,
+  questionStatus,
+  remainingSeconds,
+}: LifecycleBannerArgs): LifecycleBanner | null {
+  if (sessionStatus === "scheduled" || sessionStatus === "draft") {
+    return {
+      message:
+        "החידון מתוכנן. עדיין ניתן לקבל משתתפים. לחצו ׳התחל׳ כשתהיו מוכנים.",
+      tone: "border-bsy-stone-100 bg-bsy-paper-warm text-bsy-stone-700",
+    };
+  }
+  if (sessionStatus === "paused") {
+    return {
+      message: "החידון מושהה. לחצו ׳המשך׳ להמשיך.",
+      tone: "border-bsy-warn/40 bg-bsy-warn/10 text-bsy-warn",
+    };
+  }
+  if (sessionStatus === "ended") {
+    return {
+      message: "החידון הסתיים.",
+      tone: "border-bsy-stone-100 bg-bsy-stone-50 text-bsy-stone-700",
+    };
+  }
+  if (sessionStatus === "live") {
+    if (questionStatus === "answering") {
+      const safe = Math.max(0, Math.round(remainingSeconds));
+      return {
+        message: `השאלה הנוכחית פעילה. ${safe} שניות נותרו.`,
+        tone: "border-bsy-lime/40 bg-bsy-lime/15 text-bsy-forest",
+      };
+    }
+    return {
+      message: "החידון פעיל. ממתינים לשאלה הבאה.",
+      tone: "border-bsy-lime/40 bg-bsy-lime/15 text-bsy-forest",
+    };
+  }
+  return null;
 }
 
 function translateHostError(code: string): string {
