@@ -87,10 +87,10 @@ describe("JoinScreen", () => {
     );
   });
 
-  it("shows an unavailable banner when the current session state blocks joining", () => {
-    renderJoinScreen({ sessionStatus: "paused" });
+  it("shows an unavailable banner when the session has ended", () => {
+    renderJoinScreen({ sessionStatus: "ended" });
 
-    expect(screen.getByRole("status")).toHaveTextContent("אינו זמין");
+    expect(screen.getByRole("status")).toHaveTextContent("הסתיים");
     expect(
       screen.getByRole("button", { name: /הצטרפות לחידון/ }),
     ).toBeDisabled();

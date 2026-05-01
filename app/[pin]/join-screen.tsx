@@ -50,10 +50,8 @@ export function JoinScreen({
     phone.trim().length >= 6 &&
     firstName.trim().length > 0 &&
     lastName.trim().length > 0;
-  const sessionUnavailable =
-    sessionStatus !== "scheduled" && sessionStatus !== "live";
-  const canSubmit =
-    codeFilled && requiredFilled && !submitting && !sessionUnavailable;
+  const sessionUnavailable = sessionStatus === "ended";
+  const canSubmit = codeFilled && requiredFilled && !submitting;
   const statusBanner =
     sessionStatus === "ended"
       ? {
@@ -207,7 +205,7 @@ export function JoinScreen({
               variant="primary"
               block
               withArrow
-              disabled={!canSubmit}
+              disabled={!canSubmit || sessionUnavailable}
               onClick={handleSubmit}
               type="button"
             >
