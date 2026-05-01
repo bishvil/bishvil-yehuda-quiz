@@ -46,7 +46,7 @@ export default async function HostHomePage() {
       email={email}
       sessions={sessions}
       isAdmin={role === "admin"}
-      signOutHref={null}
+      signOutHref="/api/auth/signout"
     />
   );
 }
