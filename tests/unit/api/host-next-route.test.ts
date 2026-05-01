@@ -72,7 +72,7 @@ async function seedCurrentQuestionState(
     insert into public.quizzes (owner_id, brand_id, title, default_game_mode)
     values (
       '22222222-2222-4222-8222-222222222222'::uuid,
-      'default',
+      'yehuda',
       'Host next isolated quiz',
       'sync'
     )
