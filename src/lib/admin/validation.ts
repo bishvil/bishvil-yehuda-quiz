@@ -41,13 +41,41 @@ const optionSchema = z.object({
   image_url: z.string().url().optional(),
 });
 
-const mapSchema = z.object({
+/** Legacy %-based map (raster background image). */
+const mapLegacySchema = z.object({
   image_url: z.string().url(),
   target: z.object({
     x: z.number().min(0).max(100),
     y: z.number().min(0).max(100),
   }),
+  geo: z.never().optional(),
 });
+
+/** Geographic map (ADR-0011 §6.1) — additive new path. */
+const mapGeoSchema = z.object({
+  geo: z.object({
+    target: z.object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+    }),
+    center: z
+      .object({
+        lat: z.number().min(-90).max(90),
+        lng: z.number().min(-180).max(180),
+      })
+      .optional(),
+    zoom: z.number().min(1).max(18).optional(),
+    toleranceKm: z.number().min(0.05).max(500),
+    styleHint: z
+      .enum(["maptiler-streets", "israel-hiking", "osm-liberty"])
+      .optional(),
+  }),
+  // Legacy keys MUST be absent on a geo question — exclusivity guard.
+  image_url: z.never().optional(),
+  target: z.never().optional(),
+});
+
+const mapSchema = z.union([mapLegacySchema, mapGeoSchema]);
 
 export const adminQuestionCreateSchema = z.object({
   ordinal: z.number().int().min(1),

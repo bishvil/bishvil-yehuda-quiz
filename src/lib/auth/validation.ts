@@ -26,9 +26,19 @@ export const mapAnswerSchema = z.object({
   }),
 });
 
+/** Geographic-pin variant — additive new path (ADR-0011 §5). */
+export const mapGeoAnswerSchema = z.object({
+  questionId: z.string().uuid(),
+  pin: z.object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+  }),
+});
+
 export const submitAnswerRequestSchema = z.union([
   choiceAnswerSchema,
   mapAnswerSchema,
+  mapGeoAnswerSchema,
 ]);
 
 export type ParticipantJoinRequest = z.infer<typeof participantJoinRequestSchema>;

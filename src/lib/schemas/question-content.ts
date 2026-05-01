@@ -10,16 +10,61 @@ export const storedQuestionOptionSchema = z.object({
 
 export const storedQuestionOptionsSchema = z.array(storedQuestionOptionSchema);
 
+/** Legacy %-based map shape — see ADR-0011 §6.1. Retained for back-compat. */
+const storedQuestionMapLegacyTargetSchema = z.object({
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+});
+
+/** Geographic target — additive new path (ADR-0011 §6.1). */
+const storedQuestionMapGeoTargetSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
+/** Optional camera default — same lat/lng range as the target. */
+const storedQuestionMapGeoCenterSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
+const storedQuestionMapStyleHintSchema = z.enum([
+  "maptiler-streets",
+  "israel-hiking",
+  "osm-liberty",
+]);
+
+const storedQuestionMapGeoSchema = z.object({
+  target: storedQuestionMapGeoTargetSchema,
+  center: storedQuestionMapGeoCenterSchema.optional(),
+  zoom: z.number().min(1).max(18).optional(),
+  toleranceKm: z.number().min(0.05).max(500),
+  styleHint: storedQuestionMapStyleHintSchema.optional(),
+});
+
+/**
+ * Additive map shape — both blocks are optional individually, but the
+ * surrounding `validateStoredQuestionContent` call enforces that at least
+ * one of legacy `image_url + target` OR `geo` is fully populated for a
+ * `type === 'map'` question (ADR-0011 §6.1).
+ */
 export const storedQuestionMapSchema = z.object({
-  image_url: z.string().min(1),
-  target: z.object({
-    x: z.number().min(0).max(100),
-    y: z.number().min(0).max(100),
-  }),
+  image_url: z.string().min(1).optional(),
+  target: storedQuestionMapLegacyTargetSchema.optional(),
+  geo: storedQuestionMapGeoSchema.optional(),
 });
 
 export type StoredQuestionOption = z.infer<typeof storedQuestionOptionSchema>;
 export type StoredQuestionMap = z.infer<typeof storedQuestionMapSchema>;
+export type StoredQuestionMapGeo = z.infer<typeof storedQuestionMapGeoSchema>;
+
+export function isLegacyMap(map: StoredQuestionMap): boolean {
+  return Boolean(map.image_url && map.target);
+}
+
+export function isGeoMap(map: StoredQuestionMap): boolean {
+  return Boolean(map.geo);
+}
 
 export interface StoredQuestionContentIssue {
   path: Array<string | number>;
@@ -100,11 +145,20 @@ export function validateStoredQuestionContent(args: {
     });
   }
 
-  if (args.type === "map" && (!map.success || !map.data)) {
-    issues.push({
-      path: ["map"],
-      message: "Map questions must have a valid image and target.",
-    });
+  if (args.type === "map") {
+    const data = map.success ? map.data : null;
+    if (!data) {
+      issues.push({
+        path: ["map"],
+        message: "Map questions must have a valid map block.",
+      });
+    } else if (!isLegacyMap(data) && !isGeoMap(data)) {
+      issues.push({
+        path: ["map"],
+        message:
+          "Map questions must declare either a legacy image_url + target or a geo block (ADR-0011 §6.1).",
+      });
+    }
   }
 
   if (issues.length > 0) {

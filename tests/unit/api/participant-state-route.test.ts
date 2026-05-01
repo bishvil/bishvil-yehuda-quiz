@@ -161,12 +161,16 @@ describe("GET /api/participant/[pin]/state", () => {
       participantId: fixtures.participantId,
     });
 
+    // Malformation: target coordinates out of the 0..100 range. Passes the
+    // db-level `questions_map_payload_present_check` (both `image_url` and
+    // `target` keys present) but trips the application-level Zod
+    // validator. The DB-level CHECK was added in ADR-0011 §6.
     await sql`
       update public.questions
       set type = 'map',
           options = null,
           correct_ids = null,
-          map = ${sql.json({ image_url: "/broken-map.jpg" })},
+          map = ${sql.json({ image_url: "/broken-map.jpg", target: { x: 999, y: 999 } })},
           tolerance = 5
       where id = ${fixtures.questionId}::uuid
     `;

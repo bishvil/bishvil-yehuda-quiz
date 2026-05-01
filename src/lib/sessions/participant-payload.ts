@@ -30,10 +30,27 @@ export interface ParticipantQuestionPayload {
   prompt: string;
   options: Array<{ id: string; text: string; image_url?: string }> | null;
   imageUrl: string | null;
-  /** Map images are public; the correct target lives in the reveal payload. */
-  map: { image_url: string } | null;
+  /**
+   * Map metadata — only the public-safe slice. The correct target lives
+   * in the reveal payload (ADR-0008 §2). For legacy raster questions the
+   * `image_url` key is set; for geographic questions the `geo` key is
+   * set with `center`, `zoom`, `toleranceKm`, and `styleHint` only — the
+   * `target` is intentionally absent.
+   */
+  map:
+    | { image_url: string; geo?: never }
+    | {
+        image_url?: never;
+        geo: {
+          center?: { lat: number; lng: number };
+          zoom?: number;
+          toleranceKm: number;
+          styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+        };
+      }
+    | null;
   timeSeconds: number;
-  /** Map question tolerance (% radius) for client-side reveal-ring sizing. */
+  /** Legacy map question tolerance (% radius) for raster reveal-ring sizing. */
   tolerance: number | null;
   status: QuestionStatusEnum | AsyncQuestionStatusEnum;
   startedAt: string | null;
@@ -56,9 +73,17 @@ export interface ParticipantAnswerPayload {
 export interface ParticipantQuestionRevealPayload {
   correctIds: string[] | null;
   explanation: string | null;
-  /** Correct target for map questions — only set on reveal. ADR-0008 §2
-   *  parity with correct_ids: the target is the correct answer. */
+  /**
+   * Correct target for map questions — only set on reveal (ADR-0008 §2
+   * parity with `correct_ids`: the target is the correct answer).
+   *
+   * `mapTarget` is the legacy `{x,y}` percent-of-image target (raster
+   * questions). `mapGeoTarget` is the additive `{lat,lng}` geographic
+   * target (ADR-0011). Exactly one of the two is set per revealed
+   * question; both are null for non-map questions.
+   */
   mapTarget: { x: number; y: number } | null;
+  mapGeoTarget: { lat: number; lng: number } | null;
 }
 
 export interface ParticipantStateResponse {
@@ -74,7 +99,15 @@ export function extractMapTarget(
 ): { x: number; y: number } | null {
   const parsed = parseStoredQuestionMap(map);
   if (!parsed.success || !parsed.data) return null;
-  return parsed.data.target;
+  return parsed.data.target ?? null;
+}
+
+export function extractMapGeoTarget(
+  map: QuestionRow["map"] | null,
+): { lat: number; lng: number } | null {
+  const parsed = parseStoredQuestionMap(map);
+  if (!parsed.success || !parsed.data || !parsed.data.geo) return null;
+  return parsed.data.geo.target;
 }
 
 type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
@@ -115,9 +148,25 @@ export function buildParticipantQuestionPayload(args: {
     image_url: option.image_url,
   })) ?? null;
 
-  const mapPayload = parsedContent.data.map
-    ? { image_url: parsedContent.data.map.image_url }
-    : null;
+  const mapPayload = (() => {
+    const parsedMap = parsedContent.data.map;
+    if (!parsedMap) return null;
+    if (parsedMap.geo) {
+      // Strip `target` per ADR-0008 §2 — it lives in the reveal payload.
+      return {
+        geo: {
+          center: parsedMap.geo.center,
+          zoom: parsedMap.geo.zoom,
+          toleranceKm: parsedMap.geo.toleranceKm,
+          styleHint: parsedMap.geo.styleHint,
+        },
+      } as const;
+    }
+    if (parsedMap.image_url) {
+      return { image_url: parsedMap.image_url } as const;
+    }
+    return null;
+  })();
 
   const toleranceValue = args.question.tolerance
     ? Number.parseFloat(args.question.tolerance)

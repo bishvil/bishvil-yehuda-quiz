@@ -156,15 +156,35 @@ export async function POST(
   }
 
   const submittedAtDate = new Date();
-  const { data: submitResult, error: submitError } = await serviceSupabase
-    .rpc("submit_answer", {
+
+  // ADR-0011 §5: branch on the pin shape. Geo pins have `{lat,lng}`; legacy
+  // raster pins have `{x,y}`. The RPC signature accepts both pairs and
+  // routes scoring on the basis of which pair is non-null.
+  const rpcArgs = (() => {
+    const base = {
       p_session_id: session.id,
       p_participant_id: participantId,
       p_question_id: submission.questionId,
-      p_selected_ids: "selectedIds" in submission ? submission.selectedIds : null,
-      p_pin_x: "pin" in submission ? submission.pin.x : null,
-      p_pin_y: "pin" in submission ? submission.pin.y : null,
-    })
+      p_selected_ids: null as string[] | null,
+      p_pin_x: null as number | null,
+      p_pin_y: null as number | null,
+      p_pin_lat: null as number | null,
+      p_pin_lng: null as number | null,
+    };
+    if ("selectedIds" in submission) {
+      base.p_selected_ids = submission.selectedIds;
+    } else if ("lat" in submission.pin) {
+      base.p_pin_lat = submission.pin.lat;
+      base.p_pin_lng = submission.pin.lng;
+    } else {
+      base.p_pin_x = submission.pin.x;
+      base.p_pin_y = submission.pin.y;
+    }
+    return base;
+  })();
+
+  const { data: submitResult, error: submitError } = await serviceSupabase
+    .rpc("submit_answer", rpcArgs)
     .maybeSingle();
 
   if (submitError || !submitResult) {

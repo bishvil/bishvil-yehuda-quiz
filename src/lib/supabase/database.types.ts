@@ -167,6 +167,10 @@ export interface Database {
           selected_ids: string[] | null;
           pin_x: string | null;
           pin_y: string | null;
+          /** ADR-0011 §6.3 — geographic pin (degrees). */
+          pin_lat: string | null;
+          /** ADR-0011 §6.3 — geographic pin (degrees). */
+          pin_lng: string | null;
           is_correct: boolean;
           time_bonus: number;
           score: number;
@@ -180,6 +184,8 @@ export interface Database {
           selected_ids?: string[] | null;
           pin_x?: string | null;
           pin_y?: string | null;
+          pin_lat?: string | null;
+          pin_lng?: string | null;
           is_correct: boolean;
           time_bonus?: number;
           score?: number;
@@ -266,6 +272,10 @@ export interface Database {
           p_selected_ids?: string[] | null;
           p_pin_x?: number | null;
           p_pin_y?: number | null;
+          /** ADR-0011 §5 — geographic pin (degrees, WGS-84). */
+          p_pin_lat?: number | null;
+          /** ADR-0011 §5 — geographic pin (degrees, WGS-84). */
+          p_pin_lng?: number | null;
         };
         Returns: Array<{
           result_status: string;
@@ -278,6 +288,8 @@ export interface Database {
           selected_ids: string[] | null;
           pin_x: string | null;
           pin_y: string | null;
+          pin_lat: string | null;
+          pin_lng: string | null;
           is_correct: boolean | null;
           time_bonus: number | null;
           score: number | null;
