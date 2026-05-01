@@ -4,7 +4,7 @@ import LoginForm from "./login-form";
 
 /**
  * Login page — Hebrew/RTL sign-in for host and admin users.
- * Two-segment (מארח / מנהל) form wired to existing API routes.
+ * Single form wired to the role-agnostic signin route.
  * Thin server wrapper; LoginForm is the client island.
  */
 export default function LoginPage() {

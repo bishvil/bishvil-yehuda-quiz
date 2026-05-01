@@ -3,30 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Segment = "host" | "admin";
+type SignInRole = "host" | "admin";
 
-const SEGMENTS: { id: Segment; label: string }[] = [
-  { id: "host", label: "מארח" },
-  { id: "admin", label: "מנהל" },
-];
-
-const API_ROUTES: Record<Segment, string> = {
-  host: "/api/auth/host/signin",
-  admin: "/api/auth/admin/signin",
-};
-
-const SUCCESS_ROUTES: Record<Segment, string> = {
+const SUCCESS_ROUTES: Record<SignInRole, string> = {
   host: "/host",
   admin: "/admin/quizzes",
 };
 
 const ERROR_MESSAGES: Record<number, string> = {
+  400: "נא למלא את כל השדות כנדרש",
   401: "כתובת אימייל או סיסמה שגויים",
   422: "נא למלא את כל השדות כנדרש",
 };
 
 export default function LoginForm() {
-  const [segment, setSegment] = useState<Segment>("host");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,14 +31,20 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      const res = await fetch(API_ROUTES[segment], {
+      const res = await fetch("/api/auth/signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       if (res.ok) {
-        router.push(SUCCESS_ROUTES[segment]);
+        const body = (await res.json()) as { role?: SignInRole };
+        if (body.role === "host" || body.role === "admin") {
+          router.push(SUCCESS_ROUTES[body.role]);
+          return;
+        }
+
+        setError("אירעה שגיאה בכניסה — אנא נסו שוב");
         return;
       }
 
@@ -68,62 +64,6 @@ export default function LoginForm() {
       className="w-full"
       style={{ maxWidth: "420px", margin: "0 auto" }}
     >
-      {/* Segmented control */}
-      <div
-        role="group"
-        aria-label="סוג משתמש"
-        className="flex mb-8"
-        style={{
-          borderRadius: "var(--radius-pill)",
-          border: "2px solid var(--bsy-stone-200)",
-          padding: "3px",
-          background: "var(--bsy-stone-50)",
-        }}
-      >
-        {SEGMENTS.map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => {
-              setSegment(id);
-              setError(null);
-            }}
-            aria-pressed={segment === id}
-            style={{
-              flex: 1,
-              borderRadius: "999px",
-              border: "none",
-              /* Explicit min-height for 44 px touch target on mobile */
-              minHeight: "44px",
-              padding: "0.55rem 1rem",
-              fontSize: "1rem",
-              fontWeight: segment === id ? 700 : 500,
-              cursor: "pointer",
-              /* Literal values — CSS custom-property refs in inline transition
-                 shorthand are unreliable on iOS Safari */
-              transition: "background 220ms ease-out, color 220ms ease-out",
-              background:
-                segment === id
-                  ? "var(--bsy-green-forest)"
-                  : "transparent",
-              color:
-                segment === id
-                  ? "var(--bsy-paper)"
-                  : "var(--bsy-stone-700)",
-              /* iOS: reset native button chrome that can swallow taps */
-              WebkitAppearance: "none",
-              appearance: "none",
-              /* Prevent 300 ms tap delay + double-tap zoom on mobile */
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              userSelect: "none",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       {/* Sign-in form */}
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
         {/* Email field */}
@@ -254,7 +194,7 @@ export default function LoginForm() {
             width: "100%",
           }}
         >
-          {loading ? "נכנס..." : `כניסה כ${segment === "host" ? "מארח" : "מנהל"}`}
+          {loading ? "נכנס..." : "כניסה"}
         </button>
       </form>
     </div>
