@@ -9,7 +9,10 @@ import { JoinFormField } from "@/src/components/participant/JoinFormField";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import type { ParticipantBrand } from "@/src/lib/participant/brands";
 import { joinSession } from "@/src/lib/participant/api-client";
-import { PARTICIPANT_PIN_LENGTH } from "@/src/lib/participant/pin";
+import {
+  isValidParticipantPin,
+  PARTICIPANT_PIN_LENGTH,
+} from "@/src/lib/participant/pin";
 
 const TEAM_OPTIONS = ["צוות א׳", "צוות ב׳", "צוות ג׳", "צוות ד׳"] as const;
 
@@ -31,7 +34,9 @@ export function JoinScreen({
   sessionStatus,
 }: JoinScreenProps) {
   const router = useRouter();
-  const [code, setCode] = useState(pin);
+  const [code, setCode] = useState(() =>
+    isValidParticipantPin(pin) ? pin : "",
+  );
   const [phone, setPhone] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -45,8 +50,21 @@ export function JoinScreen({
     phone.trim().length >= 6 &&
     firstName.trim().length > 0 &&
     lastName.trim().length > 0;
+  const sessionUnavailable =
+    sessionStatus !== "scheduled" && sessionStatus !== "live";
   const canSubmit = codeFilled && requiredFilled && !submitting;
-  const sessionUnavailable = sessionStatus === "ended";
+  const statusBanner =
+    sessionStatus === "ended"
+      ? {
+          copy: "החידון הסתיים. תודה שהשתתפתם.",
+          className: "border-bsy-error/30 bg-bsy-error/10 text-bsy-error",
+        }
+      : sessionUnavailable
+        ? {
+            copy: "החידון אינו זמין כעת. נסו שוב מאוחר יותר או פנו למארח.",
+            className: "border-bsy-warn/40 bg-bsy-warn/10 text-bsy-warn",
+          }
+        : null;
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -103,7 +121,24 @@ export function JoinScreen({
             <p className="mt-1 text-[12px] text-bsy-stone-400">{quizTitle}</p>
           </header>
 
-          <CodeInput value={code} onChange={setCode} autoFocus={code.length === 0} />
+          {statusBanner ? (
+            <div
+              role="status"
+              dir="rtl"
+              className={[
+                "mb-5 rounded-[var(--radius-md)] border px-4 py-3 text-sm leading-relaxed sm:px-5",
+                statusBanner.className,
+              ].join(" ")}
+            >
+              {statusBanner.copy}
+            </div>
+          ) : null}
+
+          <CodeInput
+            value={code}
+            onChange={setCode}
+            autoFocus={code.length === 0}
+          />
 
           <div className="mt-6 grid grid-cols-1 gap-0">
             <JoinFormField
@@ -163,15 +198,6 @@ export function JoinScreen({
               className="mt-2 rounded-md border border-bsy-error/30 bg-bsy-error/10 px-3 py-2 text-[13px] text-bsy-error"
             >
               {error}
-            </div>
-          ) : null}
-
-          {sessionUnavailable ? (
-            <div
-              role="status"
-              className="mt-2 rounded-md border border-bsy-stone-100 bg-bsy-paper-warm px-3 py-2 text-[13px] text-bsy-stone-700"
-            >
-              החידון הזה הסתיים. ניתן לצפות בתוצאות אצל המארגנים.
             </div>
           ) : null}
 
@@ -235,11 +261,35 @@ function translateJoinError(code: string, fallback: string): string {
 function QrGlyph() {
   return (
     <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="3" y="3" width="10" height="10" stroke="currentColor" fill="none" strokeWidth="2" />
+      <rect
+        x="3"
+        y="3"
+        width="10"
+        height="10"
+        stroke="currentColor"
+        fill="none"
+        strokeWidth="2"
+      />
       <rect x="6" y="6" width="4" height="4" fill="currentColor" />
-      <rect x="19" y="3" width="10" height="10" stroke="currentColor" fill="none" strokeWidth="2" />
+      <rect
+        x="19"
+        y="3"
+        width="10"
+        height="10"
+        stroke="currentColor"
+        fill="none"
+        strokeWidth="2"
+      />
       <rect x="22" y="6" width="4" height="4" fill="currentColor" />
-      <rect x="3" y="19" width="10" height="10" stroke="currentColor" fill="none" strokeWidth="2" />
+      <rect
+        x="3"
+        y="19"
+        width="10"
+        height="10"
+        stroke="currentColor"
+        fill="none"
+        strokeWidth="2"
+      />
       <rect x="6" y="22" width="4" height="4" fill="currentColor" />
       <rect x="17" y="17" width="4" height="4" fill="currentColor" />
       <rect x="23" y="17" width="3" height="3" fill="currentColor" />
