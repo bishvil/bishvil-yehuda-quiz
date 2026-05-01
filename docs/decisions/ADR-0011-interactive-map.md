@@ -78,33 +78,45 @@ Rationale:
 requires an API key). The key is a **public** browser-exposed value and lives
 in `NEXT_PUBLIC_MAPTILER_KEY`.
 
-**Tile source — fallbacks (no key):**
+**Tile source — fallbacks:**
 
-1. **Israel Hiking Map raster tiles** (`https://israelhiking.osm.org.il/Hebrew/Tiles/{z}/{x}/{y}.png`)
+1. **MapLibre demotiles** (`https://demotiles.maplibre.org/style.json`) — the
+   actual no-key default. Public vector tiles hosted by the MapLibre project,
+   no API key, no signup. This is what `InteractiveMap` falls back to when
+   `NEXT_PUBLIC_MAPTILER_KEY` is unset. Labels are sparse outside major
+   cities; suitable for dev visual verification but not for production.
+2. **Israel Hiking Map raster tiles** (`https://israelhiking.osm.org.il/Hebrew/Tiles/{z}/{x}/{y}.png`)
    — Hebrew labels native to the source. Attribution required:
-   `מפת הטיולים של ישראל © OpenStreetMap`.
-2. **OSM Liberty** (`https://maputnik.github.io/osm-liberty/style.json`) —
-   used only as a last-resort fallback; labels render in local script for the
-   region (Hebrew in IL most of the time, but inconsistent at admin
-   boundaries) so the RTL plugin still matters.
+   `מפת הטיולים של ישראל © OpenStreetMap`. Opted in via
+   `map.geo.styleHint = "israel-hiking"` and overlaid as a `RasterSource`
+   on top of the demotiles base.
+3. **OSM Liberty (MapTiler-hosted)** — labels in local script (Hebrew in IL).
+   Available via `map.geo.styleHint = "osm-liberty"` ONLY when a MapTiler
+   key is configured. The maputnik.github.io OSM Liberty style is NOT used as
+   a no-key fallback because its `tiles.json` endpoint 403s without a
+   MapTiler key (verified during this subtask's visual verification).
 
-Selection logic in `InteractiveMap`:
+Selection logic in `InteractiveMap` (`resolveStyleUrl`):
 
 ```ts
-function resolveStyleUrl(): string {
-  const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-  if (key) {
-    return `https://api.maptiler.com/maps/streets-v2/style.json?key=${key}`;
-  }
-  // No key configured — fall back to the OSM-Liberty hosted style.
-  return "https://maputnik.github.io/osm-liberty/style.json";
+const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+
+if (styleHint === "osm-liberty" && key) {
+  return `https://api.maptiler.com/maps/openstreetmap/style.json?key=${key}`;
 }
+if (styleHint === "israel-hiking") {
+  // Demotiles base; consumer overlays raster source + layer in children.
+  return "https://demotiles.maplibre.org/style.json";
+}
+if (key) {
+  return `https://api.maptiler.com/maps/streets-v2/style.json?key=${key}`;
+}
+return "https://demotiles.maplibre.org/style.json";
 ```
 
-The Israel-Hiking raster fallback is constructed inline as a `RasterSource`
-when a question explicitly opts in via `map.geo.styleHint = "israel-hiking"`.
-It is not the default fallback because raster tiles render less crisply at
-high zooms than vector tiles.
+For full Hebrew label coverage in production, deploy a MapTiler key. The
+demotiles fallback exists so the dev environment renders cleanly without
+provisioning a key.
 
 ### 2. Hebrew / RTL
 
