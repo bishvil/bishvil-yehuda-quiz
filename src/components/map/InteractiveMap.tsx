@@ -45,6 +45,7 @@ import {
   type MapRef,
   type ViewStateChangeEvent,
 } from "react-map-gl/maplibre";
+import type { StyleSpecification } from "maplibre-gl";
 import type { Feature, FeatureCollection, LineString } from "geojson";
 
 /** ADR-0011 §3 default IL viewport. */
@@ -69,41 +70,80 @@ export const MAP_RTL_TEXT_PLUGIN_URL =
   "https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.js";
 
 /**
- * Resolve the MapLibre style URL.
+ * Resolve the MapLibre style for a given hint.
  *
  * Per ADR-0011 §1, MapTiler is the primary tile source via a public env
- * var. Without a key we fall back to MapLibre's official public demotiles
- * style — no key required, hosted by the MapLibre project, suitable for
- * dev and short-term outage fallback. The OSM Liberty hosted style at
- * `maputnik.github.io` is NOT used as a no-key fallback because its
- * `tiles.json` endpoint 403s without a MapTiler key (verified during
- * Wave 3 visual verification).
+ * var. Without a key each hint falls back to a DISTINCT free public style
+ * so that the style-switch UI is meaningful even in development:
+ *
+ *   maptiler-streets  → OpenFreeMap Liberty   (vector, no key needed)
+ *   osm-liberty       → OpenFreeMap Positron  (vector, no key needed)
+ *   israel-hiking     → OpenTopoMap raster    (inline StyleSpecification)
+ *
+ * For `israel-hiking` the return value is a full StyleSpecification object
+ * so that no external JSON fetch is required and the raster tiles are
+ * served directly — callers must accept `string | StyleSpecification`.
+ */
+export function resolveStyle(
+  styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty",
+): string | StyleSpecification {
+  const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+
+  if (styleHint === "israel-hiking") {
+    // Inline raster style — no key required. Uses OpenTopoMap tiles which
+    // include topographic detail and Hebrew-readable place names.
+    const israelHikingStyle: StyleSpecification = {
+      version: 8,
+      sources: {
+        "opentopomap-raster": {
+          type: "raster",
+          tiles: ["https://tile.opentopomap.org/{z}/{x}/{y}.png"],
+          tileSize: 256,
+          attribution:
+            '© <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA) © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+          maxzoom: 17,
+        },
+      },
+      layers: [
+        {
+          id: "opentopomap-layer",
+          type: "raster",
+          source: "opentopomap-raster",
+          minzoom: 0,
+          maxzoom: 22,
+        },
+      ],
+    };
+    return israelHikingStyle;
+  }
+
+  if (styleHint === "osm-liberty") {
+    if (key) {
+      return `https://api.maptiler.com/maps/openstreetmap/style.json?key=${encodeURIComponent(key)}`;
+    }
+    // Free fallback: OpenFreeMap Positron — visually distinct from Liberty.
+    return "https://tiles.openfreemap.org/styles/positron";
+  }
+
+  // Default / maptiler-streets
+  if (key) {
+    return `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(key)}`;
+  }
+  // Free fallback: OpenFreeMap Liberty — no key required.
+  return "https://tiles.openfreemap.org/styles/liberty";
+}
+
+/**
+ * @deprecated Use `resolveStyle` which returns `string | StyleSpecification`.
+ * This shim exists only for callers that still expect a plain string URL.
  */
 export function resolveStyleUrl(
   styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty",
 ): string {
-  if (styleHint === "osm-liberty") {
-    // OSM Liberty requires a MapTiler key transitively — only honour
-    // this hint when the env var is configured.
-    const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-    if (key) {
-      return `https://api.maptiler.com/maps/openstreetmap/style.json?key=${encodeURIComponent(key)}`;
-    }
-    return "https://demotiles.maplibre.org/style.json";
-  }
-  if (styleHint === "israel-hiking") {
-    // Raster style — handled inline by the consumer via Source/Layer.
-    // The base style is the MapLibre demotiles vector style with the
-    // raster tiles overlaid in `children`.
-    return "https://demotiles.maplibre.org/style.json";
-  }
-  const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-  if (key) {
-    return `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(key)}`;
-  }
-  // No key configured — render MapLibre's public demotiles style. Hebrew
-  // labels rely on the RTL plugin (set via the `RTLTextPlugin` prop
-  // below). For full Hebrew label coverage, deploy a MapTiler key.
+  const result = resolveStyle(styleHint);
+  if (typeof result === "string") return result;
+  // israel-hiking inline style — fall back to demotiles string for
+  // legacy callers that cannot handle an object.
   return "https://demotiles.maplibre.org/style.json";
 }
 
@@ -146,6 +186,12 @@ export interface InteractiveMapProps {
   onMove?: (view: MapViewState) => void;
   /** Set true if the consumer wants to read the underlying MapLibre instance. */
   exposeRef?: boolean;
+  /**
+   * When true and `NEXT_PUBLIC_MAPTILER_KEY` is absent, a Hebrew warning
+   * banner is shown above the map prompting the admin to configure the key.
+   * Should only be passed as `true` from admin surfaces.
+   */
+  isAdmin?: boolean;
 }
 
 export interface InteractiveMapHandle {
@@ -197,7 +243,10 @@ const InteractiveMapImpl = forwardRef<InteractiveMapHandle, InteractiveMapProps>
       return { longitude: lng, latitude: center, zoom };
     }, [props.initialView?.latitude, props.initialView?.longitude, props.initialView?.zoom]);
 
-    const styleUrl = useMemo(() => resolveStyleUrl(props.styleHint), [props.styleHint]);
+    const mapStyle = useMemo(() => resolveStyle(props.styleHint), [props.styleHint]);
+
+    const showMaptilerWarning =
+      props.isAdmin === true && !process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
     const handleClick = useCallback(
       (event: MapLayerMouseEvent) => {
@@ -217,19 +266,36 @@ const InteractiveMapImpl = forwardRef<InteractiveMapHandle, InteractiveMapProps>
     );
 
     return (
-      <Map
-        ref={mapRef}
-        reuseMaps
-        initialViewState={initialViewState}
-        mapStyle={styleUrl}
-        RTLTextPlugin={MAP_RTL_TEXT_PLUGIN_URL}
-        dragRotate={false}
-        attributionControl={{ compact: true }}
-        onClick={handleClick}
-        onMove={props.onMove ? handleMove : undefined}
-        style={{ width: "100%", height: "100%", ...props.style }}
-        aria-label={props.ariaLabel}
-      >
+      <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", ...props.style }}>
+        {showMaptilerWarning ? (
+          <div
+            role="alert"
+            dir="rtl"
+            style={{
+              backgroundColor: "#fef9c3",
+              borderBottom: "1px solid #fde047",
+              padding: "6px 12px",
+              fontSize: 12,
+              color: "#713f12",
+              flexShrink: 0,
+            }}
+          >
+            מפת לוויין מקוצרת — הוסף NEXT_PUBLIC_MAPTILER_KEY לקבלת איכות מלאה
+          </div>
+        ) : null}
+        <Map
+          ref={mapRef}
+          reuseMaps
+          initialViewState={initialViewState}
+          mapStyle={mapStyle}
+          RTLTextPlugin={MAP_RTL_TEXT_PLUGIN_URL}
+          dragRotate={false}
+          attributionControl={{ compact: true }}
+          onClick={handleClick}
+          onMove={props.onMove ? handleMove : undefined}
+          style={{ width: "100%", flex: 1 }}
+          aria-label={props.ariaLabel}
+        >
         {props.showNavigation !== false ? (
           <NavigationControl position="top-left" showCompass={false} />
         ) : null}
@@ -271,6 +337,7 @@ const InteractiveMapImpl = forwardRef<InteractiveMapHandle, InteractiveMapProps>
           </Source>
         ) : null}
       </Map>
+      </div>
     );
   },
 );

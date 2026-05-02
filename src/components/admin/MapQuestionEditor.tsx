@@ -166,6 +166,7 @@ export function MapQuestionEditor({
           styleHint={draft.styleHint}
           onMapClick={handlePlace}
           onMove={setView}
+          isAdmin
           markers={[
             {
               key: "target",
