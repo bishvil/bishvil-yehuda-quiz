@@ -299,7 +299,9 @@ export function HostScreen({
               {isMapQuestion ? (
                 <HostMapSummary
                   imageUrl={question.map?.image_url ?? null}
+                  geo={question.map?.geo ?? null}
                   target={state.reveal?.mapTarget ?? null}
+                  geoTarget={state.reveal?.mapGeoTarget ?? null}
                   toleranceRadiusPercent={question.tolerance}
                   isRevealed={showRevealedHighlight}
                 />
@@ -398,7 +400,9 @@ export function HostScreen({
                 {isMapQuestion ? (
                   <HostMapSummary
                     imageUrl={question.map?.image_url ?? null}
+                    geo={question.map?.geo ?? null}
                     target={state.reveal?.mapTarget ?? null}
+                    geoTarget={state.reveal?.mapGeoTarget ?? null}
                     toleranceRadiusPercent={question.tolerance}
                     isRevealed={showRevealedHighlight}
                   />

@@ -27,8 +27,23 @@ export interface HostLiveQuestion {
   /** Options carry only id + text + optional image — never `correct_ids`. */
   options: Array<{ id: string; text: string; image_url?: string }> | null;
   imageUrl: string | null;
-  /** Map carries only the background image — `target` is reveal-gated below. */
-  map: { image_url: string } | null;
+  /**
+   * Map content — either a legacy image OR a geo block. `target` (legacy
+   * percent coords) and `geo.target` (lat/lng) are reveal-gated below and
+   * never ship here.
+   */
+  map:
+    | { image_url: string; geo?: undefined }
+    | {
+        image_url?: undefined;
+        geo: {
+          center?: { lat: number; lng: number };
+          zoom?: number;
+          toleranceKm: number;
+          styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+        };
+      }
+    | null;
   timeSeconds: number;
   tolerance: number | null;
   status: QuestionStatusEnum;
@@ -39,6 +54,7 @@ export interface HostLiveQuestion {
 export interface HostLiveReveal {
   correctIds: string[] | null;
   mapTarget: { x: number; y: number } | null;
+  mapGeoTarget: { lat: number; lng: number } | null;
   explanation: string | null;
 }
 
@@ -69,8 +85,15 @@ interface RawQuestionOption {
 }
 
 interface RawQuestionMap {
-  image_url: string;
+  image_url?: string;
   target?: { x: number; y: number };
+  geo?: {
+    center?: { lat: number; lng: number };
+    zoom?: number;
+    toleranceKm: number;
+    styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+    target?: { lat: number; lng: number };
+  };
 }
 
 /**
@@ -138,6 +161,24 @@ export async function GET(
         ? Number.parseFloat(question.tolerance)
         : null;
 
+      const mapPayload: HostLiveQuestion["map"] = (() => {
+        if (!rawMap) return null;
+        if (rawMap.geo) {
+          return {
+            geo: {
+              center: rawMap.geo.center,
+              zoom: rawMap.geo.zoom,
+              toleranceKm: rawMap.geo.toleranceKm,
+              styleHint: rawMap.geo.styleHint,
+            },
+          };
+        }
+        if (rawMap.image_url) {
+          return { image_url: rawMap.image_url };
+        }
+        return null;
+      })();
+
       questionPayload = {
         id: question.id,
         ordinal: question.ordinal,
@@ -146,7 +187,7 @@ export async function GET(
         options: optionsArray,
         imageUrl: question.image_url,
         // Always strip target — it lives inside reveal only.
-        map: rawMap ? { image_url: rawMap.image_url } : null,
+        map: mapPayload,
         timeSeconds: question.time_seconds,
         tolerance:
           toleranceValue !== null && Number.isFinite(toleranceValue)
@@ -158,6 +199,7 @@ export async function GET(
       };
 
       if (questionPayload.status === "revealed") {
+        const geoTarget = rawMap?.geo?.target;
         revealPayload = {
           correctIds: question.correct_ids ?? null,
           mapTarget:
@@ -165,6 +207,12 @@ export async function GET(
             typeof rawMap.target.x === "number" &&
             typeof rawMap.target.y === "number"
               ? { x: rawMap.target.x, y: rawMap.target.y }
+              : null,
+          mapGeoTarget:
+            geoTarget &&
+            typeof geoTarget.lat === "number" &&
+            typeof geoTarget.lng === "number"
+              ? { lat: geoTarget.lat, lng: geoTarget.lng }
               : null,
           explanation: question.explanation,
         };

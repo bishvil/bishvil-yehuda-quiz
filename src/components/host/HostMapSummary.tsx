@@ -1,23 +1,48 @@
+"use client";
+
+import dynamic from "next/dynamic";
+
+import type { InteractiveMarker } from "@/src/components/map/InteractiveMap";
+
+const InteractiveMap = dynamic(
+  () => import("@/src/components/map/InteractiveMap").then((m) => m.InteractiveMap),
+  { ssr: false },
+);
+
+interface HostMapSummaryGeoMeta {
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  toleranceKm: number;
+  styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+}
+
 interface HostMapSummaryProps {
+  /** Legacy raster image URL — null for geo questions. */
   imageUrl: string | null;
-  /** Reveal-only target coordinates (% of image, 0-100). */
+  /** Geo block — null for legacy raster questions. */
+  geo: HostMapSummaryGeoMeta | null;
+  /** Reveal-only legacy target coordinates (% of image, 0-100). */
   target: { x: number; y: number } | null;
+  /** Reveal-only geo target coordinates (lat/lng). */
+  geoTarget: { lat: number; lng: number } | null;
   toleranceRadiusPercent: number | null;
   isRevealed: boolean;
 }
 
-/**
- * Map-question summary for the host. Pre-reveal we only show the bare map +
- * an explanatory line; per ADR-0008 §2 the target coords MUST NOT ship to
- * any client until the question is revealed. Post-reveal we draw the
- * target dot and the tolerance ring.
- */
 export function HostMapSummary({
   imageUrl,
+  geo,
   target,
+  geoTarget,
   toleranceRadiusPercent,
   isRevealed,
 }: HostMapSummaryProps) {
+  if (geo) {
+    return (
+      <GeoMapSummary geo={geo} geoTarget={geoTarget} isRevealed={isRevealed} />
+    );
+  }
+
   if (!imageUrl) {
     return (
       <div className="rounded-md border border-bsy-error/30 bg-bsy-error/10 p-3 text-center text-sm text-bsy-error">
@@ -31,7 +56,6 @@ export function HostMapSummary({
   return (
     <div className="rounded-md border border-bsy-stone-100 bg-white p-3">
       <div className="relative aspect-[16/10] w-full overflow-hidden rounded-md bg-bsy-paper-warm">
-        {/* Generic external map asset — eslint-disable-next-line @next/next/no-img-element */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
@@ -68,6 +92,51 @@ export function HostMapSummary({
         {isRevealed
           ? "התשובה הנכונה נחשפה — הסימון מציג את היעד ואת רדיוס הסובלנות."
           : "לחיצה על ׳חשיפת התשובה׳ תציג את היעד והסובלנות לכל המשתתפים."}
+      </p>
+    </div>
+  );
+}
+
+function GeoMapSummary({
+  geo,
+  geoTarget,
+  isRevealed,
+}: {
+  geo: HostMapSummaryGeoMeta;
+  geoTarget: { lat: number; lng: number } | null;
+  isRevealed: boolean;
+}) {
+  const markers: InteractiveMarker[] =
+    isRevealed && geoTarget
+      ? [
+          {
+            key: "host-target",
+            position: geoTarget,
+            color: "#1f5135",
+            ariaLabel: "המיקום הנכון",
+          },
+        ]
+      : [];
+
+  return (
+    <div className="rounded-md border border-bsy-stone-100 bg-white p-3">
+      <div className="relative h-[280px] w-full overflow-hidden rounded-md">
+        <InteractiveMap
+          initialView={{
+            latitude: geo.center?.lat,
+            longitude: geo.center?.lng,
+            zoom: geo.zoom,
+          }}
+          styleHint={geo.styleHint}
+          markers={markers}
+          disabled
+          ariaLabel="מפת שאלה — תצוגת מארח"
+        />
+      </div>
+      <p className="mt-2 text-center text-[12px] text-bsy-stone-700">
+        {isRevealed
+          ? `הסימון נחשף — סובלנות ${geo.toleranceKm} ק״מ.`
+          : `שאלת מפה גיאוגרפית. סובלנות: ${geo.toleranceKm} ק״מ. לחיצה על ׳חשיפת התשובה׳ תציג את היעד.`}
       </p>
     </div>
   );
