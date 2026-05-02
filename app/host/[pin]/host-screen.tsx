@@ -50,7 +50,7 @@ export function HostScreen({
   const [error, setError] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("live");
 
-  const { state, refetch } = useHostState({ pin });
+  const { state, status: loadStatus, error: loadError, refetch } = useHostState({ pin });
 
   const question = state?.question ?? null;
 
@@ -199,6 +199,35 @@ export function HostScreen({
   }, [busy, pin, refetch]);
 
   if (!state) {
+    if (loadStatus === "error") {
+      return (
+        <main
+          dir="rtl"
+          className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bsy-paper px-4 text-center"
+        >
+          <p
+            role="alert"
+            className="text-[11px] font-bold uppercase tracking-[0.16em] text-bsy-forest"
+          >
+            שגיאה בטעינה
+          </p>
+          <h2 className="m-0 font-[var(--font-display)] text-[24px] text-bsy-brown">
+            לא ניתן לטעון את לוח המדריך
+          </h2>
+          {loadError ? (
+            <p className="max-w-xs text-[13px] text-bsy-stone-700">{loadError}</p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="mt-2 rounded-full bg-bsy-forest px-5 py-2 text-[14px] font-bold text-bsy-paper transition-opacity hover:opacity-90"
+          >
+            נסה שוב
+          </button>
+        </main>
+      );
+    }
+
     return (
       <main className="flex min-h-screen items-center justify-center bg-bsy-paper">
         <p className="text-sm text-bsy-stone-700">טוען לוח מדריך…</p>
