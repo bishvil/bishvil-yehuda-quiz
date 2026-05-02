@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
     const pin = generateRandomPin();
     const insert: Database["public"]["Tables"]["sessions"]["Insert"] = {
       quiz_id: quiz.id,
-      host_id: parsed.data.hostUserId ?? null,
+      host_id: parsed.data.hostUserId ?? auth.claims.userId,
       pin,
       status: "scheduled",
       game_mode: gameMode,

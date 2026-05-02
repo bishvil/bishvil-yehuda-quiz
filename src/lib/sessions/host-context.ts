@@ -46,7 +46,8 @@ export async function loadHostContext(
     };
   }
 
-  if (!session.host_id || session.host_id !== auth.claims.userId) {
+  const isAdmin = auth.claims.role === "admin";
+  if (!isAdmin && (!session.host_id || session.host_id !== auth.claims.userId)) {
     return {
       ok: false,
       response: forbiddenJson("This host does not control this session."),
