@@ -10,6 +10,7 @@ import {
   createAdminQuiz,
   isAdminApiError,
   listAdminQuizzes,
+  unarchiveAdminQuiz,
   type AdminQuizListItem,
 } from "@/src/lib/admin/api-client";
 import { GAME_MODE_LABELS } from "@/src/lib/constants";
@@ -88,6 +89,19 @@ export function QuizListScreen() {
     );
   }, []);
 
+  const handleUnarchive = useCallback(async (quizId: string) => {
+    const body = await unarchiveAdminQuiz(quizId);
+    if (isAdminApiError(body)) {
+      setErrorMessage(body.message);
+      return;
+    }
+    setQuizzes((prev) =>
+      prev.map((q) =>
+        q.id === quizId ? { ...q, archivedAt: null } : q,
+      ),
+    );
+  }, []);
+
   const visible = showArchived
     ? quizzes
     : quizzes.filter((q) => q.archivedAt === null);
@@ -138,6 +152,7 @@ export function QuizListScreen() {
                 <QuizCard
                   quiz={quiz}
                   onArchive={() => handleArchive(quiz.id)}
+                  onUnarchive={() => handleUnarchive(quiz.id)}
                 />
               </li>
             ))}
@@ -188,9 +203,11 @@ function EmptyState({
 function QuizCard({
   quiz,
   onArchive,
+  onUnarchive,
 }: {
   quiz: AdminQuizListItem;
   onArchive: () => void;
+  onUnarchive: () => void;
 }) {
   const archived = quiz.archivedAt !== null;
   return (
@@ -198,7 +215,7 @@ function QuizCard({
       className={[
         "flex h-full flex-col justify-between rounded-md border bg-white p-4 shadow-[var(--shadow-xs)] transition-colors",
         archived
-          ? "border-bsy-stone-100 opacity-70"
+          ? "border-bsy-stone-100 opacity-60"
           : "border-bsy-stone-100 hover:border-bsy-forest",
       ].join(" ")}
       data-testid="admin-quiz-card"
@@ -206,7 +223,11 @@ function QuizCard({
       <div>
         <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-bsy-stone-400">
           <span>{GAME_MODE_LABELS[quiz.defaultGameMode]}</span>
-          {archived ? <span className="text-bsy-warn">· מאורכב</span> : null}
+          {archived ? (
+            <span className="rounded bg-bsy-stone-100 px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-bsy-stone-500">
+              בארכיון
+            </span>
+          ) : null}
         </div>
         <h3 className="font-[var(--font-display)] text-xl text-bsy-brown">
           {quiz.title}
@@ -233,7 +254,15 @@ function QuizCard({
           >
             משחקים
           </Link>
-          {!archived ? (
+          {archived ? (
+            <button
+              type="button"
+              onClick={onUnarchive}
+              className="text-[12px] text-bsy-forest hover:underline"
+            >
+              שחזר
+            </button>
+          ) : (
             <button
               type="button"
               onClick={onArchive}
@@ -241,7 +270,7 @@ function QuizCard({
             >
               ארכוב
             </button>
-          ) : null}
+          )}
         </div>
       </div>
     </article>

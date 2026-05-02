@@ -94,6 +94,11 @@ export interface AdminQuizDeleteResponse {
   archivedAt: string;
 }
 
+export interface AdminQuizUnarchiveResponse {
+  status: "active";
+  archivedAt: null;
+}
+
 // ---------- Questions ----------------------------------------------------
 
 export interface AdminQuestionListItem {
@@ -301,6 +306,13 @@ export function archiveAdminQuiz(quizId: string) {
   return bodyJson<AdminQuizDeleteResponse>(
     `/api/admin/quizzes/${encodeURIComponent(quizId)}`,
     "DELETE",
+  );
+}
+
+export function unarchiveAdminQuiz(quizId: string) {
+  return bodyJson<AdminQuizUnarchiveResponse>(
+    `/api/admin/quizzes/${encodeURIComponent(quizId)}/unarchive`,
+    "POST",
   );
 }
 
