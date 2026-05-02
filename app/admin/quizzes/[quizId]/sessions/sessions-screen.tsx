@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AdminTopBar } from "@/src/components/admin/AdminTopBar";
 import { HostStatusPill } from "@/src/components/host/HostStatusPill";
@@ -30,6 +30,7 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
+  const launchLockRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,39 +76,42 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     "אי אפשר להפעיל חידון בלי תחנות — הוסיפו לפחות תחנה אחת בעורך.";
 
   const handleLaunch = useCallback(async () => {
+    if (launchLockRef.current) return;
     if (!hasQuestions) {
       setErrorMessage(emptyQuizMessage);
       return;
     }
-    // Lifecycle clarity (subtask D §2): the user is about to flip the
-    // session from draft → scheduled and it becomes joinable by code. The
-    // confirm copy spells that out so accidental publishes are rare.
     if (typeof window !== "undefined") {
       const proceed = window.confirm(SESSION_PUBLISH_CONFIRM);
       if (!proceed) return;
     }
+    launchLockRef.current = true;
     setLaunching(true);
     setErrorMessage(null);
-    const body = await createAdminSession({ quizId });
-    setLaunching(false);
-    if (isAdminApiError(body)) {
-      setErrorMessage(body.message);
-      return;
+    try {
+      const body = await createAdminSession({ quizId });
+      if (isAdminApiError(body)) {
+        setErrorMessage(body.message);
+        return;
+      }
+      setSessions((prev) => [
+        {
+          id: body.session.id,
+          pin: body.session.pin,
+          quizId: body.session.quizId,
+          status: body.session.status,
+          gameMode: body.session.gameMode,
+          autoReveal: body.session.autoReveal,
+          startedAt: null,
+          endedAt: body.session.endedAt,
+          createdAt: body.session.createdAt,
+        },
+        ...prev,
+      ]);
+    } finally {
+      setLaunching(false);
+      launchLockRef.current = false;
     }
-    setSessions((prev) => [
-      {
-        id: body.session.id,
-        pin: body.session.pin,
-        quizId: body.session.quizId,
-        status: body.session.status,
-        gameMode: body.session.gameMode,
-        autoReveal: body.session.autoReveal,
-        startedAt: null,
-        endedAt: body.session.endedAt,
-        createdAt: body.session.createdAt,
-      },
-      ...prev,
-    ]);
   }, [quizId, hasQuestions]);
 
   return (
