@@ -147,19 +147,23 @@ export function AdminMobileNav({
         })}
 
         {/* Disabled coming soon items */}
-        <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400 mt-3 mb-1">
-          בקרוב
-        </div>
-        {DISABLED_NAV.map((item) => (
-          <span
-            key={item.href}
-            className="flex cursor-default items-center gap-2 rounded-md px-3 py-2 text-[13px] text-bsy-stone-400"
-            title="זמין בגל הבא"
-          >
-            <span aria-hidden="true">{item.glyph}</span>
-            <span>{item.label}</span>
-          </span>
-        ))}
+        {DISABLED_NAV.length > 0 ? (
+          <>
+            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400 mt-3 mb-1">
+              בקרוב
+            </div>
+            {DISABLED_NAV.map((item) => (
+              <span
+                key={item.href}
+                className="flex cursor-default items-center gap-2 rounded-md px-3 py-2 text-[13px] text-bsy-stone-400"
+                title="זמין בגל הבא"
+              >
+                <span aria-hidden="true">{item.glyph}</span>
+                <span>{item.label}</span>
+              </span>
+            ))}
+          </>
+        ) : null}
 
         {/* Settings section */}
         <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400 mt-3 mb-1">

@@ -60,10 +60,18 @@ export function AdminSidebar({
         );
       })}
 
-      <NavGroupHeading>בקרוב</NavGroupHeading>
-      {DISABLED_NAV.map((item) => (
-        <DisabledNav key={item.href} glyph={item.glyph} label={item.label} />
-      ))}
+      {DISABLED_NAV.length > 0 ? (
+        <>
+          <NavGroupHeading>בקרוב</NavGroupHeading>
+          {DISABLED_NAV.map((item) => (
+            <DisabledNav
+              key={item.href}
+              glyph={item.glyph}
+              label={item.label}
+            />
+          ))}
+        </>
+      ) : null}
 
       <NavGroupHeading>הגדרות</NavGroupHeading>
       <DisabledNav glyph="◐" label="מותג ותצוגה" />
