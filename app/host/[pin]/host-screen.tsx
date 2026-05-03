@@ -290,7 +290,7 @@ export function HostScreen({
 
       {/* Desktop projector layout */}
       <div className="hidden flex-1 flex-col px-6 pb-6 pt-4 md:flex">
-        {question ? (
+        {question && sessionStatus !== "ended" ? (
           <div className="grid flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
             <div className="flex min-h-0 flex-col gap-4">
               <HostQuestionCard
@@ -386,7 +386,7 @@ export function HostScreen({
 
         {mobileTab === "live" ? (
           <section className="flex flex-1 flex-col gap-3 px-3 py-3">
-            {question ? (
+            {question && sessionStatus !== "ended" ? (
               <>
                 <HostQuestionCard
                   type={question.type}
