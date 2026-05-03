@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { BrandBlock } from "@/src/components/participant/BrandBlock";
@@ -34,6 +34,8 @@ export function JoinScreen({
   sessionStatus,
 }: JoinScreenProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams?.get("expired") === "1";
   const [code, setCode] = useState(() =>
     isValidParticipantPin(pin) ? pin : "",
   );
@@ -63,7 +65,12 @@ export function JoinScreen({
             copy: "החידון אינו זמין כעת. נסו שוב מאוחר יותר או פנו למארח.",
             className: "border-bsy-warn/40 bg-bsy-warn/10 text-bsy-warn",
           }
-        : null;
+        : sessionExpired
+          ? {
+              copy: "החיבור לחידון אבד — אנא הצטרפו מחדש עם אותו מספר נייד כדי להמשיך.",
+              className: "border-bsy-stone-300 bg-bsy-paper-warm text-bsy-stone-700",
+            }
+          : null;
 
   async function handleSubmit() {
     if (!canSubmit) return;

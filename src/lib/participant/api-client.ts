@@ -106,15 +106,41 @@ export async function joinSession(
   return (await response.json()) as JoinResponse;
 }
 
+export type FetchParticipantStateResult =
+  | { kind: "ok"; state: ParticipantStateResponse }
+  | { kind: "not_found" }
+  | { kind: "error"; status: number; message: string };
+
 export async function fetchParticipantState(
   pin: string,
-): Promise<ParticipantStateResponse | null> {
-  const response = await fetch(
-    `/api/participant/${encodeURIComponent(pin)}/state`,
-    { cache: "no-store", credentials: "include" },
-  );
-  if (!response.ok) return null;
-  return (await response.json()) as ParticipantStateResponse;
+): Promise<FetchParticipantStateResult> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `/api/participant/${encodeURIComponent(pin)}/state`,
+      { cache: "no-store", credentials: "include" },
+    );
+  } catch (caught) {
+    return {
+      kind: "error",
+      status: 0,
+      message: caught instanceof Error ? caught.message : "Network error",
+    };
+  }
+  if (response.status === 404 || response.status === 401) {
+    return { kind: "not_found" };
+  }
+  if (!response.ok) {
+    return {
+      kind: "error",
+      status: response.status,
+      message: `Request failed (${response.status})`,
+    };
+  }
+  return {
+    kind: "ok",
+    state: (await response.json()) as ParticipantStateResponse,
+  };
 }
 
 export async function submitAnswer(

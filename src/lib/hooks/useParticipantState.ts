@@ -7,7 +7,7 @@ import type { ParticipantStateResponse } from "@/src/lib/sessions/participant-pa
 import { createBrowserSupabaseClient } from "@/src/lib/supabase/browser";
 import { PARTICIPANT_POLL_INTERVAL_MS } from "@/src/lib/constants";
 
-type FetchStatus = "idle" | "loading" | "ready" | "error";
+type FetchStatus = "idle" | "loading" | "ready" | "error" | "not_found";
 
 export interface UseParticipantStateValue {
   state: ParticipantStateResponse | null;
@@ -48,13 +48,18 @@ export function useParticipantState(args: {
     const promise = (async () => {
       try {
         setStatus((prev) => (prev === "ready" ? prev : "loading"));
-        const next = await fetchParticipantState(pin);
-        if (!next) {
-          setError("Could not load session state.");
+        const result = await fetchParticipantState(pin);
+        if (result.kind === "not_found") {
+          setError(null);
+          setStatus("not_found");
+          return;
+        }
+        if (result.kind === "error") {
+          setError(result.message);
           setStatus("error");
           return;
         }
-        setState(next);
+        setState(result.state);
         setError(null);
         setStatus("ready");
       } catch (caught) {

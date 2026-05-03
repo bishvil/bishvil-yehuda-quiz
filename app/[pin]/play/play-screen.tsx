@@ -100,6 +100,15 @@ export function PlayScreen({
     }
   }, [state, pin, router]);
 
+  // The participant cookie is missing or no participant row matches —
+  // there is nothing to retry. Send the user back to the join screen with
+  // a flag so a friendly banner can explain what happened.
+  useEffect(() => {
+    if (loadStatus === "not_found") {
+      router.replace(`/${pin}?expired=1`);
+    }
+  }, [loadStatus, pin, router]);
+
   // No question yet — wait for host (sync) or backend bootstrap (async).
   const showWaitingForHost =
     state !== null && question === null && gameMode === "sync";
