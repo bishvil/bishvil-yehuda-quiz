@@ -102,12 +102,18 @@ export function PlayScreen({
 
   // The participant cookie is missing or no participant row matches —
   // there is nothing to retry. Send the user back to the join screen with
-  // a flag so a friendly banner can explain what happened.
+  // a flag so a friendly banner can explain what happened. If we have prior
+  // evidence the session ended, prefer /result so a finished player who
+  // bounces through a 404 still lands on their score rather than the join
+  // screen (QA-18).
   useEffect(() => {
-    if (loadStatus === "not_found") {
+    if (loadStatus !== "not_found") return;
+    if (state?.session.status === "ended") {
+      router.replace(`/${pin}/result`);
+    } else {
       router.replace(`/${pin}?expired=1`);
     }
-  }, [loadStatus, pin, router]);
+  }, [loadStatus, state, pin, router]);
 
   // No question yet — wait for host (sync) or backend bootstrap (async).
   const showWaitingForHost =
