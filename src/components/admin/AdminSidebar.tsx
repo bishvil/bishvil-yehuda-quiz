@@ -74,8 +74,18 @@ export function AdminSidebar({
       ) : null}
 
       <NavGroupHeading>הגדרות</NavGroupHeading>
-      <DisabledNav glyph="◐" label="מותג ותצוגה" />
-      <DisabledNav glyph="◒" label="צוות" />
+      <SettingsLink
+        href="/admin/settings/brand"
+        glyph="◐"
+        label="מותג ותצוגה"
+        active={pathname.startsWith("/admin/settings/brand")}
+      />
+      <SettingsLink
+        href="/admin/settings/team"
+        glyph="◒"
+        label="צוות"
+        active={pathname.startsWith("/admin/settings/team")}
+      />
     </aside>
   );
 }
@@ -97,5 +107,34 @@ function DisabledNav({ glyph, label }: { glyph: string; label: string }) {
       <span aria-hidden="true">{glyph}</span>
       <span>{label}</span>
     </span>
+  );
+}
+
+function SettingsLink({
+  href,
+  glyph,
+  label,
+  active,
+}: {
+  href: string;
+  glyph: string;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href as never}
+      className={[
+        "flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-bold transition-colors",
+        active
+          ? "bg-white text-bsy-forest shadow-[var(--shadow-xs)]"
+          : "text-bsy-stone-700 hover:bg-white/60",
+      ].join(" ")}
+    >
+      <span className="text-bsy-forest" aria-hidden="true">
+        {glyph}
+      </span>
+      <span>{label}</span>
+    </Link>
   );
 }

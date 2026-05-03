@@ -169,20 +169,22 @@ export function AdminMobileNav({
         <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400 mt-3 mb-1">
           הגדרות
         </div>
-        <span
-          className="flex cursor-default items-center gap-2 rounded-md px-3 py-2 text-[13px] text-bsy-stone-400"
-          title="זמין בגל הבא"
+        <Link
+          href={"/admin/settings/brand" as never}
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-bold text-bsy-stone-700 hover:bg-white/60"
         >
           <span aria-hidden="true">◐</span>
           <span>מותג ותצוגה</span>
-        </span>
-        <span
-          className="flex cursor-default items-center gap-2 rounded-md px-3 py-2 text-[13px] text-bsy-stone-400"
-          title="זמין בגל הבא"
+        </Link>
+        <Link
+          href={"/admin/settings/team" as never}
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-bold text-bsy-stone-700 hover:bg-white/60"
         >
           <span aria-hidden="true">◒</span>
           <span>צוות</span>
-        </span>
+        </Link>
       </nav>
     </>
   );
