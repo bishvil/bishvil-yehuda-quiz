@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminTopBar } from "@/src/components/admin/AdminTopBar";
 import { HostStatusPill } from "@/src/components/host/HostStatusPill";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
+import { SharePinPopover } from "@/src/components/share/SharePinPopover";
 import {
   createAdminSession,
   getAdminQuiz,
@@ -277,6 +278,9 @@ function SessionCard({
         >
           תוצאות
         </Link>
+        <span className="ms-auto">
+          <SharePinPopover pin={session.pin} variant="compact" />
+        </span>
       </div>
     </article>
   );

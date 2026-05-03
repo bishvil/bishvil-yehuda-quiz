@@ -81,22 +81,34 @@ Done:
 - ~~C — auth role-agnostic elevation~~ (`bd5e3b9`, `c83c8dd`) — went too far, segmented control was removed; corrected by E
 - ~~D — `/host` home index + lifecycle copy + host live banner~~ (`25db08a`, `87778f5`, `7e66ea1`)
 
-Phase 2.5 (in flight, Codex-only):
-- **E** [QA-1b] — Restore segmented login (host/admin) — IN PROGRESS
-- **F** [QA-4] — Admin nav dead links + mobile drawer + host live loading-stuck UI — IN PROGRESS
-- **G** [QA-5] — Question reorder save bug (bulk endpoint w/ ordinal negation) — IN PROGRESS
+Phase 2.5 done (Codex):
+- **E** [QA-1b] — Segmented login restored (`4ef2525`) + bonus logout endpoint (`1a6c805`)
+- **F** [QA-4a] — Admin nav dead-link disable (`891a7ca`)
+- **F** [QA-4b] — Mobile nav drawer (`afdcb37`)
+- **G** [QA-5] — Bulk reorder endpoint (`591522a`) + editor wiring (`9b607db`)
+- Coordinator gate-fix for G's TS strict-index leak (`d537c7c` after history rewrite)
 
-Phase 2.5 (queued, todo):
-- **H** [QA-6] — Map style switch no-op (3 distinct free style URLs + admin warning)
-- **I** [QA-7] — Unarchive button + lifecycle copy
-- **J** [QA-8] — Lobby/host-start UX clarity
+Phase 2.5 partially done — needs follow-up:
+- **F** [QA-4c] — Host live "טוען לוח מדריך…" → real error UI: NOT COMMITTED. `useHostState` already exposes `status`/`error`; `host-screen.tsx:53` still only destructures `state, refetch`. Re-spawn under task `9e9404f3-575e-4583-97e6-7b49d9fb7531`.
+
+Phase 2.5 queued (todo):
+- **H** [QA-6] — Map style switch no-op (3 distinct free style URLs + admin warning) — task `c0245d74-ef3a-4370-ac48-85dd6cea5709`
+- **I** [QA-7] — Unarchive button + lifecycle copy — task `ca427cca-47a6-43fa-9186-fa14bda30970`
+- **J** [QA-8] — Lobby/host-start UX clarity — task `a84e8185-07bc-4f36-bb5b-49da093584cf`
+
+Repo published:
+- `https://github.com/NehoraiHadad/bishvil-yehuda-quiz` (private). Tracking `origin/main`. History was rewritten with `git filter-repo` to scrub Supabase local-dev demo JWTs from `.env.example` (force-push completed; old `d0f3d69` SHA is gone, current HEAD is `d537c7c`). Client mirror remote: TBD.
 
 After Phase 2.5:
 - Phase 2 fix-batch review (Codex)
 - Phase 2 punch item 6 — streamed CSV export
 - Phase 2 punch item 7 — per-question live preview
 - Phase 2 final review
-- Phase 3 — gated on user accounts
+- Phase 3 — gated on user accounts (cloud Supabase, Vercel link, GitHub Actions on the new remote)
+
+Backlog (filed for later):
+- Admin user-management UI (invite hosts via Supabase Admin API)
+- Build real `/admin/sessions` and `/admin/results` pages (currently disabled in nav)
 
 ## Backlog (filed for later)
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { HostStatusPill } from "@/src/components/host/HostStatusPill";
+import { SharePinPopover } from "@/src/components/share/SharePinPopover";
 import type { HostSessionRow } from "@/src/lib/sessions/host-sessions";
 
 interface HostHomeCardProps {
@@ -47,7 +48,7 @@ export function HostHomeCard({ session }: HostHomeCardProps) {
         </p>
       </div>
 
-      <div className="mt-4 flex items-center">
+      <div className="mt-4 flex items-center gap-2">
         {action.disabled ? (
           <span
             className="inline-flex cursor-not-allowed items-center rounded-full bg-bsy-stone-50 px-4 py-2 text-[13px] font-bold text-bsy-stone-400"
@@ -64,6 +65,7 @@ export function HostHomeCard({ session }: HostHomeCardProps) {
             {action.label}
           </Link>
         )}
+        <SharePinPopover pin={session.pin} variant="prominent" />
       </div>
     </article>
   );
