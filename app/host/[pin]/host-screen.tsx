@@ -54,8 +54,20 @@ export function HostScreen({
 
   const question = state?.question ?? null;
 
+  // Keep the deadline live during answering AND once locked/revealed so the
+  // timer naturally settles at 0:00 instead of resetting to the question's
+  // full duration when the status flips.
+  const countdownDeadline =
+    question &&
+    question.deadlineAt &&
+    (question.status === "answering" ||
+      question.status === "locked" ||
+      question.status === "revealed")
+      ? question.deadlineAt
+      : null;
+
   const countdown = useServerCountdown({
-    deadlineAt: question?.status === "answering" ? question.deadlineAt : null,
+    deadlineAt: countdownDeadline,
     serverNow: state?.serverNow ?? null,
     timeSeconds: question?.timeSeconds ?? 0,
   });

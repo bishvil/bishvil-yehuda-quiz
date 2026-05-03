@@ -476,11 +476,18 @@ interface TimerLaneProps {
 }
 
 function TimerLane({ question, hasSubmitted, isRevealed }: TimerLaneProps) {
+  // Keep the deadline live across answering/locked/revealed so the display
+  // settles at 0:00 instead of jumping back to the full duration when the
+  // station ends.
+  const keepDeadline =
+    !hasSubmitted &&
+    question.deadlineAt &&
+    (question.status === "answering" ||
+      question.status === "locked" ||
+      question.status === "revealed");
+
   const countdown = useServerCountdown({
-    deadlineAt:
-      question.status === "answering" && !hasSubmitted
-        ? question.deadlineAt
-        : null,
+    deadlineAt: keepDeadline ? question.deadlineAt : null,
     serverNow: question.serverNow,
     timeSeconds: question.timeSeconds,
   });

@@ -120,8 +120,16 @@ export async function POST(
       }
     }
 
-    // Update each question to its final positive ordinal
-    for (const { id, ordinal } of parsed.data.ordinals) {
+    // Force-normalize to 1..N regardless of the client-supplied ordinal
+    // values. Earlier code paths could leave huge sparse ordinals (e.g.
+    // 115160) which then surfaced in the participant UI as "תחנה 115160
+    // מתוך 6". Sorting by the client-provided ordinal preserves the
+    // requested order while collapsing the values to a clean 1..N range.
+    const normalized = [...parsed.data.ordinals]
+      .sort((a, b) => a.ordinal - b.ordinal)
+      .map((row, index) => ({ id: row.id, ordinal: index + 1 }));
+
+    for (const { id, ordinal } of normalized) {
       const { error: updateError } = await serviceSupabase
         .from("questions")
         .update({ ordinal })
@@ -135,7 +143,7 @@ export async function POST(
 
     return privateNoStoreJson<AdminQuestionReorderBody>({
       status: "reordered",
-      count: parsed.data.ordinals.length,
+      count: normalized.length,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
