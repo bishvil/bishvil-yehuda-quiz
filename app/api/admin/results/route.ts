@@ -37,13 +37,6 @@ export async function GET() {
   const auth = await requireRole("admin");
   if (!auth.ok) return auth.response;
 
-  type ParticipantRow = {
-    id: string;
-    first_name: string;
-    last_name: string;
-    total_score: number;
-  };
-
   interface EndedSessionRow {
     id: string;
     pin: string;
@@ -51,37 +44,64 @@ export async function GET() {
     ended_at: string | null;
     started_at: string | null;
     quizzes: { title: string; brand_id: string } | null;
-    participants: ParticipantRow[] | null;
+  }
+
+  interface ScoreRow {
+    session_id: string;
+    participant_id: string;
+    total_score: number;
+    session_participants: { first_name: string; last_name: string } | null;
   }
 
   const supabase = await createServiceRoleSupabaseClient();
-  const { data, error } = await supabase
+  const { data: sessionData, error: sessionError } = await supabase
     .from("sessions")
-    .select(
-      `id, pin, quiz_id, ended_at, started_at,
-       quizzes(title, brand_id),
-       participants(id, first_name, last_name, total_score)`,
-    )
+    .select("id, pin, quiz_id, ended_at, started_at, quizzes(title, brand_id)")
     .eq("status", "ended")
     .order("ended_at", { ascending: false, nullsFirst: false })
     .limit(50);
 
-  if (error) {
+  if (sessionError) {
     return privateNoStoreJson<ResultsListErrorBody>(
       { error: "READ_FAILED", message: "Failed to list ended sessions." },
       { status: 500 },
     );
   }
 
-  const rows = (data ?? []) as unknown as EndedSessionRow[];
+  const rows = (sessionData ?? []) as unknown as EndedSessionRow[];
+  const sessionIds = rows.map((r) => r.id);
+
+  // Pull `participant_scores` joined with `session_participants` for the
+  // names. Empty `in()` would match every row, so guard explicitly.
+  const scoresBySession = new Map<string, ScoreRow[]>();
+  if (sessionIds.length > 0) {
+    const { data: scoreData, error: scoreError } = await supabase
+      .from("participant_scores")
+      .select(
+        "session_id, participant_id, total_score, session_participants(first_name, last_name)",
+      )
+      .in("session_id", sessionIds);
+
+    if (scoreError) {
+      return privateNoStoreJson<ResultsListErrorBody>(
+        { error: "READ_FAILED", message: "Failed to load participant scores." },
+        { status: 500 },
+      );
+    }
+
+    const scoreRows = (scoreData ?? []) as unknown as ScoreRow[];
+    for (const row of scoreRows) {
+      const list = scoresBySession.get(row.session_id) ?? [];
+      list.push(row);
+      scoresBySession.set(row.session_id, list);
+    }
+  }
 
   const sessions: ResultsListRow[] = rows.map((row) => {
     const quiz = row.quizzes;
-    const participants = row.participants ?? [];
-    const sorted = [...participants].sort(
-      (a, b) => b.total_score - a.total_score,
-    );
-    const total = sorted.reduce((acc, p) => acc + p.total_score, 0);
+    const scores = scoresBySession.get(row.id) ?? [];
+    const sorted = [...scores].sort((a, b) => b.total_score - a.total_score);
+    const total = sorted.reduce((acc, s) => acc + s.total_score, 0);
     const averageScore =
       sorted.length > 0 ? Math.round(total / sorted.length) : 0;
 
@@ -95,10 +115,12 @@ export async function GET() {
       startedAt: row.started_at,
       participantCount: sorted.length,
       averageScore,
-      topThree: sorted.slice(0, 3).map((p) => ({
-        participantId: p.id,
-        name: `${p.first_name} ${p.last_name}`.trim(),
-        score: p.total_score,
+      topThree: sorted.slice(0, 3).map((s) => ({
+        participantId: s.participant_id,
+        name: `${s.session_participants?.first_name ?? ""} ${
+          s.session_participants?.last_name ?? ""
+        }`.trim(),
+        score: s.total_score,
       })),
     };
   });
