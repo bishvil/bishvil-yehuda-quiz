@@ -34,7 +34,12 @@ export function AdminSidebar({
           <div className="font-[var(--font-display)] text-[15px] text-bsy-brown">
             {brandName}
           </div>
-          <div className="text-[11px] text-bsy-stone-400">{brandTagline}</div>
+          <div
+            className="font-[var(--font-suez)] text-[12px]"
+            style={{ color: "var(--bsy-tan-mid)" }}
+          >
+            ״{brandTagline}״
+          </div>
         </div>
       </div>
 

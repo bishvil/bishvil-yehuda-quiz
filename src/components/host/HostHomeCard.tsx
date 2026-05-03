@@ -32,7 +32,7 @@ export function HostHomeCard({ session }: HostHomeCardProps) {
           <span className="text-[11px] text-bsy-stone-400">נוצר {created}</span>
         </div>
 
-        <h3 className="mt-3 m-0 text-[15px] font-bold text-bsy-brown">
+        <h3 className="mt-3 m-0 font-[var(--font-display)] text-[20px] leading-tight text-bsy-brown md:text-[22px]">
           {session.quizTitle}
         </h3>
 

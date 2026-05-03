@@ -1,10 +1,10 @@
 # Phase 3 Feature Pass — 2026-05-03
 
 Source: user request bundling Q&A items, bug reports, and feature gaps.
-Plan: `~/.claude/plans/there-are-a-few-flickering-music.md`.
+Plan: `~/.claude/plans/there-are-a-few-flickering-music.md` (QA-19..QA-24)
+and `~/.claude/plans/vectorized-seeking-goblet.md` (QA-25..QA-27).
 
-Tags QA-19 through QA-24 land here. QA-25 (prototype design polish) is
-deferred to a follow-up pass.
+Tags QA-19 through QA-27 all land here.
 
 ## QA-19 — Quiz editor reorder autosave error
 - Symptom: rapid drag-to-reorder produced silent `[browser] TypeError:
@@ -80,10 +80,46 @@ deferred to a follow-up pass.
   `app/api/admin/{settings/brand,team,team/invite}/route.ts`,
   `src/components/admin/{AdminSidebar,AdminMobileNav}.tsx`.
 
-## Deferred
-- **QA-25** — Prototype design polish (host dashboard chrome,
-  admin shell typography, brand pill aesthetic). Not blocking; tracked
-  as Track G in the plan.
-- **Test infrastructure** — admin route tests need a unified supabase
-  mock so the `admin-quiz-hard-delete` (and similar) tests can run
-  deterministically without a live Supabase instance.
+## QA-25 — Prototype design polish (Track G)
+- Host question card prompt scaled up for projector view
+  (`md:text-[32px] lg:text-[36px]` with tighter leading).
+- `HostHomeCard` quiz title switched to display font for warmth.
+- Mobile `HostHeader` counter rendered as a pill chip to match the
+  desktop CounterChip rhythm.
+- Admin sidebar + mobile-nav brand tagline now uses Suez One via
+  `--font-suez` with the prototype's ״…״ guillemets, in
+  `--bsy-tan-mid` — first place the hand-feel accent actually lands
+  in the shell.
+- No behavioral changes; no new tokens introduced.
+
+## QA-26 — Host assignment UI (multi-host)
+- Schema (`sessions.host_id`) and `POST /api/admin/sessions` already
+  accepted `hostUserId`, but the create-session UI never sent it, so
+  every game silently belonged to the admin who clicked "create".
+- Added a host `<select>` next to "הפעלת חידון" on the per-quiz
+  sessions screen, defaulted to the current admin and sourced from
+  `GET /api/admin/team` (now also returns `currentUserId`).
+- POST validates `hostUserId` against the team roster and returns
+  `hostId`/`hostEmail`. New `PATCH /api/admin/sessions/[id]` allows
+  re-assigning a host on `draft`/`scheduled` sessions; refuses with
+  409 once a session is `live`/`paused`/`ended`.
+- Session cards on `/admin/quizzes/[id]/sessions` and `/admin/sessions`
+  display the assigned host email; a `(אני)` suffix marks self.
+- Files: `app/api/admin/sessions/route.ts`,
+  `app/api/admin/sessions/[id]/route.ts` (new),
+  `app/api/admin/sessions/active/route.ts`,
+  `app/api/admin/team/route.ts`, `src/lib/admin/api-client.ts`,
+  `src/lib/admin/team-lookup.ts` (new),
+  `app/admin/quizzes/[quizId]/sessions/sessions-screen.tsx`,
+  `app/admin/sessions/active-sessions-screen.tsx`.
+
+## QA-27 — Admin route test infrastructure
+- `tests/unit/api/admin-quiz-hard-delete.test.ts` was `describe.skip`-ed
+  because it called `createServiceRoleSupabaseClient()` against a live
+  stack. Re-implemented with the same hoisted `vi.mock` pattern that
+  `admin-upload-routes.test.ts` already uses; the suite now runs
+  deterministically with no DB.
+- New `tests/unit/api/admin-sessions-host-assignment.test.ts` covers
+  QA-26's POST `hostUserId` happy path, the 400 INVALID_HOST guard,
+  the implicit fall-back to the current admin, the PATCH happy path,
+  and the 409 INVALID_STATE refusal once a session is live.

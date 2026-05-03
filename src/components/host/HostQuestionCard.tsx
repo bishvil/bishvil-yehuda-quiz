@@ -46,7 +46,7 @@ export function HostQuestionCard({
         </div>
       ) : null}
       {children}
-      <h3 className="m-0 font-[var(--font-display)] text-[24px] leading-snug text-bsy-brown md:text-[28px]">
+      <h3 className="m-0 font-[var(--font-display)] text-[24px] leading-tight text-bsy-brown md:text-[32px] lg:text-[36px]">
         {prompt}
       </h3>
     </div>

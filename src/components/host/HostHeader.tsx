@@ -78,8 +78,14 @@ export function HostHeader({
 
         {/* Compact counters for mobile */}
         <div className="flex items-center gap-2 text-[12px] text-bsy-stone-700 sm:hidden">
-          <span className="font-[var(--font-display)] text-bsy-brown">
-            {responseCount}/{totalPlayers}
+          <span className="inline-flex items-baseline gap-1 rounded-full border border-bsy-stone-100 bg-white px-2.5 py-0.5">
+            <span
+              className="font-[var(--font-display)] text-sm text-bsy-brown"
+              dir="ltr"
+            >
+              {responseCount}/{totalPlayers}
+            </span>
+            <span className="text-[10px] text-bsy-stone-400">ענו</span>
           </span>
         </div>
       </div>
