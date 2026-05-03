@@ -183,62 +183,6 @@ export function QuizEditorScreen({ quizId }: Props) {
   };
 
   // ---- Auto-save: questions ------------------------------------------
-  const saveQuestions = useCallback(
-    async (snapshot: EditableQuestion[]) => {
-      // Serialize against any in-flight save so rapid drags can't produce
-      // overlapping write loops that race on UNIQUE(quiz_id, ordinal).
-      // The latest snapshot supplied by `useDebouncedAutoSave.performSave`
-      // wins because it reads `valueRef.current` when its turn arrives. [QA-19]
-      const previous = questionsSaveInflightRef.current;
-      const work = (async () => {
-        if (previous) {
-          try {
-            await previous;
-          } catch {
-            // Swallow upstream failure — this attempt has its own snapshot
-            // and will surface its own error if it fails.
-          }
-        }
-        const prevSnapshot = previousSnapshotRef.current;
-
-        // Reorder-only change → use the atomic bulk endpoint instead of
-        // a serial PUT loop. The server normalizes ordinals 1..N inside a
-        // single transaction (see app/api/admin/quizzes/[id]/questions/reorder).
-        if (isOrdinalOnlyChange(prevSnapshot, snapshot)) {
-          const reorderPayload = snapshot.map((q) => ({
-            id: q.id!,
-            ordinal: q.ordinal,
-          }));
-          const result = await reorderAdminQuestions(quizId, {
-            ordinals: reorderPayload,
-          });
-          if (isAdminApiError(result)) {
-            throw new Error(result.message);
-          }
-          // Only commit the snapshot after the write succeeds, otherwise
-          // a failed save would corrupt the diff baseline for the retry.
-          previousSnapshotRef.current = snapshot;
-          return;
-        }
-
-        await runFullQuestionSave(snapshot);
-        previousSnapshotRef.current = snapshot;
-      })();
-      questionsSaveInflightRef.current = work;
-      try {
-        await work;
-      } finally {
-        if (questionsSaveInflightRef.current === work) {
-          questionsSaveInflightRef.current = null;
-        }
-      }
-    },
-    // runFullQuestionSave is declared below as a stable useCallback; quizId
-    // is the only other identifier captured.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [quizId],
-  );
-
   const runFullQuestionSave = useCallback(
     async (snapshot: EditableQuestion[]) => {
       // We need to commit each question individually. New ones get POSTed,
@@ -295,6 +239,59 @@ export function QuizEditorScreen({ quizId }: Props) {
       }
     },
     [quizId],
+  );
+
+  const saveQuestions = useCallback(
+    async (snapshot: EditableQuestion[]) => {
+      // Serialize against any in-flight save so rapid drags can't produce
+      // overlapping write loops that race on UNIQUE(quiz_id, ordinal).
+      // The latest snapshot supplied by `useDebouncedAutoSave.performSave`
+      // wins because it reads `valueRef.current` when its turn arrives. [QA-19]
+      const previous = questionsSaveInflightRef.current;
+      const work = (async () => {
+        if (previous) {
+          try {
+            await previous;
+          } catch {
+            // Swallow upstream failure — this attempt has its own snapshot
+            // and will surface its own error if it fails.
+          }
+        }
+        const prevSnapshot = previousSnapshotRef.current;
+
+        // Reorder-only change → use the atomic bulk endpoint instead of
+        // a serial PUT loop. The server normalizes ordinals 1..N inside a
+        // single transaction (see app/api/admin/quizzes/[id]/questions/reorder).
+        if (isOrdinalOnlyChange(prevSnapshot, snapshot)) {
+          const reorderPayload = snapshot.map((q) => ({
+            id: q.id!,
+            ordinal: q.ordinal,
+          }));
+          const result = await reorderAdminQuestions(quizId, {
+            ordinals: reorderPayload,
+          });
+          if (isAdminApiError(result)) {
+            throw new Error(result.message);
+          }
+          // Only commit the snapshot after the write succeeds, otherwise
+          // a failed save would corrupt the diff baseline for the retry.
+          previousSnapshotRef.current = snapshot;
+          return;
+        }
+
+        await runFullQuestionSave(snapshot);
+        previousSnapshotRef.current = snapshot;
+      })();
+      questionsSaveInflightRef.current = work;
+      try {
+        await work;
+      } finally {
+        if (questionsSaveInflightRef.current === work) {
+          questionsSaveInflightRef.current = null;
+        }
+      }
+    },
+    [quizId, runFullQuestionSave],
   );
 
   const questionsSave = useDebouncedAutoSave({
