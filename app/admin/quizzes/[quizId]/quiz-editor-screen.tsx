@@ -74,6 +74,11 @@ export function QuizEditorScreen({ quizId }: Props) {
   const [questionsAutosaveEnabled, setQuestionsAutosaveEnabled] =
     useState(false);
   const previousSnapshotRef = useRef<EditableQuestion[] | null>(null);
+  // Serialize question saves so rapid drags don't race overlapping PUTs
+  // against the UNIQUE(quiz_id, ordinal) constraint. The latest snapshot
+  // always wins because `useDebouncedAutoSave.performSave` reads the
+  // current `valueRef.current` when its turn arrives.
+  const questionsSaveInflightRef = useRef<Promise<void> | null>(null);
 
   // ---- Initial load ----------------------------------------------------
   useEffect(() => {
@@ -132,7 +137,11 @@ export function QuizEditorScreen({ quizId }: Props) {
     enabled: status === "ready" && quiz !== null,
   });
 
-  // Helper to detect if only ordinals changed (reorder case)
+  // Detects reorder-only changes: same set of question IDs (no add/remove,
+  // no unsaved blanks) and every per-question field except `ordinal` is
+  // identical. When true, we can use the atomic bulk reorder endpoint
+  // instead of a serial PUT loop that can collide on
+  // UNIQUE(quiz_id, ordinal) under rapid drags. [QA-19]
   const isOrdinalOnlyChange = (
     prev: EditableQuestion[] | null,
     next: EditableQuestion[],
@@ -140,41 +149,98 @@ export function QuizEditorScreen({ quizId }: Props) {
     if (!prev || prev.length !== next.length) {
       return false;
     }
-    // Check if question IDs are identical and in same order
-    for (let i = 0; i < prev.length; i++) {
-      const prevRow = prev[i];
-      const nextRow = next[i];
-      if (!prevRow || !nextRow || prevRow.id !== nextRow.id) {
+    if (next.some((q) => q.id === null)) {
+      return false;
+    }
+    const prevById = new Map<string, EditableQuestion>();
+    for (const row of prev) {
+      if (row.id === null) return false;
+      prevById.set(row.id, row);
+    }
+    let ordinalDiff = false;
+    for (const row of next) {
+      const prevRow = prevById.get(row.id!);
+      if (!prevRow) return false;
+      if (prevRow.ordinal !== row.ordinal) {
+        ordinalDiff = true;
+      }
+      if (
+        prevRow.type !== row.type ||
+        prevRow.prompt !== row.prompt ||
+        prevRow.timeSeconds !== row.timeSeconds ||
+        prevRow.points !== row.points ||
+        prevRow.tolerance !== row.tolerance ||
+        prevRow.imageUrl !== row.imageUrl ||
+        prevRow.explanation !== row.explanation ||
+        JSON.stringify(prevRow.options) !== JSON.stringify(row.options) ||
+        JSON.stringify(prevRow.correctIds) !== JSON.stringify(row.correctIds) ||
+        JSON.stringify(prevRow.map) !== JSON.stringify(row.map)
+      ) {
         return false;
       }
     }
-    return true;
+    return ordinalDiff;
   };
 
   // ---- Auto-save: questions ------------------------------------------
   const saveQuestions = useCallback(
     async (snapshot: EditableQuestion[]) => {
-      const prevSnapshot = previousSnapshotRef.current;
-      previousSnapshotRef.current = snapshot;
-
-      // Check if this is an ordinal-only change and use bulk reorder endpoint
-      if (
-        isOrdinalOnlyChange(prevSnapshot, snapshot) &&
-        snapshot.every((q) => q.id !== null)
-      ) {
-        const reorderPayload = snapshot.map((q) => ({
-          id: q.id!,
-          ordinal: q.ordinal,
-        }));
-        const result = await reorderAdminQuestions(quizId, {
-          ordinals: reorderPayload,
-        });
-        if (isAdminApiError(result)) {
-          throw new Error(result.message);
+      // Serialize against any in-flight save so rapid drags can't produce
+      // overlapping write loops that race on UNIQUE(quiz_id, ordinal).
+      // The latest snapshot supplied by `useDebouncedAutoSave.performSave`
+      // wins because it reads `valueRef.current` when its turn arrives. [QA-19]
+      const previous = questionsSaveInflightRef.current;
+      const work = (async () => {
+        if (previous) {
+          try {
+            await previous;
+          } catch {
+            // Swallow upstream failure — this attempt has its own snapshot
+            // and will surface its own error if it fails.
+          }
         }
-        return;
-      }
+        const prevSnapshot = previousSnapshotRef.current;
 
+        // Reorder-only change → use the atomic bulk endpoint instead of
+        // a serial PUT loop. The server normalizes ordinals 1..N inside a
+        // single transaction (see app/api/admin/quizzes/[id]/questions/reorder).
+        if (isOrdinalOnlyChange(prevSnapshot, snapshot)) {
+          const reorderPayload = snapshot.map((q) => ({
+            id: q.id!,
+            ordinal: q.ordinal,
+          }));
+          const result = await reorderAdminQuestions(quizId, {
+            ordinals: reorderPayload,
+          });
+          if (isAdminApiError(result)) {
+            throw new Error(result.message);
+          }
+          // Only commit the snapshot after the write succeeds, otherwise
+          // a failed save would corrupt the diff baseline for the retry.
+          previousSnapshotRef.current = snapshot;
+          return;
+        }
+
+        await runFullQuestionSave(snapshot);
+        previousSnapshotRef.current = snapshot;
+      })();
+      questionsSaveInflightRef.current = work;
+      try {
+        await work;
+      } finally {
+        if (questionsSaveInflightRef.current === work) {
+          questionsSaveInflightRef.current = null;
+        }
+      }
+    },
+    // runFullQuestionSave is declared below as a stable useCallback; quizId
+    // is the only other identifier captured.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [quizId],
+  );
+
+  const runFullQuestionSave = useCallback(
+    async (snapshot: EditableQuestion[]) => {
       // We need to commit each question individually. New ones get POSTed,
       // existing ones get PUTed. We do this serially so the UI shows
       // ordinal swaps consistently (and to avoid hammering the API).
