@@ -53,7 +53,12 @@ export function PlayScreen({
   gameMode,
 }: PlayScreenProps) {
   const router = useRouter();
-  const { state, refetch } = useParticipantState({ pin });
+  const {
+    state,
+    status: loadStatus,
+    error: loadError,
+    refetch,
+  } = useParticipantState({ pin });
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [mapPin, setMapPin] = useState<{ x: number; y: number } | null>(null);
@@ -226,8 +231,11 @@ export function PlayScreen({
     }
   }
 
-  // No state yet — initial loading.
+  // No state yet — initial loading or hard error.
   if (!state) {
+    if (loadStatus === "error") {
+      return <PlayLoadError message={loadError} onRetry={refetch} />;
+    }
     return <PlayLoading />;
   }
 
@@ -252,6 +260,9 @@ export function PlayScreen({
 
   return (
     <main className="flex min-h-screen flex-col bg-bsy-paper">
+      {loadStatus === "error" ? (
+        <ReconnectingBanner onRetry={refetch} />
+      ) : null}
       <header className="border-b border-bsy-stone-100 bg-bsy-paper-warm px-5 pb-3 pt-3.5">
         <div className="mb-2 flex items-center justify-between text-xs font-bold text-bsy-stone-700">
           <span className="font-[var(--font-display)] text-[15px] text-bsy-brown">
@@ -509,6 +520,62 @@ function PlayLoading() {
     <main className="flex min-h-screen items-center justify-center bg-bsy-paper">
       <p className="text-[14px] text-bsy-stone-700">טוענים…</p>
     </main>
+  );
+}
+
+function PlayLoadError({
+  message,
+  onRetry,
+}: {
+  message: string | null;
+  onRetry: () => Promise<void> | void;
+}) {
+  return (
+    <main
+      role="alert"
+      dir="rtl"
+      className="flex min-h-screen flex-col items-center justify-center gap-3 bg-bsy-paper px-6 text-center"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-bsy-forest">
+        שגיאה בטעינה
+      </p>
+      <h2 className="m-0 font-[var(--font-display)] text-[26px] text-bsy-brown">
+        איבדנו רגע את החיבור
+      </h2>
+      <p className="max-w-sm text-[13px] text-bsy-stone-700">
+        {message ?? "Could not load session state."}
+      </p>
+      <button
+        type="button"
+        onClick={() => void onRetry()}
+        className="mt-2 rounded-md bg-bsy-forest px-5 py-2 text-[13px] font-bold text-bsy-paper shadow-[var(--shadow-sm)] hover:bg-bsy-forest/90"
+      >
+        נסו שוב
+      </button>
+    </main>
+  );
+}
+
+function ReconnectingBanner({
+  onRetry,
+}: {
+  onRetry: () => Promise<void> | void;
+}) {
+  return (
+    <div
+      role="status"
+      dir="rtl"
+      className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-bsy-stone-200 bg-bsy-paper-warm px-3 py-2 text-[12px] text-bsy-stone-700"
+    >
+      <span>איבדנו רגע את החיבור — מנסים להתחבר מחדש…</span>
+      <button
+        type="button"
+        onClick={() => void onRetry()}
+        className="rounded-md bg-bsy-forest px-3 py-1 text-[11px] font-bold text-bsy-paper hover:bg-bsy-forest/90"
+      >
+        רענון מיידי
+      </button>
+    </div>
   );
 }
 
