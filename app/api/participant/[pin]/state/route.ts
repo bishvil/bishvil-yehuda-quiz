@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { requireRole } from "@/src/lib/auth/server-auth";
-import { findActiveSessionByPin } from "@/src/lib/sessions/lookup";
+import { findPublicSessionByPin } from "@/src/lib/sessions/lookup";
 import {
   lazyExpireAsyncProgress,
   lazyExpireSyncQuestionState,
@@ -45,7 +45,11 @@ export async function GET(
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
-  const { data: session } = await findActiveSessionByPin(serviceSupabase, pin);
+  // Include 'ended' so finished participants can still fetch their final
+  // state (status, score, reveal) and the /play screen can transition to
+  // /result via the existing session.status === "ended" effect [QA-18].
+  // Auth still binds the cookie to a specific session_id below.
+  const { data: session } = await findPublicSessionByPin(serviceSupabase, pin);
 
   if (!session) {
     return privateNoStoreJson<ParticipantStateResponseBody>(
