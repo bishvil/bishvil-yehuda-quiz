@@ -428,6 +428,7 @@ export function HostScreen({
                 sessionStatus={sessionStatus}
                 nextOrdinal={state.nextQuestion?.ordinal ?? null}
                 totalQuestions={state.totalQuestions}
+                players={state.players}
               />
             )}
             {error ? <ErrorBanner message={error} /> : null}
@@ -490,6 +491,21 @@ function DesktopIdleState({
   totalQuestions,
   players,
 }: DesktopIdleStateProps) {
+  if (sessionStatus === "ended") {
+    return (
+      <div className="grid flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
+        <HostEndedSummary
+          totalQuestions={totalQuestions}
+          players={players}
+          variant="desktop"
+        />
+        <aside className="flex min-h-0 flex-col">
+          <HostPlayerList players={players} hideAnsweredDot />
+        </aside>
+      </div>
+    );
+  }
+
   return (
     <div className="grid flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
       <div className="flex flex-col items-center justify-center rounded-md border border-bsy-stone-100 bg-white p-12 text-center">
@@ -514,13 +530,25 @@ interface MobileIdleStateProps {
   sessionStatus: "draft" | "scheduled" | "live" | "paused" | "ended";
   nextOrdinal: number | null;
   totalQuestions: number;
+  players?: HostPlayer[];
 }
 
 function MobileIdleState({
   sessionStatus,
   nextOrdinal,
   totalQuestions,
+  players,
 }: MobileIdleStateProps) {
+  if (sessionStatus === "ended") {
+    return (
+      <HostEndedSummary
+        totalQuestions={totalQuestions}
+        players={players ?? []}
+        variant="mobile"
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-bsy-stone-100 bg-white px-4 py-8 text-center">
       <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-bsy-forest">
@@ -532,6 +560,97 @@ function MobileIdleState({
       <p className="m-0 max-w-xs text-[13px] text-bsy-stone-700">
         {idleBody(sessionStatus)}
       </p>
+    </div>
+  );
+}
+
+interface HostEndedSummaryProps {
+  totalQuestions: number;
+  players: HostPlayer[];
+  variant: "desktop" | "mobile";
+}
+
+function HostEndedSummary({
+  totalQuestions,
+  players,
+  variant,
+}: HostEndedSummaryProps) {
+  const top = players.slice(0, 3);
+  const playerCount = players.length;
+  const answered = players.filter((p) => p.score > 0).length;
+
+  return (
+    <div
+      className={[
+        "flex flex-col rounded-md border border-bsy-stone-100 bg-white text-right",
+        variant === "desktop" ? "p-8" : "p-5",
+      ].join(" ")}
+      dir="rtl"
+    >
+      <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-bsy-forest">
+        סיכום החידון
+      </p>
+      <h2
+        className={[
+          "m-0 font-[var(--font-display)] text-bsy-brown",
+          variant === "desktop" ? "text-[30px]" : "text-[22px]",
+        ].join(" ")}
+      >
+        החידון הסתיים — תודה רבה!
+      </h2>
+
+      <dl className="mt-4 grid grid-cols-3 gap-2">
+        <Stat label="שחקנים" value={playerCount.toLocaleString("he-IL")} />
+        <Stat
+          label="ענו לפחות פעם"
+          value={answered.toLocaleString("he-IL")}
+        />
+        <Stat label="תחנות" value={totalQuestions.toLocaleString("he-IL")} />
+      </dl>
+
+      {top.length > 0 ? (
+        <div className="mt-5">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400">
+            המובילים
+          </p>
+          <ol className="m-0 flex flex-col gap-1.5 pr-0">
+            {top.map((player, index) => (
+              <li
+                key={player.id}
+                className="flex items-center justify-between gap-3 rounded-md bg-bsy-paper-warm px-3 py-2 text-[13px]"
+              >
+                <span className="font-bold text-bsy-stone-700">
+                  {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"} {player.displayName}
+                </span>
+                <span className="font-mono font-bold text-bsy-forest">
+                  {player.score.toLocaleString("he-IL")}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : (
+        <p className="mt-5 text-[13px] text-bsy-stone-400">
+          אף שחקן לא צבר נקודות בסשן זה.
+        </p>
+      )}
+
+      <p className="mt-5 text-[12px] text-bsy-stone-700">
+        לתצוגת תוצאות מפורטת לכל המשתתפים — דף ניהול ׳תוצאות׳ של הסשן.
+      </p>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-bsy-stone-100 bg-bsy-paper-warm px-2 py-3 text-center">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-bsy-stone-400">
+        {label}
+      </dt>
+      <dd className="m-0 mt-0.5 font-[var(--font-display)] text-[20px] text-bsy-brown">
+        {value}
+      </dd>
     </div>
   );
 }
