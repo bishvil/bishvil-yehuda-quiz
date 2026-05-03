@@ -164,6 +164,7 @@ export interface AdminQuestionReorderResponse {
 
 export interface AdminSessionCreateRequest {
   quizId: string;
+  hostUserId?: string;
 }
 
 export interface AdminSessionListRow {
@@ -173,6 +174,8 @@ export interface AdminSessionListRow {
   status: "draft" | "scheduled" | "live" | "paused" | "ended";
   gameMode: GameMode;
   autoReveal: boolean;
+  hostId: string | null;
+  hostEmail: string | null;
   startedAt: string | null;
   endedAt: string | null;
   createdAt: string;
@@ -190,9 +193,34 @@ export interface AdminSessionCreateResponse {
     status: "scheduled";
     gameMode: GameMode;
     autoReveal: boolean;
+    hostId: string | null;
+    hostEmail: string | null;
     endedAt: string | null;
     createdAt: string;
   };
+}
+
+export interface AdminSessionPatchHostRequest {
+  hostUserId: string;
+}
+
+export interface AdminSessionPatchHostResponse {
+  session: AdminSessionListRow;
+}
+
+// ---------- Team ---------------------------------------------------------
+
+export interface AdminTeamMember {
+  id: string;
+  email: string;
+  role: "admin" | "host";
+  lastSignInAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminTeamListResponse {
+  members: AdminTeamMember[];
+  currentUserId: string;
 }
 
 // ---------- Results ------------------------------------------------------
@@ -265,7 +293,7 @@ async function getJson<T>(path: string): Promise<AdminApiResult<T>> {
 
 async function bodyJson<T>(
   path: string,
-  method: "POST" | "PUT" | "DELETE",
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
   body?: Json,
 ): Promise<AdminApiResult<T>> {
   const init: RequestInit = body
@@ -398,4 +426,21 @@ export function getAdminSessionResults(sessionId: string) {
   return getJson<AdminSessionResultsResponse>(
     `/api/admin/sessions/${encodeURIComponent(sessionId)}/results`,
   );
+}
+
+export function updateAdminSessionHost(
+  sessionId: string,
+  body: AdminSessionPatchHostRequest,
+) {
+  return bodyJson<AdminSessionPatchHostResponse>(
+    `/api/admin/sessions/${encodeURIComponent(sessionId)}`,
+    "PATCH",
+    body as unknown as Json,
+  );
+}
+
+// ---------- Team ---------------------------------------------------------
+
+export function listAdminTeam() {
+  return getJson<AdminTeamListResponse>("/api/admin/team");
 }

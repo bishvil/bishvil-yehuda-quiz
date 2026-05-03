@@ -112,6 +112,13 @@ function ActiveSessionCard({ session }: { session: ActiveSessionRow }) {
             {session.pin}
           </span>
         </p>
+
+        <p className="mt-2 mb-0 flex items-baseline gap-2 text-[12px] text-bsy-stone-700">
+          <span className="text-bsy-stone-400">מנחה</span>
+          <span className="font-bold text-bsy-ink">
+            {session.hostEmail ?? "ללא מנחה"}
+          </span>
+        </p>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

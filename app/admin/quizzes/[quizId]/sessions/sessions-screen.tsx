@@ -13,8 +13,11 @@ import {
   isAdminApiError,
   listAdminQuestions,
   listAdminSessions,
+  listAdminTeam,
+  updateAdminSessionHost,
   type AdminQuizDetail,
   type AdminSessionListRow,
+  type AdminTeamMember,
 } from "@/src/lib/admin/api-client";
 import {
   SESSION_CREATE_HELPER,
@@ -22,10 +25,18 @@ import {
 } from "@/src/lib/admin/lifecycle-copy";
 import { GAME_MODE_LABELS } from "@/src/lib/constants";
 
+const REASSIGNABLE_STATUSES: ReadonlyArray<AdminSessionListRow["status"]> = [
+  "draft",
+  "scheduled",
+];
+
 export function SessionsScreen({ quizId }: { quizId: string }) {
   const [quiz, setQuiz] = useState<AdminQuizDetail | null>(null);
   const [sessions, setSessions] = useState<AdminSessionListRow[]>([]);
   const [questionCount, setQuestionCount] = useState<number | null>(null);
+  const [team, setTeam] = useState<AdminTeamMember[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [selectedHostId, setSelectedHostId] = useState<string>("");
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -37,11 +48,13 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     let cancelled = false;
     void (async () => {
       setStatus((prev) => (prev === "ready" ? prev : "loading"));
-      const [quizBody, sessionsBody, questionsBody] = await Promise.all([
-        getAdminQuiz(quizId),
-        listAdminSessions(quizId),
-        listAdminQuestions(quizId),
-      ]);
+      const [quizBody, sessionsBody, questionsBody, teamBody] =
+        await Promise.all([
+          getAdminQuiz(quizId),
+          listAdminSessions(quizId),
+          listAdminQuestions(quizId),
+          listAdminTeam(),
+        ]);
       if (cancelled) return;
       if (isAdminApiError(quizBody)) {
         setStatus("error");
@@ -58,9 +71,17 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
         setErrorMessage(questionsBody.message);
         return;
       }
+      if (isAdminApiError(teamBody)) {
+        setStatus("error");
+        setErrorMessage(teamBody.message);
+        return;
+      }
       setQuiz(quizBody.quiz);
       setSessions(sessionsBody.sessions);
       setQuestionCount(questionsBody.questions.length);
+      setTeam(teamBody.members);
+      setCurrentUserId(teamBody.currentUserId);
+      setSelectedHostId(teamBody.currentUserId);
       setStatus("ready");
     })();
     return () => {
@@ -90,7 +111,10 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     setLaunching(true);
     setErrorMessage(null);
     try {
-      const body = await createAdminSession({ quizId });
+      const body = await createAdminSession({
+        quizId,
+        hostUserId: selectedHostId || undefined,
+      });
       if (isAdminApiError(body)) {
         setErrorMessage(body.message);
         return;
@@ -103,6 +127,8 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
           status: body.session.status,
           gameMode: body.session.gameMode,
           autoReveal: body.session.autoReveal,
+          hostId: body.session.hostId,
+          hostEmail: body.session.hostEmail,
           startedAt: null,
           endedAt: body.session.endedAt,
           createdAt: body.session.createdAt,
@@ -113,7 +139,22 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
       setLaunching(false);
       launchLockRef.current = false;
     }
-  }, [quizId, hasQuestions]);
+  }, [quizId, hasQuestions, selectedHostId]);
+
+  const handleReassign = useCallback(
+    async (sessionId: string, hostUserId: string) => {
+      setErrorMessage(null);
+      const body = await updateAdminSessionHost(sessionId, { hostUserId });
+      if (isAdminApiError(body)) {
+        setErrorMessage(body.message);
+        return;
+      }
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? body.session : s)),
+      );
+    },
+    [],
+  );
 
   return (
     <>
@@ -124,14 +165,23 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
           { label: "משחקים" },
         ]}
         tools={
-          <PrimaryButton
-            onClick={handleLaunch}
-            withArrow
-            disabled={launchDisabled}
-            data-testid="admin-create-session"
-          >
-            {launching ? "מפעיל…" : "הפעלת חידון"}
-          </PrimaryButton>
+          <div className="flex flex-wrap items-center gap-2">
+            <HostPicker
+              members={team}
+              value={selectedHostId}
+              onChange={setSelectedHostId}
+              currentUserId={currentUserId}
+              disabled={status !== "ready"}
+            />
+            <PrimaryButton
+              onClick={handleLaunch}
+              withArrow
+              disabled={launchDisabled}
+              data-testid="admin-create-session"
+            >
+              {launching ? "מפעיל…" : "הפעלת חידון"}
+            </PrimaryButton>
+          </div>
         }
       />
 
@@ -177,13 +227,59 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
           <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {sessions.map((session) => (
               <li key={session.id}>
-                <SessionCard session={session} quizId={quizId} />
+                <SessionCard
+                  session={session}
+                  quizId={quizId}
+                  team={team}
+                  currentUserId={currentUserId}
+                  onReassign={handleReassign}
+                />
               </li>
             ))}
           </ul>
         )}
       </section>
     </>
+  );
+}
+
+function HostPicker({
+  members,
+  value,
+  onChange,
+  currentUserId,
+  disabled,
+  testId = "admin-host-picker",
+  className,
+}: {
+  members: AdminTeamMember[];
+  value: string;
+  onChange: (next: string) => void;
+  currentUserId: string | null;
+  disabled?: boolean;
+  testId?: string;
+  className?: string;
+}) {
+  return (
+    <label
+      className={`flex items-center gap-2 text-[12px] text-bsy-stone-700 ${className ?? ""}`}
+    >
+      <span>מנחה</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled || members.length === 0}
+        className="rounded-md border border-bsy-stone-200 bg-white px-2 py-1 text-[13px] text-bsy-ink focus:border-bsy-forest focus:outline-none"
+        data-testid={testId}
+      >
+        {members.map((member) => (
+          <option key={member.id} value={member.id}>
+            {member.email}
+            {member.id === currentUserId ? " (אני)" : ""}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -218,11 +314,20 @@ function EmptyState({
 function SessionCard({
   session,
   quizId,
+  team,
+  currentUserId,
+  onReassign,
 }: {
   session: AdminSessionListRow;
   quizId: string;
+  team: AdminTeamMember[];
+  currentUserId: string | null;
+  onReassign: (sessionId: string, hostUserId: string) => void;
 }) {
   const created = new Date(session.createdAt);
+  const canReassign = REASSIGNABLE_STATUSES.includes(session.status);
+  const hostLabel = session.hostEmail ?? "ללא מנחה";
+  const isMine = session.hostId !== null && session.hostId === currentUserId;
   return (
     <article
       className="flex h-full flex-col justify-between rounded-md border border-bsy-stone-100 bg-white p-4 shadow-[var(--shadow-xs)]"
@@ -252,6 +357,37 @@ function SessionCard({
               minute: "2-digit",
             })}
           </span>
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-[12px] text-bsy-stone-700">
+          <span className="text-bsy-stone-400">מנחה</span>
+          {canReassign && team.length > 0 ? (
+            <select
+              value={session.hostId ?? ""}
+              onChange={(event) => onReassign(session.id, event.target.value)}
+              className="rounded-md border border-bsy-stone-200 bg-white px-2 py-1 text-[12px] text-bsy-ink focus:border-bsy-forest focus:outline-none"
+              data-testid="admin-session-host-select"
+            >
+              {session.hostId === null ? (
+                <option value="" disabled>
+                  ללא מנחה
+                </option>
+              ) : null}
+              {team.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.email}
+                  {member.id === currentUserId ? " (אני)" : ""}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span
+              className="font-bold text-bsy-ink"
+              data-testid="admin-session-host"
+            >
+              {hostLabel}
+              {isMine ? " (אני)" : ""}
+            </span>
+          )}
         </div>
       </div>
       <div className="mt-4 flex items-center gap-3 text-[13px]">

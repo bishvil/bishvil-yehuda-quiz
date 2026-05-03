@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 
 import { generateRandomPin } from "@/src/lib/admin/pin";
+import { buildTeamUserMap, fetchTeamUsers } from "@/src/lib/admin/team-lookup";
 import { adminSessionCreateSchema } from "@/src/lib/admin/validation";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
@@ -18,6 +19,8 @@ interface AdminSessionListRow {
   status: Database["public"]["Tables"]["sessions"]["Row"]["status"];
   gameMode: "sync" | "async";
   autoReveal: boolean;
+  hostId: string | null;
+  hostEmail: string | null;
   startedAt: string | null;
   endedAt: string | null;
   createdAt: string;
@@ -35,6 +38,8 @@ interface AdminSessionCreateBody {
     status: "scheduled";
     gameMode: "sync" | "async";
     autoReveal: boolean;
+    hostId: string | null;
+    hostEmail: string | null;
     endedAt: string | null;
     createdAt: string;
   };
@@ -43,6 +48,7 @@ interface AdminSessionCreateBody {
 interface AdminSessionErrorBody {
   error:
     | "INVALID_REQUEST"
+    | "INVALID_HOST"
     | "QUIZ_NOT_FOUND"
     | "QUIZ_HAS_NO_QUESTIONS"
     | "PIN_GENERATION_FAILED"
@@ -60,7 +66,7 @@ export async function GET(request: NextRequest) {
   let query = serviceSupabase
     .from("sessions")
     .select(
-      "id, pin, quiz_id, status, game_mode, auto_reveal, started_at, ended_at, created_at",
+      "id, pin, quiz_id, status, game_mode, auto_reveal, host_id, started_at, ended_at, created_at",
     )
     .order("created_at", { ascending: false });
 
@@ -68,7 +74,10 @@ export async function GET(request: NextRequest) {
     query = query.eq("quiz_id", quizId);
   }
 
-  const { data, error } = await query;
+  const [{ data, error }, hostUsers] = await Promise.all([
+    query,
+    fetchTeamUsers(serviceSupabase),
+  ]);
 
   if (error) {
     return privateNoStoreJson<AdminSessionErrorBody>(
@@ -77,6 +86,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const hostMap = buildTeamUserMap(hostUsers);
   const sessions: AdminSessionListRow[] = (data ?? []).map((row) => ({
     id: row.id,
     pin: row.pin,
@@ -84,6 +94,8 @@ export async function GET(request: NextRequest) {
     status: row.status,
     gameMode: row.game_mode,
     autoReveal: row.auto_reveal,
+    hostId: row.host_id,
+    hostEmail: row.host_id ? (hostMap.get(row.host_id)?.email ?? null) : null,
     startedAt: row.started_at,
     endedAt: row.ended_at,
     createdAt: row.created_at,
@@ -97,6 +109,10 @@ export async function GET(request: NextRequest) {
  * creation time per ADR-0004 (mode is stable across the run). Generates a
  * unique 6-digit PIN per ADR-0004 §"PIN Format and Uniqueness". Async mode
  * sets `auto_reveal=true` per ADR-0007 §2.4.
+ *
+ * QA-26: an explicit `hostUserId` may be provided to assign the game to a
+ * teammate (admin or host). Falls back to the current admin so existing
+ * "create then run myself" flows keep working.
  */
 export async function POST(request: NextRequest) {
   const auth = await requireRole("admin");
@@ -161,6 +177,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // QA-26: validate explicit host assignment against the team roster. The
+  // current admin always passes (their own role is verified above).
+  const hostUsers = await fetchTeamUsers(serviceSupabase);
+  const hostMap = buildTeamUserMap(hostUsers);
+  const hostUserId = parsed.data.hostUserId ?? auth.claims.userId;
+
+  if (
+    parsed.data.hostUserId !== undefined &&
+    parsed.data.hostUserId !== auth.claims.userId &&
+    !hostMap.has(parsed.data.hostUserId)
+  ) {
+    return privateNoStoreJson<AdminSessionErrorBody>(
+      {
+        error: "INVALID_HOST",
+        message: "Selected host is not an admin or host on this team.",
+      },
+      { status: 400 },
+    );
+  }
+
+  const hostEmail = hostMap.get(hostUserId)?.email ?? null;
   const gameMode = quiz.default_game_mode;
   const autoReveal = gameMode === "async";
 
@@ -168,7 +205,7 @@ export async function POST(request: NextRequest) {
     const pin = generateRandomPin();
     const insert: Database["public"]["Tables"]["sessions"]["Insert"] = {
       quiz_id: quiz.id,
-      host_id: parsed.data.hostUserId ?? auth.claims.userId,
+      host_id: hostUserId,
       pin,
       status: "scheduled",
       game_mode: gameMode,
@@ -180,7 +217,7 @@ export async function POST(request: NextRequest) {
       .from("sessions")
       .insert(insert)
       .select(
-        "id, pin, quiz_id, status, game_mode, auto_reveal, ended_at, created_at",
+        "id, pin, quiz_id, status, game_mode, auto_reveal, host_id, ended_at, created_at",
       )
       .single();
 
@@ -194,6 +231,8 @@ export async function POST(request: NextRequest) {
             status: "scheduled",
             gameMode: data.game_mode,
             autoReveal: data.auto_reveal,
+            hostId: data.host_id,
+            hostEmail,
             endedAt: data.ended_at,
             createdAt: data.created_at,
           },

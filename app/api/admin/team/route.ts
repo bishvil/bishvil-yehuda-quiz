@@ -14,6 +14,7 @@ export interface TeamMemberRow {
 
 interface TeamListBody {
   members: TeamMemberRow[];
+  currentUserId: string;
 }
 
 interface TeamErrorBody {
@@ -57,7 +58,10 @@ export async function GET() {
     .filter((row): row is TeamMemberRow => row !== null)
     .sort((a, b) => a.email.localeCompare(b.email));
 
-  return privateNoStoreJson<TeamListBody>({ members });
+  return privateNoStoreJson<TeamListBody>({
+    members,
+    currentUserId: auth.claims.userId,
+  });
 }
 
 export async function PATCH(request: NextRequest) {

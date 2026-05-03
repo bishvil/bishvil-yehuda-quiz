@@ -16,7 +16,9 @@ vi.mock("@/src/lib/admin/api-client", () => ({
   getAdminQuiz: vi.fn(),
   listAdminSessions: vi.fn(),
   listAdminQuestions: vi.fn(),
+  listAdminTeam: vi.fn(),
   createAdminSession: vi.fn(),
+  updateAdminSessionHost: vi.fn(),
 }));
 
 import {
@@ -25,6 +27,7 @@ import {
   isAdminApiError,
   listAdminQuestions,
   listAdminSessions,
+  listAdminTeam,
 } from "@/src/lib/admin/api-client";
 import { SessionsScreen } from "@/app/admin/quizzes/[quizId]/sessions/sessions-screen";
 
@@ -59,9 +62,23 @@ describe("SessionsScreen — non-empty quiz launch enforcement (M2)", () => {
         status: "scheduled",
         gameMode: "sync",
         autoReveal: false,
+        hostId: "admin-1",
+        hostEmail: "admin@example.com",
         endedAt: null,
         createdAt: "2026-04-30T20:01:00Z",
       },
+    });
+    vi.mocked(listAdminTeam).mockResolvedValue({
+      members: [
+        {
+          id: "admin-1",
+          email: "admin@example.com",
+          role: "admin",
+          lastSignInAt: null,
+          createdAt: "2026-04-30T20:00:00Z",
+        },
+      ],
+      currentUserId: "admin-1",
     });
   });
 

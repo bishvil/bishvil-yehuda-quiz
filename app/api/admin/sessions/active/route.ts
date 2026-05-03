@@ -1,3 +1,4 @@
+import { buildTeamUserMap, fetchTeamUsers } from "@/src/lib/admin/team-lookup";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
@@ -14,6 +15,7 @@ export interface ActiveSessionRow {
   brandId: string;
   gameMode: "sync" | "async";
   hostId: string | null;
+  hostEmail: string | null;
   startedAt: string | null;
   createdAt: string;
 }
@@ -55,14 +57,17 @@ export async function GET() {
   }
 
   const supabase = await createServiceRoleSupabaseClient();
-  const { data, error } = await supabase
-    .from("sessions")
-    .select(
-      "id, pin, status, quiz_id, host_id, game_mode, started_at, created_at, quizzes(title, brand_id)",
-    )
-    .in("status", [...ACTIVE_STATUSES])
-    .order("started_at", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false });
+  const [{ data, error }, hostUsers] = await Promise.all([
+    supabase
+      .from("sessions")
+      .select(
+        "id, pin, status, quiz_id, host_id, game_mode, started_at, created_at, quizzes(title, brand_id)",
+      )
+      .in("status", [...ACTIVE_STATUSES])
+      .order("started_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false }),
+    fetchTeamUsers(supabase),
+  ]);
 
   if (error) {
     return privateNoStoreJson<ActiveSessionsErrorBody>(
@@ -72,6 +77,7 @@ export async function GET() {
   }
 
   const rows = (data ?? []) as unknown as SessionJoinedRow[];
+  const hostMap = buildTeamUserMap(hostUsers);
 
   const sessions: ActiveSessionRow[] = rows
     .filter((row) => row.quizzes !== null)
@@ -84,6 +90,7 @@ export async function GET() {
       brandId: row.quizzes?.brand_id ?? "",
       gameMode: row.game_mode,
       hostId: row.host_id,
+      hostEmail: row.host_id ? (hostMap.get(row.host_id)?.email ?? null) : null,
       startedAt: row.started_at,
       createdAt: row.created_at,
     }));
