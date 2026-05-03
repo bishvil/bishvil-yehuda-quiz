@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Bishvil Yehuda quiz — Hebrew/RTL Next.js 16 (App Router) + Supabase (Postgres) + Drizzle quiz platform with two modes: **sync** (live host paces all participants) and **async** (self-paced). Three actor roles: admin, host, participant.
 
+## Roles & Access
+
+Terminology: a **Quiz** is the template (deletable/archivable). A **Game** is a `session` row spawned from a quiz; sessions are state-machine-managed and not user-deletable. One quiz can spawn many games, possibly with different hosts running them in parallel.
+
+- Three roles on `auth.users.app_metadata.role`: `admin`, `host`, `participant`. Admin satisfies any host requirement (`src/lib/auth/server-auth.ts:122-131`); host cannot act as admin.
+- Quiz ownership: `quizzes.owner_id` is set to the creator at POST time. The admin quiz list shows **all** quizzes regardless of owner (`app/api/admin/quizzes/route.ts`) — admins are a small shared team.
+- Game (session) ownership: `sessions.host_id` is optional, assigned via `POST /api/admin/sessions { hostUserId }`. Multiple hosts can run different sessions of the same quiz in parallel; only one `scheduled` or `live` session can exist per PIN (partial unique index in `supabase/migrations/`).
+- Host dashboard at `/host/[pin]` accepts any session status (`scheduled`/`live`/`paused`/`ended`/`draft`). The auth gate in `proxy.ts` requires role `host` or `admin`. Ownership is enforced in `loadHostContext()` — non-admin hosts must match `session.host_id`.
+- Login flow: single form at `app/login`. Role is determined by JWT claim, not by URL.
+
 ## Commands
 
 Package manager is **pnpm@10.27.0** (Node ≥22). All commands are run via pnpm.
