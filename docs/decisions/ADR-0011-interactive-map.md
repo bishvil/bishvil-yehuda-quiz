@@ -120,8 +120,14 @@ provisioning a key.
 
 ### 2. Hebrew / RTL
 
-**Mandatory.** Hebrew labels must render right-to-left. The MapLibre RTL plugin
-mirrors Mapbox's plugin protocol byte-for-byte and can be loaded once per page.
+The MapLibre RTL plugin mirrors Mapbox's plugin protocol byte-for-byte and can
+be loaded once per page. The plugin is wired unconditionally so that **any**
+remaining Hebrew text rendered by the engine (e.g. transient style swap before
+the symbol-hide hook fires, or attribution control overflow) flows
+right-to-left. Note: as of v2 (see §6.5) all symbol layers are hidden on every
+style, so the RTL plugin's user-visible role is now limited to attribution and
+transient render frames — not place names. The earlier "Hebrew labels
+mandatory" requirement is superseded by the no-labels policy.
 
 `react-map-gl/maplibre` exposes the plugin URL as a top-level Map prop:
 
@@ -250,7 +256,29 @@ A new CHECK constraint asserts:
 - `pin_lng` between −180 and 180
 - the (lat,lng) pair and the (x,y) pair are not both populated on the same row
 
-#### 6.4 Why additive, not destructive
+#### 6.5 v2 — No labels on any style (QA-20)
+
+v2 hides **all** map labels (symbol layers — place names, POI, road labels,
+country labels) for question-clarity reasons. Participants must reason about
+geography from shape and the question prompt only; printed names would give
+away the answer on a map question whose target is a named place.
+
+Implementation lives in `src/components/map/InteractiveMap.tsx`: the wrapper
+subscribes to `onLoad` and `onStyleData` on the underlying `maplibregl.Map`
+and, on every fire, iterates `map.getStyle().layers` and calls
+`map.setLayoutProperty(layer.id, 'visibility', 'none')` for every layer with
+`type === 'symbol'`. Re-applying on `styledata` covers async style swaps when
+the consumer toggles `styleHint`.
+
+Raster-only styles cannot be cleaned up at the layer level — labels are baked
+into the tile pixels. For the `israel-hiking` hint we therefore swap the tile
+source from OpenTopoMap (heavy place names baked in) to **CartoDB
+`light_nolabels`** raster, which is free, requires no API key, and ships
+label-free at the tile level. Trade-off: we lose OpenTopoMap's topographic
+shading. If we ever want topo back without labels, the upgrade path is a
+self-hosted vector tile server (out of scope).
+
+#### 6.6 Why additive, not destructive
 
 If we collapsed `map.target` from `{x,y}` → `{lat,lng}` and dropped
 `pin_x`/`pin_y`, the parallel subtasks would type-error in their working trees

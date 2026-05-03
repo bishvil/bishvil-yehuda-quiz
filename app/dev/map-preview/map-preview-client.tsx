@@ -1,6 +1,11 @@
 "use client";
 
-import { InteractiveMap } from "@/src/components/map/InteractiveMap";
+import { useEffect, useRef } from "react";
+
+import {
+  InteractiveMap,
+  type InteractiveMapHandle,
+} from "@/src/components/map/InteractiveMap";
 import { useMapMarkerState } from "@/src/components/map/useMapMarkerState";
 
 /**
@@ -10,10 +15,28 @@ import { useMapMarkerState } from "@/src/components/map/useMapMarkerState";
  */
 export function MapPreviewClient() {
   const pin = useMapMarkerState();
+  const mapHandleRef = useRef<InteractiveMapHandle>(null);
+
+  // QA-20: expose the underlying maplibregl.Map on `window` so the
+  // Playwright spec at tests/e2e/map-labels.spec.ts can assert that no
+  // symbol layers remain visible. Dev sandbox only — never mounted by
+  // production routes (see comment in app/dev/map-preview/page.tsx).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const t = window.setInterval(() => {
+      const map = mapHandleRef.current?.getMap();
+      if (map) {
+        (window as unknown as { __bsyMap?: unknown }).__bsyMap = map;
+      }
+    }, 100);
+    return () => window.clearInterval(t);
+  }, []);
 
   return (
     <div className="relative h-full w-full">
       <InteractiveMap
+        ref={mapHandleRef}
+        exposeRef
         ariaLabel="ארגז חול — מפה אינטראקטיבית"
         onMapClick={pin.place}
         markers={

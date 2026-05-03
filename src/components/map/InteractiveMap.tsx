@@ -45,7 +45,7 @@ import {
   type MapRef,
   type ViewStateChangeEvent,
 } from "react-map-gl/maplibre";
-import type { StyleSpecification } from "maplibre-gl";
+import type { Map as MapLibreMap, StyleSpecification } from "maplibre-gl";
 import type { Feature, FeatureCollection, LineString } from "geojson";
 
 /** ADR-0011 §3 default IL viewport. */
@@ -90,31 +90,40 @@ export function resolveStyle(
   const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
   if (styleHint === "israel-hiking") {
-    // Inline raster style — no key required. Uses OpenTopoMap tiles which
-    // include topographic detail and Hebrew-readable place names.
-    const israelHikingStyle: StyleSpecification = {
+    // Inline raster style — no key required. QA-20: switched from
+    // OpenTopoMap (labels baked into raster) to CartoDB "light_nolabels"
+    // — free, no API key, and label-free at the tile level so the
+    // post-style-load symbol-hiding hook below has nothing to do for
+    // raster styles either. Trade-off: we lose OpenTopoMap's topographic
+    // shading but gain the clean base map QA-20 mandates.
+    const labelFreeRasterStyle: StyleSpecification = {
       version: 8,
       sources: {
-        "opentopomap-raster": {
+        "carto-light-nolabels": {
           type: "raster",
-          tiles: ["https://tile.opentopomap.org/{z}/{x}/{y}.png"],
+          tiles: [
+            "https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
+            "https://b.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
+            "https://c.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
+            "https://d.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
+          ],
           tileSize: 256,
           attribution:
-            '© <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA) © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
-          maxzoom: 17,
+            '© <a href="https://carto.com/attributions">CARTO</a> © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+          maxzoom: 19,
         },
       },
       layers: [
         {
-          id: "opentopomap-layer",
+          id: "carto-light-nolabels-layer",
           type: "raster",
-          source: "opentopomap-raster",
+          source: "carto-light-nolabels",
           minzoom: 0,
           maxzoom: 22,
         },
       ],
     };
-    return israelHikingStyle;
+    return labelFreeRasterStyle;
   }
 
   if (styleHint === "osm-liberty") {
@@ -265,6 +274,41 @@ const InteractiveMapImpl = forwardRef<InteractiveMapHandle, InteractiveMapProps>
       [props],
     );
 
+    /**
+     * QA-20: hide every symbol layer (place names, POI, road labels,
+     * country labels) on the active style. We deliberately apply this on
+     * BOTH `load` and `styledata` so it survives async style swaps when
+     * the consumer toggles `styleHint`. Raster-only styles (e.g. the
+     * `israel-hiking` hint) ship no symbol layers so this is a no-op for
+     * them — labels baked into the raster cannot be hidden via the
+     * MapLibre style API; that limitation is mitigated upstream by
+     * picking a label-free raster source (see `resolveStyle` above).
+     */
+    const hideAllSymbolLayers = useCallback((map: MapLibreMap) => {
+      try {
+        if (!map.isStyleLoaded()) return;
+        const style = map.getStyle();
+        if (!style?.layers) return;
+        for (const layer of style.layers) {
+          if (layer.type === "symbol") {
+            map.setLayoutProperty(layer.id, "visibility", "none");
+          }
+        }
+      } catch {
+        // Style may be mid-swap; the next `styledata` event will retry.
+      }
+    }, []);
+
+    const handleLoad = useCallback(() => {
+      const map = mapRef.current?.getMap();
+      if (map) hideAllSymbolLayers(map);
+    }, [hideAllSymbolLayers]);
+
+    const handleStyleData = useCallback(() => {
+      const map = mapRef.current?.getMap();
+      if (map) hideAllSymbolLayers(map);
+    }, [hideAllSymbolLayers]);
+
     return (
       <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", ...props.style }}>
         {showMaptilerWarning ? (
@@ -293,6 +337,8 @@ const InteractiveMapImpl = forwardRef<InteractiveMapHandle, InteractiveMapProps>
           attributionControl={{ compact: true }}
           onClick={handleClick}
           onMove={props.onMove ? handleMove : undefined}
+          onLoad={handleLoad}
+          onStyleData={handleStyleData}
           style={{ width: "100%", flex: 1 }}
           aria-label={props.ariaLabel}
         >
