@@ -20,6 +20,17 @@ const SESSION_TRANSITIONS: Record<SessionStatusEnum, SessionStatusEnum[]> = {
   ended: [],
 };
 
+/**
+ * ADR-0004 binds the host to the run once play starts (`live`/`paused`/`ended`):
+ * transferring mid-game would orphan the host dashboard and the
+ * `host_last_seen_at` heartbeat. Reassignment is therefore restricted to the
+ * pre-start statuses.
+ */
+export const HOST_REASSIGNABLE_STATUSES: readonly SessionStatusEnum[] = [
+  "draft",
+  "scheduled",
+];
+
 export function canTransitionSession(
   from: SessionStatusEnum,
   to: SessionStatusEnum,

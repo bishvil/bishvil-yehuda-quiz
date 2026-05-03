@@ -11,10 +11,9 @@ export interface TeamUserRecord {
 }
 
 /**
- * QA-26: shared resolver for admin/host users keyed by id. Used to enrich
- * session rows with host email and to validate `hostUserId` on create/PATCH.
- * Supabase auth has no relational join with the public schema, so we must
- * always pull users via the auth admin API.
+ * Supabase auth has no relational join with the public schema, so admin/host
+ * users have to be pulled via the auth admin API rather than a Postgres join
+ * when enriching session rows or validating a `hostUserId`.
  */
 export async function fetchTeamUsers(
   supabase: SupabaseClient<Database>,

@@ -108,11 +108,8 @@ export async function GET(request: NextRequest) {
  * Creates a new session from a quiz. Inherits `game_mode` from the quiz at
  * creation time per ADR-0004 (mode is stable across the run). Generates a
  * unique 6-digit PIN per ADR-0004 §"PIN Format and Uniqueness". Async mode
- * sets `auto_reveal=true` per ADR-0007 §2.4.
- *
- * QA-26: an explicit `hostUserId` may be provided to assign the game to a
- * teammate (admin or host). Falls back to the current admin so existing
- * "create then run myself" flows keep working.
+ * sets `auto_reveal=true` per ADR-0007 §2.4. An explicit `hostUserId` assigns
+ * the game to a teammate (admin or host); falls back to the current admin.
  */
 export async function POST(request: NextRequest) {
   const auth = await requireRole("admin");
@@ -177,8 +174,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // QA-26: validate explicit host assignment against the team roster. The
-  // current admin always passes (their own role is verified above).
   const hostUsers = await fetchTeamUsers(serviceSupabase);
   const hostMap = buildTeamUserMap(hostUsers);
   const hostUserId = parsed.data.hostUserId ?? auth.claims.userId;

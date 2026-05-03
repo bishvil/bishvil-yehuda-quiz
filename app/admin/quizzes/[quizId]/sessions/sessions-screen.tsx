@@ -24,11 +24,7 @@ import {
   SESSION_PUBLISH_CONFIRM,
 } from "@/src/lib/admin/lifecycle-copy";
 import { GAME_MODE_LABELS } from "@/src/lib/constants";
-
-const REASSIGNABLE_STATUSES: ReadonlyArray<AdminSessionListRow["status"]> = [
-  "draft",
-  "scheduled",
-];
+import { HOST_REASSIGNABLE_STATUSES } from "@/src/lib/sessions/state-machine";
 
 export function SessionsScreen({ quizId }: { quizId: string }) {
   const [quiz, setQuiz] = useState<AdminQuizDetail | null>(null);
@@ -250,7 +246,8 @@ function HostPicker({
   currentUserId,
   disabled,
   testId = "admin-host-picker",
-  className,
+  showLabel = true,
+  emptyOptionLabel,
 }: {
   members: AdminTeamMember[];
   value: string;
@@ -258,27 +255,37 @@ function HostPicker({
   currentUserId: string | null;
   disabled?: boolean;
   testId?: string;
-  className?: string;
+  showLabel?: boolean;
+  emptyOptionLabel?: string;
 }) {
-  return (
-    <label
-      className={`flex items-center gap-2 text-[12px] text-bsy-stone-700 ${className ?? ""}`}
+  const select = (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      disabled={disabled || members.length === 0}
+      className="rounded-md border border-bsy-stone-200 bg-white px-2 py-1 text-[13px] text-bsy-ink focus:border-bsy-forest focus:outline-none"
+      data-testid={testId}
     >
+      {emptyOptionLabel !== undefined && value === "" ? (
+        <option value="" disabled>
+          {emptyOptionLabel}
+        </option>
+      ) : null}
+      {members.map((member) => (
+        <option key={member.id} value={member.id}>
+          {member.email}
+          {member.id === currentUserId ? " (אני)" : ""}
+        </option>
+      ))}
+    </select>
+  );
+
+  if (!showLabel) return select;
+
+  return (
+    <label className="flex items-center gap-2 text-[12px] text-bsy-stone-700">
       <span>מנחה</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        disabled={disabled || members.length === 0}
-        className="rounded-md border border-bsy-stone-200 bg-white px-2 py-1 text-[13px] text-bsy-ink focus:border-bsy-forest focus:outline-none"
-        data-testid={testId}
-      >
-        {members.map((member) => (
-          <option key={member.id} value={member.id}>
-            {member.email}
-            {member.id === currentUserId ? " (אני)" : ""}
-          </option>
-        ))}
-      </select>
+      {select}
     </label>
   );
 }
@@ -325,7 +332,7 @@ function SessionCard({
   onReassign: (sessionId: string, hostUserId: string) => void;
 }) {
   const created = new Date(session.createdAt);
-  const canReassign = REASSIGNABLE_STATUSES.includes(session.status);
+  const canReassign = HOST_REASSIGNABLE_STATUSES.includes(session.status);
   const hostLabel = session.hostEmail ?? "ללא מנחה";
   const isMine = session.hostId !== null && session.hostId === currentUserId;
   return (
@@ -361,24 +368,15 @@ function SessionCard({
         <div className="mt-3 flex items-center gap-2 text-[12px] text-bsy-stone-700">
           <span className="text-bsy-stone-400">מנחה</span>
           {canReassign && team.length > 0 ? (
-            <select
+            <HostPicker
+              members={team}
               value={session.hostId ?? ""}
-              onChange={(event) => onReassign(session.id, event.target.value)}
-              className="rounded-md border border-bsy-stone-200 bg-white px-2 py-1 text-[12px] text-bsy-ink focus:border-bsy-forest focus:outline-none"
-              data-testid="admin-session-host-select"
-            >
-              {session.hostId === null ? (
-                <option value="" disabled>
-                  ללא מנחה
-                </option>
-              ) : null}
-              {team.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.email}
-                  {member.id === currentUserId ? " (אני)" : ""}
-                </option>
-              ))}
-            </select>
+              onChange={(next) => onReassign(session.id, next)}
+              currentUserId={currentUserId}
+              showLabel={false}
+              testId="admin-session-host-select"
+              emptyOptionLabel="ללא מנחה"
+            />
           ) : (
             <span
               className="font-bold text-bsy-ink"
