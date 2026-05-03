@@ -279,6 +279,8 @@ export function PlayScreen({
             mapPin,
             mapGeoPin,
             isRevealed,
+            isAnswering,
+            hasSubmitted,
             mapTarget: reveal?.mapTarget ?? null,
             mapGeoTarget: reveal?.mapGeoTarget ?? null,
             onPin: handleMapPin,
@@ -372,6 +374,8 @@ interface RenderMapArgs {
   mapPin: { x: number; y: number } | null;
   mapGeoPin: { lat: number; lng: number } | null;
   isRevealed: boolean;
+  isAnswering: boolean;
+  hasSubmitted: boolean;
   mapTarget: { x: number; y: number } | null;
   mapGeoTarget: { lat: number; lng: number } | null;
   onPin: (pin: { x: number; y: number }) => void;
@@ -383,11 +387,15 @@ function renderMapQuestion({
   mapPin,
   mapGeoPin,
   isRevealed,
+  isAnswering,
+  hasSubmitted,
   mapTarget,
   mapGeoTarget,
   onPin,
   onGeoPin,
 }: RenderMapArgs) {
+  const locked = !isAnswering || hasSubmitted;
+
   // Geographic path — ADR-0011 §5.
   if (question.map && "geo" in question.map && question.map.geo) {
     return (
@@ -396,12 +404,13 @@ function renderMapQuestion({
         pin={mapGeoPin}
         onPin={onGeoPin}
         revealed={isRevealed}
+        locked={locked}
         target={isRevealed ? mapGeoTarget : null}
       />
     );
   }
 
-  // Legacy raster path — kept verbatim.
+  // Legacy raster path.
   const mapMeta = extractMapMeta(question.map);
   if (!mapMeta) {
     return (
@@ -411,6 +420,13 @@ function renderMapQuestion({
     );
   }
   const toleranceRadius = question.tolerance ?? 8;
+  const lockedHelpText = isRevealed
+    ? "הסימון נחשף."
+    : locked
+      ? "התחנה ננעלה — הזמן הסתיים."
+      : mapPin
+        ? "אפשר עוד להזיז — הקישו על מקום אחר."
+        : "הקישו על המפה במקום שאתם חושבים שמיקום היעד.";
   return (
     <MapQuestion
       imageUrl={mapMeta.imageUrl}
@@ -418,14 +434,9 @@ function renderMapQuestion({
       tolerance={toleranceRadius}
       target={isRevealed ? mapTarget : null}
       revealed={isRevealed}
+      locked={locked}
       onPin={onPin}
-      helpText={
-        !isRevealed
-          ? mapPin
-            ? "אפשר עוד להזיז — הקישו על מקום אחר."
-            : "הקישו על המפה במקום שאתם חושבים שמיקום היעד."
-          : "הסימון נחשף."
-      }
+      helpText={lockedHelpText}
     />
   );
 }

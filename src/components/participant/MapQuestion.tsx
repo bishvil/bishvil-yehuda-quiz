@@ -16,6 +16,8 @@ interface MapQuestionProps {
   /** Tooltip label rendered next to the correct pin on reveal. */
   targetLabel?: string;
   revealed: boolean;
+  /** When true, taps are no-ops (timer expired or already submitted). */
+  locked?: boolean;
   onPin: (pin: MapPin) => void;
   helpText: string;
 }
@@ -33,13 +35,16 @@ export function MapQuestion({
   target,
   targetLabel,
   revealed,
+  locked,
   onPin,
   helpText,
 }: MapQuestionProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const lockedNotRevealed = Boolean(locked) && !revealed;
+  const interactionDisabled = revealed || Boolean(locked);
 
   function handleTap(event: MouseEvent<HTMLDivElement> | PointerEvent<HTMLDivElement>) {
-    if (revealed || !containerRef.current) return;
+    if (interactionDisabled || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * 100;
     const y = ((event.clientY - rect.top) / rect.height) * 100;
@@ -59,7 +64,8 @@ export function MapQuestion({
         className={[
           "relative aspect-[400/280] w-full overflow-hidden rounded-md border border-bsy-stone-100",
           "select-none touch-manipulation bg-bsy-paper-warm shadow-[0_1px_2px_rgba(74,63,38,0.06)]",
-          revealed ? "cursor-default" : "cursor-crosshair",
+          interactionDisabled ? "cursor-default" : "cursor-crosshair",
+          lockedNotRevealed ? "[filter:grayscale(0.55)]" : "",
         ].join(" ")}
         role="application"
         aria-label="מפת תשובה — הקישו לסימון מיקום"
@@ -90,6 +96,15 @@ export function MapQuestion({
             }}
             aria-label={revealed ? (isCorrect ? "סימון נכון" : "סימון לא מדויק") : "הסימון שלך"}
           />
+        ) : null}
+
+        {lockedNotRevealed ? (
+          <div
+            role="status"
+            className="pointer-events-none absolute inset-x-2 top-2 rounded-md border border-bsy-stone-300 bg-white/85 px-3 py-1.5 text-center text-[12px] font-bold text-bsy-stone-700 shadow-[0_1px_2px_rgba(74,63,38,0.06)]"
+          >
+            התחנה ננעלה — הזמן הסתיים.
+          </div>
         ) : null}
 
         {revealed && target ? (

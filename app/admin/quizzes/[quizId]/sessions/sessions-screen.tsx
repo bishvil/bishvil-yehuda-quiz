@@ -254,14 +254,23 @@ function SessionCard({
         </div>
       </div>
       <div className="mt-4 flex items-center gap-3 text-[13px]">
-        <Link
-          href={`/host/${session.pin}`}
-          className="font-bold text-bsy-forest hover:underline"
-          target="_blank"
-          rel="noreferrer"
-        >
-          לוח מנחה ←
-        </Link>
+        {session.gameMode === "sync" ? (
+          <Link
+            href={`/host/${session.pin}`}
+            className="font-bold text-bsy-forest hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            לוח מנחה ←
+          </Link>
+        ) : (
+          <span
+            className="text-[11px] text-bsy-stone-400"
+            title="לחידון אסינכרוני אין לוח מנחה חי"
+          >
+            ללא לוח מנחה
+          </span>
+        )}
         <Link
           href={`/admin/quizzes/${quizId}/sessions/${session.id}/results`}
           className="text-bsy-stone-700 hover:text-bsy-forest"

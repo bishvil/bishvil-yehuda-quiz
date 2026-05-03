@@ -127,15 +127,19 @@ export function MapQuestionInteractive({
     return [];
   }, [revealed, pin, target]);
 
-  const helpText = !revealed
-    ? pin
-      ? "אפשר עוד להזיז — הקישו על מקום אחר."
-      : "הקישו על המפה במקום שאתם חושבים שמיקום היעד."
-    : isCorrect
-      ? `הסימון נחשף. המרחק: ${formatKm(distanceKm)} ק״מ.`
-      : `הסימון נחשף. המרחק: ${formatKm(distanceKm)} ק״מ (סובלנות ${formatKm(geo.toleranceKm)} ק״מ).`;
+  const lockedNotRevealed = Boolean(locked) && !revealed;
 
-  const interactionDisabled = locked || revealed;
+  const helpText = revealed
+    ? isCorrect
+      ? `הסימון נחשף. המרחק: ${formatKm(distanceKm)} ק״מ.`
+      : `הסימון נחשף. המרחק: ${formatKm(distanceKm)} ק״מ (סובלנות ${formatKm(geo.toleranceKm)} ק״מ).`
+    : lockedNotRevealed
+      ? "התחנה ננעלה — הזמן הסתיים."
+      : pin
+        ? "אפשר עוד להזיז — הקישו על מקום אחר."
+        : "הקישו על המפה במקום שאתם חושבים שמיקום היעד.";
+
+  const interactionDisabled = Boolean(locked) || revealed;
 
   return (
     <div className={className ?? "flex flex-col gap-2"}>
@@ -143,6 +147,11 @@ export function MapQuestionInteractive({
         className="relative h-[360px] w-full overflow-hidden rounded-md border border-bsy-stone-100 shadow-[0_1px_2px_rgba(74,63,38,0.06)]"
         role="application"
         aria-label="מפת תשובה — הקישו לסימון מיקום"
+        style={
+          lockedNotRevealed
+            ? { filter: "grayscale(0.55)", cursor: "not-allowed" }
+            : undefined
+        }
       >
         <InteractiveMap
           initialView={initialView}
@@ -153,6 +162,14 @@ export function MapQuestionInteractive({
           disabled={interactionDisabled}
           ariaLabel="מפת תשובה — הקישו לסימון מיקום"
         />
+        {lockedNotRevealed ? (
+          <div
+            role="status"
+            className="pointer-events-none absolute inset-x-2 top-2 rounded-md border border-bsy-stone-300 bg-white/85 px-3 py-1.5 text-center text-[12px] font-bold text-bsy-stone-700 shadow-[0_1px_2px_rgba(74,63,38,0.06)]"
+          >
+            התחנה ננעלה — הזמן הסתיים.
+          </div>
+        ) : null}
       </div>
       <p className="px-1.5 text-center text-xs text-bsy-stone-700">{helpText}</p>
     </div>
