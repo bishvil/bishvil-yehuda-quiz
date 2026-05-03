@@ -37,6 +37,7 @@ export interface AdminQuizListItem {
   archivedAt: string | null;
   createdAt: string;
   questionCount?: number;
+  sessionCount?: number;
 }
 
 export interface AdminQuizListResponse {
@@ -97,6 +98,11 @@ export interface AdminQuizDeleteResponse {
 export interface AdminQuizUnarchiveResponse {
   status: "active";
   archivedAt: null;
+}
+
+export interface AdminQuizHardDeleteResponse {
+  status: "deleted";
+  id: string;
 }
 
 // ---------- Questions ----------------------------------------------------
@@ -305,6 +311,13 @@ export function updateAdminQuiz(quizId: string, body: AdminQuizUpdateRequest) {
 export function archiveAdminQuiz(quizId: string) {
   return bodyJson<AdminQuizDeleteResponse>(
     `/api/admin/quizzes/${encodeURIComponent(quizId)}`,
+    "DELETE",
+  );
+}
+
+export function hardDeleteAdminQuiz(quizId: string) {
+  return bodyJson<AdminQuizHardDeleteResponse>(
+    `/api/admin/quizzes/${encodeURIComponent(quizId)}?hard=true`,
     "DELETE",
   );
 }

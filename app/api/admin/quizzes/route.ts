@@ -15,6 +15,7 @@ interface AdminQuizListItem {
   archivedAt: string | null;
   createdAt: string;
   questionCount?: number;
+  sessionCount?: number;
 }
 
 interface AdminQuizListBody {
@@ -38,7 +39,7 @@ export async function GET() {
   const { data, error } = await serviceSupabase
     .from("quizzes")
     .select(
-      "id, title, brand_id, default_game_mode, archived_at, created_at, questions(count)",
+      "id, title, brand_id, default_game_mode, archived_at, created_at, questions(count), sessions(count)",
     )
     .order("created_at", { ascending: false });
 
@@ -58,6 +59,9 @@ export async function GET() {
     createdAt: row.created_at,
     questionCount: Array.isArray(row.questions)
       ? (row.questions[0]?.count ?? 0)
+      : 0,
+    sessionCount: Array.isArray(row.sessions)
+      ? (row.sessions[0]?.count ?? 0)
       : 0,
   }));
 

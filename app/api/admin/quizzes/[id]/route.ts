@@ -25,13 +25,24 @@ interface AdminQuizDetailBody {
 }
 
 interface AdminQuizErrorBody {
-  error: "INVALID_REQUEST" | "QUIZ_NOT_FOUND" | "WRITE_FAILED";
+  error:
+    | "INVALID_REQUEST"
+    | "QUIZ_NOT_FOUND"
+    | "WRITE_FAILED"
+    | "NOT_ARCHIVED"
+    | "HAS_SESSIONS";
   message: string;
+  sessionCount?: number;
 }
 
 interface AdminQuizDeleteBody {
   status: "archived";
   archivedAt: string;
+}
+
+interface AdminQuizHardDeleteBody {
+  status: "deleted";
+  id: string;
 }
 
 export async function GET(
@@ -167,21 +178,97 @@ function normalizeJoinFields(raw: unknown): string[] {
 }
 
 /**
- * Soft-delete: archive the quiz per ADR-0004 (`archived_at != null`).
- * Existing live/scheduled sessions keep running (lifecycle interaction
- * documented in ADR-0004 "Required Table: quizzes").
+ * DELETE [QA-21]: dual-mode.
+ *   - default (no query): soft-archive per ADR-0004 (`archived_at != null`).
+ *     Existing live/scheduled sessions keep running.
+ *   - `?hard=true`: hard-delete the quiz row. Two guards:
+ *       1. Quiz must already be archived (caller archives first).
+ *       2. Quiz must have zero sessions. The FK
+ *          `sessions.quiz_id REFERENCES quizzes(id) ON DELETE RESTRICT`
+ *          (migration 0000_sloppy_bug.sql:125) would block the delete
+ *          anyway, but we check explicitly so the UI can show a count.
+ *     Cascade: `questions.quiz_id` is `ON DELETE CASCADE`
+ *     (migration 0000_sloppy_bug.sql:124), so questions are removed
+ *     automatically with the parent quiz.
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: AdminQuizRouteContext,
 ) {
   const auth = await requireRole("admin");
   if (!auth.ok) return auth.response;
 
   const { id } = await context.params;
-  const archivedAt = new Date().toISOString();
+  const url = new URL(request.url);
+  const hard = url.searchParams.get("hard") === "true";
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
+
+  if (hard) {
+    const { data: existing, error: lookupError } = await serviceSupabase
+      .from("quizzes")
+      .select("id, archived_at, sessions(count)")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (lookupError) {
+      return privateNoStoreJson<AdminQuizErrorBody>(
+        { error: "WRITE_FAILED", message: "Quiz lookup failed." },
+        { status: 500 },
+      );
+    }
+
+    if (!existing) {
+      return privateNoStoreJson<AdminQuizErrorBody>(
+        { error: "QUIZ_NOT_FOUND", message: "Quiz not found." },
+        { status: 404 },
+      );
+    }
+
+    if (existing.archived_at === null) {
+      return privateNoStoreJson<AdminQuizErrorBody>(
+        {
+          error: "NOT_ARCHIVED",
+          message: "יש לארכב את החידון לפני מחיקה לצמיתות.",
+        },
+        { status: 409 },
+      );
+    }
+
+    const sessionCount = Array.isArray(existing.sessions)
+      ? (existing.sessions[0]?.count ?? 0)
+      : 0;
+
+    if (sessionCount > 0) {
+      return privateNoStoreJson<AdminQuizErrorBody>(
+        {
+          error: "HAS_SESSIONS",
+          message: "לא ניתן למחוק חידון עם משחקים.",
+          sessionCount,
+        },
+        { status: 409 },
+      );
+    }
+
+    const { error: deleteError } = await serviceSupabase
+      .from("quizzes")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      return privateNoStoreJson<AdminQuizErrorBody>(
+        { error: "WRITE_FAILED", message: "Hard-delete failed." },
+        { status: 500 },
+      );
+    }
+
+    return privateNoStoreJson<AdminQuizHardDeleteBody>({
+      status: "deleted",
+      id,
+    });
+  }
+
+  const archivedAt = new Date().toISOString();
   const { data, error } = await serviceSupabase
     .from("quizzes")
     .update({ archived_at: archivedAt })

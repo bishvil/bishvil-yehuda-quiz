@@ -8,6 +8,7 @@ import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import {
   archiveAdminQuiz,
   createAdminQuiz,
+  hardDeleteAdminQuiz,
   isAdminApiError,
   listAdminQuizzes,
   unarchiveAdminQuiz,
@@ -89,6 +90,23 @@ export function QuizListScreen() {
     );
   }, []);
 
+  const handleHardDelete = useCallback(async (quizId: string) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "למחוק לצמיתות? פעולה זו אינה הפיכה. החידון וכל התחנות שלו יימחקו.",
+      )
+    ) {
+      return;
+    }
+    const body = await hardDeleteAdminQuiz(quizId);
+    if (isAdminApiError(body)) {
+      setErrorMessage(body.message);
+      return;
+    }
+    setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
+  }, []);
+
   const handleUnarchive = useCallback(async (quizId: string) => {
     const body = await unarchiveAdminQuiz(quizId);
     if (isAdminApiError(body)) {
@@ -153,6 +171,7 @@ export function QuizListScreen() {
                   quiz={quiz}
                   onArchive={() => handleArchive(quiz.id)}
                   onUnarchive={() => handleUnarchive(quiz.id)}
+                  onHardDelete={() => handleHardDelete(quiz.id)}
                 />
               </li>
             ))}
@@ -204,12 +223,16 @@ function QuizCard({
   quiz,
   onArchive,
   onUnarchive,
+  onHardDelete,
 }: {
   quiz: AdminQuizListItem;
   onArchive: () => void;
   onUnarchive: () => void;
+  onHardDelete: () => void;
 }) {
   const archived = quiz.archivedAt !== null;
+  const sessionCount = quiz.sessionCount ?? 0;
+  const canHardDelete = archived && sessionCount === 0;
   return (
     <article
       className={[
@@ -255,13 +278,29 @@ function QuizCard({
             משחקים
           </Link>
           {archived ? (
-            <button
-              type="button"
-              onClick={onUnarchive}
-              className="text-[12px] text-bsy-forest hover:underline"
-            >
-              שחזר
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={onUnarchive}
+                className="text-[12px] text-bsy-forest hover:underline"
+              >
+                שחזר
+              </button>
+              <button
+                type="button"
+                onClick={onHardDelete}
+                disabled={!canHardDelete}
+                title={
+                  canHardDelete
+                    ? undefined
+                    : "לא ניתן למחוק חידון עם משחקים"
+                }
+                className="rounded border border-bsy-error/40 px-2 py-0.5 text-[12px] text-bsy-error hover:bg-bsy-error/10 disabled:cursor-not-allowed disabled:border-bsy-stone-200 disabled:text-bsy-stone-400 disabled:hover:bg-transparent"
+                data-testid="admin-hard-delete-quiz"
+              >
+                מחק לצמיתות
+              </button>
+            </>
           ) : (
             <button
               type="button"
