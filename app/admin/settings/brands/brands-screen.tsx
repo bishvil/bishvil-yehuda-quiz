@@ -44,6 +44,16 @@ const EMPTY_FORM: BrandFormState = {
   logoUrl: null,
 };
 
+/**
+ * Canonical brand identifier — the value written to `quizzes.brand_id` and
+ * `app_metadata.brand`. Matches `ParticipantBrand.id` (slug for system brands,
+ * UUID for custom brands) so user-default and quiz-default share one shape.
+ * `AdminBrand.id` (raw UUID) is reserved for entity ops on `/api/admin/brands/:id`.
+ */
+function canonicalBrandId(b: AdminBrand): string {
+  return b.slug ?? b.id;
+}
+
 function brandToForm(b: AdminBrand): BrandFormState {
   return {
     name: b.name,
@@ -63,6 +73,7 @@ export function BrandsScreen({
   );
   const [saving, setSaving] = useState<string | null>(null);
   const [savedTick, setSavedTick] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const savedTimeoutRef = useRef<number | null>(null);
 
   useEffect(
@@ -74,15 +85,23 @@ export function BrandsScreen({
     [],
   );
 
-  async function pickDefaultBrand(brandId: string) {
-    setSaving(brandId);
+  async function pickDefaultBrand(brand: AdminBrand) {
+    const brandId = canonicalBrandId(brand);
+    setSaving(brand.id);
+    setSaveError(null);
     try {
       const res = await fetch("/api/admin/settings/brand", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ brand: brandId }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as
+          | { message?: string }
+          | null;
+        setSaveError(body?.message ?? `שמירה נכשלה (HTTP ${res.status}).`);
+        return;
+      }
       setSelectedBrand(brandId);
       setSavedTick(1);
       if (savedTimeoutRef.current !== null) {
@@ -92,6 +111,8 @@ export function BrandsScreen({
         setSavedTick(0);
         savedTimeoutRef.current = null;
       }, 1800);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "שמירה נכשלה.");
     } finally {
       setSaving(null);
     }
@@ -214,14 +235,23 @@ export function BrandsScreen({
             </div>
           )}
 
+          {saveError && (
+            <div
+              role="alert"
+              className="mb-4 rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-700"
+            >
+              {saveError}
+            </div>
+          )}
+
           <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {brands.map((b) => (
               <BrandCard
                 key={b.id}
                 brand={b}
-                isDefault={selectedBrand === b.id}
+                isDefault={selectedBrand === canonicalBrandId(b)}
                 isSettingDefault={saving === b.id}
-                onSetDefault={() => void pickDefaultBrand(b.id)}
+                onSetDefault={() => void pickDefaultBrand(b)}
                 onEdit={() => setMode({ kind: "edit", brand: b })}
                 onArchive={handleArchive}
               />
