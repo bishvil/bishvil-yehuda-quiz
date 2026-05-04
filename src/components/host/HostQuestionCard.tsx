@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 import { QUESTION_TYPE_LABELS } from "@/src/lib/constants";
@@ -9,6 +10,8 @@ interface HostQuestionCardProps {
   ordinal: number;
   totalQuestions: number;
   imageUrl?: string | null;
+  /** Admin-supplied alt text; empty string signals decorative image. */
+  imageAlt?: string | null;
   children?: ReactNode;
 }
 
@@ -23,6 +26,7 @@ export function HostQuestionCard({
   ordinal,
   totalQuestions,
   imageUrl,
+  imageAlt,
   children,
 }: HostQuestionCardProps) {
   return (
@@ -34,14 +38,13 @@ export function HostQuestionCard({
         </span>
       </div>
       {imageUrl ? (
-        <div className="mb-3 aspect-[16/9] overflow-hidden rounded-md bg-bsy-paper-warm">
-          {/* Generic external image — eslint-disable-next-line @next/next/no-img-element */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+        <div className="relative mb-3 aspect-[16/9] overflow-hidden rounded-md bg-bsy-paper-warm">
+          <Image
             src={imageUrl}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
+            alt={imageAlt ?? ""}
+            fill
+            sizes="(max-width: 1024px) 100vw, 800px"
+            className="object-cover"
           />
         </div>
       ) : null}

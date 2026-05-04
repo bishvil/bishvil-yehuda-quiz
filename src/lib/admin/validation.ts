@@ -10,6 +10,36 @@ import {
 
 const brandIdSchema = z.string().min(1);
 
+// Allow https everywhere; additionally allow the configured Supabase origin
+// (which in local dev is http://127.0.0.1:54321) so uploads work in local
+// development without weakening prod, where Supabase is *.supabase.co/https.
+const localSupabaseOrigin = (() => {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+})();
+
+const httpsUrlSchema = z
+  .string()
+  .url()
+  .refine(
+    (value) => {
+      if (/^https:\/\//i.test(value)) return true;
+      if (localSupabaseOrigin && value.startsWith(localSupabaseOrigin + "/")) {
+        return true;
+      }
+      return false;
+    },
+    {
+      message:
+        "URL must use https:// (or the configured Supabase origin in dev).",
+    },
+  );
+
 const joinFieldSchema = z.enum([...DEFAULT_JOIN_FIELDS, "team"] as const);
 export const joinFieldsSchema = z.array(joinFieldSchema).min(1);
 
@@ -17,7 +47,7 @@ export const adminQuizCreateSchema = z.object({
   brandId: brandIdSchema,
   title: z.string().trim().min(1),
   defaultGameMode: z.enum(GAME_MODES),
-  customLogo: z.string().url().optional(),
+  customLogo: httpsUrlSchema.optional(),
   customLogoLabel: z.string().min(1).optional(),
   customLogoActive: z.boolean().optional(),
   joinFields: joinFieldsSchema.optional(),
@@ -32,7 +62,7 @@ export const adminQuizCreateSchema = z.object({
  */
 export const adminQuizUpdateSchema = adminQuizCreateSchema.partial().extend({
   archivedAt: z.string().datetime().nullable().optional(),
-  customLogo: z.string().url().nullable().optional(),
+  customLogo: httpsUrlSchema.nullable().optional(),
   customLogoLabel: z.string().min(1).nullable().optional(),
   customLogoActive: z.boolean().optional(),
 });
@@ -40,7 +70,7 @@ export const adminQuizUpdateSchema = adminQuizCreateSchema.partial().extend({
 const optionSchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1),
-  image_url: z.string().url().optional(),
+  image_url: httpsUrlSchema.optional(),
 });
 
 /** Geographic map (ADR-0011 §6.1). */
@@ -64,15 +94,22 @@ const mapSchema = z.object({
   }),
 });
 
+// The editor clears optional fields by sending `null` (not by omitting them),
+// so persisted-clearable fields are `.nullable().optional()`. Keep `null`
+// as "explicit clear" and `undefined` as "no change".
 export const adminQuestionCreateSchema = z.object({
   ordinal: z.number().int().min(1),
   type: z.enum(QUESTION_TYPES),
   prompt: z.string().min(1),
   options: z.array(optionSchema).optional(),
   correctIds: z.array(z.string().min(1)).optional(),
-  map: mapSchema.optional(),
-  imageUrl: z.string().url().optional(),
-  explanation: z.string().min(1).optional(),
+  map: mapSchema.nullable().optional(),
+  imageUrl: httpsUrlSchema.nullable().optional(),
+  imageAlt: z.string().trim().min(1).max(500).nullable().optional(),
+  imageWidth: z.number().int().positive().nullable().optional(),
+  imageHeight: z.number().int().positive().nullable().optional(),
+  imagePath: z.string().min(1).nullable().optional(),
+  explanation: z.string().min(1).nullable().optional(),
   timeSeconds: z.number().int().min(1).default(DEFAULT_QUESTION_TIME_SECONDS),
   points: z.number().int().min(1).default(DEFAULT_QUESTION_POINTS),
 });

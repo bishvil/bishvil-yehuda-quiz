@@ -18,6 +18,9 @@ interface PublicQuestionSuccessBody {
   prompt: string;
   options: Array<{ id: string; text: string; image_url?: string }> | null;
   imageUrl: string | null;
+  imageAlt: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
   /**
    * Public-safe slice. The correct target lives in the reveal payload
    * (ADR-0008 §2). The geo `target` is stripped here (ADR-0011 §6.1).
@@ -75,7 +78,9 @@ export async function GET(
 
   const { data: question } = await serviceSupabase
     .from("questions")
-    .select("type, prompt, options, map, image_url, time_seconds, points")
+    .select(
+      "type, prompt, options, map, image_url, image_alt, image_width, image_height, time_seconds, points",
+    )
     .eq("quiz_id", session.quiz_id)
     .eq("ordinal", ordinal)
     .maybeSingle();
@@ -144,6 +149,9 @@ export async function GET(
       prompt: question.prompt,
       options,
       imageUrl: question.image_url,
+      imageAlt: question.image_alt,
+      imageWidth: question.image_width,
+      imageHeight: question.image_height,
       map: mapPayload,
       timeSeconds: question.time_seconds,
       points: question.points,

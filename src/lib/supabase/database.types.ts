@@ -141,6 +141,16 @@ export interface Database {
           correct_ids: string[] | null;
           map: Json | null;
           image_url: string | null;
+          image_alt: string | null;
+          image_width: number | null;
+          image_height: number | null;
+          /**
+           * Supabase Storage object path for question-images uploads.
+           * Admin-private — must NOT be exposed in participant or host
+           * payloads (ADR-0008). Used by future cleanup jobs to find
+           * orphaned objects (ADR-0010 §7).
+           */
+          image_path: string | null;
           explanation: string | null;
           time_seconds: number;
           points: number;
@@ -156,6 +166,10 @@ export interface Database {
           correct_ids?: string[] | null;
           map?: Json | null;
           image_url?: string | null;
+          image_alt?: string | null;
+          image_width?: number | null;
+          image_height?: number | null;
+          image_path?: string | null;
           explanation?: string | null;
           time_seconds?: number;
           points?: number;

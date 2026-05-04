@@ -1,19 +1,36 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+
+import { optimizeForUpload, type OptimizeResult } from "./client-image-optimizer";
+import { OptimizerStatusLine } from "./OptimizerStatusLine";
 
 interface UploadResult {
   url: string;
   path: string;
+  width?: number;
+  height?: number;
 }
 
 interface UploadError {
   message?: string;
 }
 
+interface UploadMeta {
+  path?: string;
+  width?: number;
+  height?: number;
+}
+
+interface OptimizerConfig {
+  maxBytes: number;
+  maxLongSide: number;
+}
+
 interface AdminImageUploadControlProps {
   value: string | null;
-  onChange: (url: string | null) => void;
+  onChange: (url: string | null, meta?: UploadMeta) => void;
   endpoint: string;
   title: string;
   help: string;
@@ -27,6 +44,8 @@ interface AdminImageUploadControlProps {
   allowedLabel: string;
   previewAlt: string;
   disabled?: boolean;
+  /** When set, the optimizer runs before upload; omit or null to disable. */
+  optimizer?: OptimizerConfig | null;
 }
 
 type UploadStatus = "idle" | "dragging" | "uploading" | "error";
@@ -47,6 +66,7 @@ export function AdminImageUploadControl({
   allowedLabel,
   previewAlt,
   disabled = false,
+  optimizer = null,
 }: AdminImageUploadControlProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -54,6 +74,10 @@ export function AdminImageUploadControl({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const [useExternalUrl, setUseExternalUrl] = useState(false);
+  const [keepOriginalQuality, setKeepOriginalQuality] = useState(false);
+  const [optimizeResult, setOptimizeResult] = useState<OptimizeResult | null>(null);
+  const [externalUrlInput, setExternalUrlInput] = useState("");
+  const [importStatus, setImportStatus] = useState<"idle" | "importing">("idle");
 
   const allowedSet = useMemo(
     () => new Set<string>(allowedMimeTypes),
@@ -78,13 +102,40 @@ export function AdminImageUploadControl({
   const uploadFile = useCallback(
     async (file: File) => {
       setErrorMessage(null);
+      setOptimizeResult(null);
 
       if (!allowedSet.has(file.type)) {
         setStatus("error");
         setErrorMessage(`סוג הקובץ אינו נתמך. ניתן להעלות ${allowedLabel}.`);
         return;
       }
-      if (file.size > maxBytes) {
+
+      // Run optimizer when configured and not bypassed by the checkbox.
+      let uploadBlob: Blob = file;
+      let uploadWidth: number | undefined;
+      let uploadHeight: number | undefined;
+
+      if (optimizer && !keepOriginalQuality) {
+        let result: OptimizeResult;
+        try {
+          result = await optimizeForUpload(file, optimizer);
+        } catch (err) {
+          setStatus("error");
+          setErrorMessage(
+            err instanceof Error
+              ? err.message
+              : "שגיאה בעיבוד התמונה. נסו קובץ אחר.",
+          );
+          return;
+        }
+        setOptimizeResult(result);
+        uploadBlob = result.blob;
+        uploadWidth = result.width;
+        uploadHeight = result.height;
+      }
+
+      // Client-side size guard (runs on original when optimizer is off or bypassed).
+      if (uploadBlob.size > maxBytes) {
         setStatus("error");
         setErrorMessage(
           `הקובץ גדול מדי. הגודל המרבי הוא ${Math.floor(maxBytes / 1024)}KB.`,
@@ -93,12 +144,20 @@ export function AdminImageUploadControl({
       }
 
       clearLocalPreview();
-      const objectUrl = URL.createObjectURL(file);
+      const objectUrl = URL.createObjectURL(uploadBlob);
       setLocalPreviewUrl(objectUrl);
       setStatus("uploading");
 
+      // Wrap the blob in a File so the server receives the correct `name` and `type`.
+      const uploadFile =
+        uploadBlob instanceof File
+          ? uploadBlob
+          : new File([uploadBlob], "upload.webp", { type: "image/webp" });
+
       const formData = new FormData();
-      formData.set("file", file);
+      formData.set("file", uploadFile);
+      if (uploadWidth !== undefined) formData.set("width", String(uploadWidth));
+      if (uploadHeight !== undefined) formData.set("height", String(uploadHeight));
 
       let response: Response;
       try {
@@ -126,11 +185,15 @@ export function AdminImageUploadControl({
         return;
       }
 
-      onChange(body.url);
+      onChange(body.url, {
+        path: body.path,
+        width: body.width,
+        height: body.height,
+      });
       setStatus("idle");
       clearLocalPreview();
     },
-    [allowedLabel, allowedSet, clearLocalPreview, endpoint, maxBytes, onChange],
+    [allowedLabel, allowedSet, clearLocalPreview, endpoint, keepOriginalQuality, maxBytes, onChange, optimizer],
   );
 
   const handleFiles = useCallback(
@@ -146,6 +209,64 @@ export function AdminImageUploadControl({
   const openPicker = useCallback(() => {
     if (canUpload) inputRef.current?.click();
   }, [canUpload]);
+
+  const handleImport = useCallback(async () => {
+    const url = externalUrlInput.trim();
+    if (!url) return;
+
+    setErrorMessage(null);
+    setImportStatus("importing");
+
+    let response: Response;
+    try {
+      response = await fetch("/api/admin/uploads/import-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+    } catch {
+      setImportStatus("idle");
+      setErrorMessage("ייבוא הקישור נכשל.");
+      return;
+    }
+
+    interface ImportBody {
+      url?: string;
+      path?: string;
+      error?: string;
+      message?: string;
+    }
+    let data: ImportBody | null = null;
+    try {
+      data = (await response.json()) as ImportBody;
+    } catch {
+      data = null;
+    }
+
+    setImportStatus("idle");
+
+    if (!response.ok || !data || !data.url) {
+      const code = data?.error;
+      let friendly: string;
+      if (code === "FILE_TOO_LARGE") {
+        friendly = "התמונה גדולה מדי.";
+      } else if (code === "UNSUPPORTED_MEDIA_TYPE") {
+        friendly = "סוג הקובץ אינו נתמך.";
+      } else if (code === "SSRF_BLOCKED") {
+        friendly = "כתובת חסומה.";
+      } else if (code === "INVALID_REQUEST" && data?.message) {
+        // Server returns distinct Hebrew messages for scheme vs. parse errors.
+        friendly = data.message;
+      } else {
+        friendly = "ייבוא הקישור נכשל.";
+      }
+      setErrorMessage(friendly);
+      return;
+    }
+
+    setExternalUrlInput("");
+    onChange(data.url, { path: data.path });
+  }, [externalUrlInput, onChange]);
 
   return (
     <div className="flex flex-col gap-3" dir="rtl">
@@ -194,10 +315,12 @@ export function AdminImageUploadControl({
         />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Admin previews use arbitrary uploaded/external URLs, including SVG logos, so Next Image remote config is not a good fit here.
-            <img
+            <Image
               src={previewUrl}
               alt={previewAlt}
+              width={112}
+              height={80}
+              unoptimized
               className="h-20 w-28 rounded-md border border-bsy-stone-100 object-contain"
               data-testid="admin-upload-preview"
             />
@@ -224,6 +347,10 @@ export function AdminImageUploadControl({
         </div>
       </div>
 
+      {optimizeResult ? (
+        <OptimizerStatusLine result={optimizeResult} />
+      ) : null}
+
       {errorMessage ? (
         <p className="text-[12px] text-bsy-error" data-testid="admin-upload-error">
           {errorMessage}
@@ -238,12 +365,26 @@ export function AdminImageUploadControl({
             onClick={() => {
               clearLocalPreview();
               setErrorMessage(null);
+              setOptimizeResult(null);
               onChange(null);
             }}
             disabled={disabled}
           >
             {removeText}
           </button>
+        ) : null}
+
+        {optimizer ? (
+          <label className="inline-flex items-center gap-2 text-[12px] text-bsy-stone-700">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 accent-bsy-forest"
+              checked={keepOriginalQuality}
+              onChange={(event) => setKeepOriginalQuality(event.target.checked)}
+              disabled={disabled}
+            />
+            <span>שמור איכות מלאה</span>
+          </label>
         ) : null}
 
         {externalUrlLabel ? (
@@ -261,19 +402,35 @@ export function AdminImageUploadControl({
       </div>
 
       {externalUrlLabel && useExternalUrl ? (
-        <input
-          className="w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 font-mono text-[12px]"
-          dir="ltr"
-          value={value ?? ""}
-          placeholder={externalUrlPlaceholder}
-          onChange={(event) => {
-            clearLocalPreview();
-            setErrorMessage(null);
-            onChange(event.target.value || null);
-          }}
-          disabled={disabled}
-          data-testid="admin-upload-external-url"
-        />
+        <div className="flex gap-2">
+          <input
+            className="min-w-0 flex-1 rounded-md border border-bsy-stone-200 bg-white px-3 py-2 font-mono text-[12px]"
+            dir="ltr"
+            value={externalUrlInput}
+            placeholder={externalUrlPlaceholder}
+            onChange={(event) => {
+              setExternalUrlInput(event.target.value);
+              setErrorMessage(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void handleImport();
+              }
+            }}
+            disabled={disabled || importStatus === "importing"}
+            data-testid="admin-upload-external-url"
+          />
+          <button
+            type="button"
+            className="shrink-0 rounded-md border border-bsy-stone-200 px-3 py-2 text-[12px] font-bold text-bsy-forest disabled:opacity-60"
+            onClick={() => void handleImport()}
+            disabled={disabled || importStatus === "importing" || !externalUrlInput.trim()}
+            data-testid="admin-upload-import-button"
+          >
+            {importStatus === "importing" ? "מאמת קישור…" : "ייבוא"}
+          </button>
+        </div>
       ) : null}
     </div>
   );

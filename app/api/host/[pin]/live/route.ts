@@ -28,6 +28,9 @@ export interface HostLiveQuestion {
   /** Options carry only id + text + optional image — never `correct_ids`. */
   options: Array<{ id: string; text: string; image_url?: string }> | null;
   imageUrl: string | null;
+  imageAlt: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
   /**
    * Map content — geo block only. `geo.target` (lat/lng) is reveal-gated
    * and never ships here.
@@ -181,7 +184,7 @@ export async function GET(
     const { data: question } = await serviceSupabase
       .from("questions")
       .select(
-        "id, ordinal, type, prompt, options, map, image_url, time_seconds, correct_ids, explanation",
+        "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, time_seconds, correct_ids, explanation",
       )
       .eq("id", session.current_question_id)
       .maybeSingle();
@@ -219,6 +222,9 @@ export async function GET(
         prompt: question.prompt,
         options: optionsArray,
         imageUrl: question.image_url,
+        imageAlt: question.image_alt,
+        imageWidth: question.image_width,
+        imageHeight: question.image_height,
         // Always strip target — it lives inside reveal only.
         map: mapPayload,
         timeSeconds: question.time_seconds,

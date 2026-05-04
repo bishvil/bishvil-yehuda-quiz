@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 import type { QuestionType } from "@/src/lib/constants";
@@ -7,6 +8,8 @@ interface QuestionCardProps {
   type: QuestionType;
   prompt: string;
   imageUrl?: string | null;
+  /** Admin-supplied alt text; empty string signals decorative image. */
+  imageAlt?: string | null;
   /** Children render inside the prompt card (e.g. an image illustration). */
   children?: ReactNode;
 }
@@ -15,7 +18,7 @@ interface QuestionCardProps {
  * White card on cream background carrying the question prompt + optional
  * eyebrow type label. Keeps emoji-free per design-intake.md §8.
  */
-export function QuestionCard({ type, prompt, imageUrl, children }: QuestionCardProps) {
+export function QuestionCard({ type, prompt, imageUrl, imageAlt, children }: QuestionCardProps) {
   const eyebrow = buildEyebrow(type);
   return (
     <div className="rounded-md border border-bsy-stone-100 bg-white p-5 shadow-[0_1px_2px_rgba(74,63,38,0.06)]">
@@ -23,14 +26,13 @@ export function QuestionCard({ type, prompt, imageUrl, children }: QuestionCardP
         {eyebrow}
       </p>
       {imageUrl ? (
-        <div className="mb-3 aspect-[16/10] overflow-hidden rounded-md bg-bsy-paper-warm">
-          {/* Generic external image — eslint-disable-next-line @next/next/no-img-element */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+        <div className="relative mb-3 aspect-[16/10] overflow-hidden rounded-md bg-bsy-paper-warm">
+          <Image
             src={imageUrl}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
+            alt={imageAlt ?? ""}
+            fill
+            sizes="(max-width: 640px) 100vw, 640px"
+            className="object-cover"
           />
         </div>
       ) : null}

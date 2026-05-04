@@ -30,6 +30,15 @@ export interface ParticipantQuestionPayload {
   prompt: string;
   options: Array<{ id: string; text: string; image_url?: string }> | null;
   imageUrl: string | null;
+  /** Admin-supplied alt text for `imageUrl`. Null when no image. */
+  imageAlt: string | null;
+  /**
+   * Natural pixel dimensions captured at upload time. Lets the client
+   * reserve aspect ratio (no CLS) before the image loads. Null on legacy
+   * rows or external URLs that bypassed the upload pipeline.
+   */
+  imageWidth: number | null;
+  imageHeight: number | null;
   /**
    * Map metadata — only the public-safe slice. The correct target lives
    * in the reveal payload (ADR-0008 §2). For map questions the `geo`
@@ -123,6 +132,9 @@ export function buildParticipantQuestionPayload(args: {
     | "options"
     | "map"
     | "image_url"
+    | "image_alt"
+    | "image_width"
+    | "image_height"
     | "time_seconds"
     | "points"
   >;
@@ -169,6 +181,9 @@ export function buildParticipantQuestionPayload(args: {
     prompt: args.question.prompt,
     options: optionsArray,
     imageUrl: args.question.image_url,
+    imageAlt: args.question.image_alt,
+    imageWidth: args.question.image_width,
+    imageHeight: args.question.image_height,
     map: mapPayload,
     timeSeconds: args.question.time_seconds,
     points: args.question.points,

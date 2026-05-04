@@ -21,6 +21,10 @@ interface AdminQuestionDetailBody {
     correctIds: string[] | null;
     map: Json | null;
     imageUrl: string | null;
+    imageAlt: string | null;
+    imageWidth: number | null;
+    imageHeight: number | null;
+    imagePath: string | null;
     explanation: string | null;
     timeSeconds: number;
     points: number;
@@ -112,6 +116,10 @@ function toDetail(
     correctIds: row.correct_ids,
     map: row.map,
     imageUrl: row.image_url,
+    imageAlt: row.image_alt,
+    imageWidth: row.image_width,
+    imageHeight: row.image_height,
+    imagePath: row.image_path,
     explanation: row.explanation,
     timeSeconds: row.time_seconds,
     points: row.points,
@@ -216,6 +224,16 @@ export async function PUT(
   }
   if (parsed.data.map !== undefined) update.map = parsed.data.map as Json | null;
   if (parsed.data.imageUrl !== undefined) update.image_url = parsed.data.imageUrl;
+  if (parsed.data.imageAlt !== undefined) update.image_alt = parsed.data.imageAlt;
+  if (parsed.data.imageWidth !== undefined) {
+    update.image_width = parsed.data.imageWidth;
+  }
+  if (parsed.data.imageHeight !== undefined) {
+    update.image_height = parsed.data.imageHeight;
+  }
+  if (parsed.data.imagePath !== undefined) {
+    update.image_path = parsed.data.imagePath;
+  }
   if (parsed.data.explanation !== undefined) {
     update.explanation = parsed.data.explanation;
   }

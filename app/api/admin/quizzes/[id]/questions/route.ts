@@ -19,6 +19,10 @@ interface AdminQuestionListItem {
   correctIds: string[] | null;
   map: Json | null;
   imageUrl: string | null;
+  imageAlt: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  imagePath: string | null;
   explanation: string | null;
   timeSeconds: number;
   points: number;
@@ -50,6 +54,10 @@ function toListItem(
     correctIds: row.correct_ids,
     map: row.map,
     imageUrl: row.image_url,
+    imageAlt: row.image_alt,
+    imageWidth: row.image_width,
+    imageHeight: row.image_height,
+    imagePath: row.image_path,
     explanation: row.explanation,
     timeSeconds: row.time_seconds,
     points: row.points,
@@ -123,6 +131,10 @@ export async function POST(
     correct_ids: parsed.data.correctIds ?? null,
     map: (parsed.data.map ?? null) as Json | null,
     image_url: parsed.data.imageUrl ?? null,
+    image_alt: parsed.data.imageAlt ?? null,
+    image_width: parsed.data.imageWidth ?? null,
+    image_height: parsed.data.imageHeight ?? null,
+    image_path: parsed.data.imagePath ?? null,
     explanation: parsed.data.explanation ?? null,
     time_seconds: parsed.data.timeSeconds,
     points: parsed.data.points,

@@ -40,6 +40,14 @@ export interface EditableQuestion {
   correctIds: string[] | null;
   map: EditableQuestionMap | null;
   imageUrl: string | null;
+  /** Admin-supplied alt text — required for a11y when imageUrl is set. */
+  imageAlt: string | null;
+  /** Natural width in pixels after any client-side resize (null until uploaded). */
+  imageWidth: number | null;
+  /** Natural height in pixels after any client-side resize (null until uploaded). */
+  imageHeight: number | null;
+  /** Supabase storage path for future orphan cleanup — admin-only, never sent to participants. */
+  imagePath: string | null;
   explanation: string | null;
   timeSeconds: number;
   points: number;
@@ -79,6 +87,10 @@ export function makeBlankQuestion(ordinal: number): EditableQuestion {
     correctIds: ["a"],
     map: null,
     imageUrl: null,
+    imageAlt: null,
+    imageWidth: null,
+    imageHeight: null,
+    imagePath: null,
     explanation: null,
     timeSeconds: 25,
     points: 1500,
@@ -219,6 +231,10 @@ export function normalizeQuestionForType(
         correctIds,
         map: null,
         imageUrl: null,
+        imageAlt: null,
+        imageWidth: null,
+        imageHeight: null,
+        imagePath: null,
       };
     }
     case "multi":
@@ -229,6 +245,10 @@ export function normalizeQuestionForType(
         correctIds: question.correctIds ?? [],
         map: null,
         imageUrl: null,
+        imageAlt: null,
+        imageWidth: null,
+        imageHeight: null,
+        imagePath: null,
       };
     case "image":
       return {
@@ -237,7 +257,7 @@ export function normalizeQuestionForType(
         options: carryOptions,
         correctIds: question.correctIds ?? [],
         map: null,
-        // imageUrl carries over verbatim (may already be null)
+        // imageUrl / imageAlt / imageWidth / imageHeight / imagePath carry over verbatim
       };
     case "truefalse": {
       const allowed = new Set(TRUE_FALSE_OPTIONS.map((o) => o.id));
@@ -250,6 +270,10 @@ export function normalizeQuestionForType(
         correctIds,
         map: null,
         imageUrl: null,
+        imageAlt: null,
+        imageWidth: null,
+        imageHeight: null,
+        imagePath: null,
       };
     }
     case "map":
@@ -265,6 +289,10 @@ export function normalizeQuestionForType(
           },
         },
         imageUrl: null,
+        imageAlt: null,
+        imageWidth: null,
+        imageHeight: null,
+        imagePath: null,
       };
     default: {
       // Exhaustiveness check — unreachable for the current QUESTION_TYPES.

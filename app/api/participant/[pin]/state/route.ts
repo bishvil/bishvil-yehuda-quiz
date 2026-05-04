@@ -129,7 +129,7 @@ export async function GET(
     const { data: currentQuestion } = await serviceSupabase
       .from("questions")
       .select(
-        "id, ordinal, type, prompt, options, map, image_url, time_seconds, points, correct_ids, explanation",
+        "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, time_seconds, points, correct_ids, explanation",
       )
       .eq("id", currentQuestionId)
       .maybeSingle();
@@ -314,7 +314,7 @@ export async function GET(
   const { data: question } = await serviceSupabase
     .from("questions")
     .select(
-      "id, ordinal, type, prompt, options, map, image_url, time_seconds, points, correct_ids, explanation",
+      "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, time_seconds, points, correct_ids, explanation",
     )
     .eq("id", currentProgress.question_id)
     .maybeSingle();

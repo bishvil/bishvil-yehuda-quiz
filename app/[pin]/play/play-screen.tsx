@@ -308,6 +308,7 @@ export function PlayScreen({
           type={question.type}
           prompt={question.prompt}
           imageUrl={question.imageUrl}
+          imageAlt={question.imageAlt}
         />
 
         {question.type === "map" ? (

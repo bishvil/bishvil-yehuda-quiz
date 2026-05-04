@@ -302,6 +302,7 @@ export function HostScreen({
                 ordinal={question.ordinal}
                 totalQuestions={state.totalQuestions}
                 imageUrl={question.imageUrl}
+                imageAlt={question.imageAlt}
               />
               {hasOptions ? (
                 <HostAnswerBars
@@ -404,6 +405,7 @@ export function HostScreen({
                   ordinal={question.ordinal}
                   totalQuestions={state.totalQuestions}
                   imageUrl={question.imageUrl}
+                  imageAlt={question.imageAlt}
                 />
                 {canControl ? (
                   <HostTimerPanel

@@ -120,6 +120,10 @@ export interface AdminQuestionListItem {
   correctIds: string[] | null;
   map: EditableQuestionMap | null;
   imageUrl: string | null;
+  imageAlt: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  imagePath: string | null;
   explanation: string | null;
   timeSeconds: number;
   points: number;
@@ -138,6 +142,10 @@ export interface AdminQuestionCreateRequest {
   correctIds?: string[];
   map?: EditableQuestionMap;
   imageUrl?: string;
+  imageAlt?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  imagePath?: string;
   explanation?: string;
   timeSeconds?: number;
   points?: number;

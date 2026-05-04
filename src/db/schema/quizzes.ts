@@ -71,6 +71,10 @@ export const questions = pgTable(
     correctIds: text("correct_ids").array(),
     map: jsonb("map").$type<QuestionMap>(),
     imageUrl: text("image_url"),
+    imageAlt: text("image_alt"),
+    imageWidth: integer("image_width"),
+    imageHeight: integer("image_height"),
+    imagePath: text("image_path"),
     explanation: text("explanation"),
     timeSeconds: integer("time_seconds")
       .notNull()

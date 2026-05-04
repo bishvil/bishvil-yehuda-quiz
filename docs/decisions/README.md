@@ -26,6 +26,7 @@ out of the plan into a new, higher-numbered ADR.
 | [ADR-0009](./ADR-0009-host-pre-start-cancellation.md) | Host pre-start cancellation | Host-authorized `scheduled -> ended` cancellation |
 | [ADR-0010](./ADR-0010-storage-policy.md) | Storage policy for admin uploads | Public buckets, admin writes, upload validation, URL strategy |
 | [ADR-0011](./ADR-0011-interactive-map.md) | Interactive map question (MapLibre + react-map-gl) | Library, tile source, RTL, additive geo schema, haversine scoring |
+| [ADR-0012](./ADR-0012-image-quality-pipeline.md) | Image quality & delivery pipeline | Client-side resize-only-when-needed, `next/image` on Vercel, image metadata columns |
 
 ## How to add a new ADR
 

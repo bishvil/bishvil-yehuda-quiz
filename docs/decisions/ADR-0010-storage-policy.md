@@ -127,6 +127,76 @@ Quotas, orphan detection, and cleanup are out of scope for v1. Replacing a logo
 or question image leaves the old object in storage unless a later maintenance
 job removes it.
 
+ADR-0012 partially closes the path-derivation half of this open question by
+introducing a `questions.image_path` column populated at upload time. A future
+cleanup job can list `question-images` objects and delete those whose path is
+not referenced by any `questions.image_path`. `brand-logos` still has no path
+column and would require either a similar migration or a public-URL → path
+mapper.
+
+### 8. External URL Import
+
+Admins paste image URLs frequently (Wikipedia Commons, government sites, photo
+references). Storing those URLs verbatim in `questions.image_url` would make
+quizzes brittle: third-party hosts disappear, hot-link, change content, or
+serve different bytes than the admin saw at authoring time. To keep quizzes
+self-contained without disabling the workflow, `POST /api/admin/uploads/import-url`
+mirrors the URL into `question-images` and returns the same response shape as
+the direct upload route. After import, the DB only holds our own public URL.
+
+Validation is performed in two stages, in this order, before any network call:
+
+1. **URL parsing.** `new URL(input)` must succeed. Scheme must be exactly
+   `https:`. `URL.username` and `URL.password` must be empty (blocks
+   `https://x@10.0.0.1/` userinfo bypass).
+2. **Host allowlist (negative).** Hostname rejected if it equals `localhost` /
+   `*.localhost`, matches the Supabase project hostname, or resolves textually
+   as an IP literal in the private/loopback/link-local ranges:
+   IPv4 `0/8`, `10/8`, `127/8`, `169.254/16`, `172.16/12`, `192.168/16`;
+   IPv6 `::1`, `fe80::/10`, `fc00::/7`.
+
+Network stage:
+
+1. `HEAD` with `AbortSignal.timeout(5000)`. If `content-length` exceeds the
+   2 MB cap (plus 64 KB overhead), reject `FILE_TOO_LARGE` before any GET.
+2. `GET` is read as a stream; the running byte total is checked per chunk
+   and the stream is aborted at the cap. The post-stream MIME check uses the
+   same allowlist as direct uploads (`image/png`, `image/jpeg`, `image/webp`).
+3. The downloaded bytes are uploaded to `question-images` under the same
+   `<adminUserId>/<uuid>.<ext>` scheme. The extension is rederived from the
+   validated MIME, never from the source URL path.
+
+Accepted limitations (documented for honesty, not as missing requirements):
+
+- DNS rebinding is not defended against — `fetch` resolves once per call but we
+  do not pin the IP across redirects. Static private-range checks are the
+  primary mitigation. Move to a side-car HTTP client with explicit IP
+  binding only if SSRF severity escalates.
+- HEAD's `content-type` is used only for the size early-bail. The GET body's
+  MIME is the authoritative check, mirroring the in-house upload route's
+  TOCTOU-resistant behaviour.
+
+Operational:
+
+- The route is admin-only (`requireRole("admin")`) and shares the in-memory
+  token bucket with direct uploads (per-user, per-kind).
+- The mutation response is `private, no-store` (ADR-0008). The resulting
+  asset URL is public and may flow into participant payloads as before.
+
+### 9. Free → Pro Migration Trigger
+
+Sustainability checklist for the Supabase Free tier (1 GB storage, 5 GB
+egress / month):
+
+| Trigger | Action |
+|---|---|
+| Monthly egress > 4 GB sustained | Upgrade to Pro to gain Smart CDN. |
+| Stored bytes > 800 MB | Upgrade to Pro (100 GB ceiling). |
+| Image transformations needed beyond Vercel `next/image` | Upgrade to Pro for the Supabase image transformation API. |
+
+Vercel's `next/image` is the primary delivery layer (ADR-0012). Supabase
+remains the origin and is not optimisation-bound at our current scale.
+
 ## Consequences
 
 - Public participant and host payloads may include uploaded image URLs without

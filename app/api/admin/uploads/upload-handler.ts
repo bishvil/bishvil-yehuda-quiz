@@ -5,6 +5,9 @@ import { requireRole } from "@/src/lib/auth/server-auth";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { writeLog } from "@/src/lib/logging";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
+import { consumeUploadToken, resetRateLimitsForTests } from "./rate-limit";
+
+export { resetRateLimitsForTests as resetUploadRateLimitsForTests };
 
 type UploadKind = "logo" | "question-image";
 
@@ -18,6 +21,8 @@ interface UploadConfig {
 interface AdminUploadSuccessBody {
   url: string;
   path: string;
+  width?: number;
+  height?: number;
 }
 
 interface AdminUploadErrorBody {
@@ -29,11 +34,6 @@ interface AdminUploadErrorBody {
     | "UNSUPPORTED_MEDIA_TYPE"
     | "UPLOAD_FAILED";
   message: string;
-}
-
-interface TokenBucket {
-  tokens: number;
-  updatedAt: number;
 }
 
 const LOGO_UPLOAD_CONFIG: UploadConfig = {
@@ -56,9 +56,6 @@ const QUESTION_IMAGE_UPLOAD_CONFIG: UploadConfig = {
 };
 
 const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
-const RATE_LIMIT_CAPACITY = 10;
-const RATE_LIMIT_REFILL_INTERVAL_MS = 10_000;
-const rateLimitBuckets = new Map<string, TokenBucket>();
 
 export function POST_LOGO_UPLOAD(request: NextRequest) {
   return handleAdminUpload(request, LOGO_UPLOAD_CONFIG);
@@ -68,15 +65,11 @@ export function POST_QUESTION_IMAGE_UPLOAD(request: NextRequest) {
   return handleAdminUpload(request, QUESTION_IMAGE_UPLOAD_CONFIG);
 }
 
-export function resetUploadRateLimitsForTests() {
-  rateLimitBuckets.clear();
-}
-
 async function handleAdminUpload(request: NextRequest, config: UploadConfig) {
   const auth = await requireRole("admin");
   if (!auth.ok) return auth.response;
 
-  if (!consumeUploadToken(auth.claims.userId, config.kind)) {
+  if (!consumeUploadToken(`${config.kind}:${auth.claims.userId}`)) {
     return privateNoStoreJson<AdminUploadErrorBody>(
       {
         error: "RATE_LIMITED",
@@ -119,6 +112,11 @@ async function handleAdminUpload(request: NextRequest, config: UploadConfig) {
   if (!(file instanceof File)) {
     return invalidRequest("יש לצרף קובץ בשדה file.");
   }
+
+  const dimensions = parseDimensions(
+    formData.get("width"),
+    formData.get("height"),
+  );
 
   if (!config.allowedMimeTypes.has(file.type)) {
     return privateNoStoreJson<AdminUploadErrorBody>(
@@ -172,32 +170,9 @@ async function handleAdminUpload(request: NextRequest, config: UploadConfig) {
 
   const { data } = serviceSupabase.storage.from(config.bucket).getPublicUrl(path);
   return privateNoStoreJson<AdminUploadSuccessBody>(
-    { url: data.publicUrl, path },
+    { url: data.publicUrl, path, ...dimensions },
     { status: 201 },
   );
-}
-
-function consumeUploadToken(userId: string, kind: UploadKind): boolean {
-  const now = Date.now();
-  const key = `${kind}:${userId}`;
-  const current = rateLimitBuckets.get(key) ?? {
-    tokens: RATE_LIMIT_CAPACITY,
-    updatedAt: now,
-  };
-  const refill = Math.floor(
-    (now - current.updatedAt) / RATE_LIMIT_REFILL_INTERVAL_MS,
-  );
-  const tokens = Math.min(RATE_LIMIT_CAPACITY, current.tokens + refill);
-  const updatedAt =
-    refill > 0 ? current.updatedAt + refill * RATE_LIMIT_REFILL_INTERVAL_MS : now;
-
-  if (tokens <= 0) {
-    rateLimitBuckets.set(key, { tokens: 0, updatedAt });
-    return false;
-  }
-
-  rateLimitBuckets.set(key, { tokens: tokens - 1, updatedAt });
-  return true;
 }
 
 function invalidRequest(message: string) {
@@ -211,7 +186,28 @@ function sizeMessage(maxBytes: number): string {
   return `הקובץ גדול מדי. הגודל המרבי הוא ${Math.floor(maxBytes / 1024)}KB.`;
 }
 
-function extensionForMime(mime: string): "png" | "jpg" | "webp" | "svg" {
+/**
+ * Parses optional `width` and `height` multipart fields supplied by the
+ * client optimizer. Returns a partial object to spread into the success body,
+ * or an empty object when the fields are absent or invalid.
+ */
+function parseDimensions(
+  rawW: FormDataEntryValue | null,
+  rawH: FormDataEntryValue | null,
+): { width?: number; height?: number } {
+  if (rawW === null && rawH === null) return {};
+  const w = Number.parseInt(String(rawW ?? ""), 10);
+  const h = Number.parseInt(String(rawH ?? ""), 10);
+  if (
+    Number.isNaN(w) || Number.isNaN(h) ||
+    w < 1 || h < 1 || w > 20_000 || h > 20_000
+  ) {
+    return {};
+  }
+  return { width: w, height: h };
+}
+
+export function extensionForMime(mime: string): "png" | "jpg" | "webp" | "svg" {
   switch (mime) {
     case "image/png":
       return "png";
