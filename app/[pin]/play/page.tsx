@@ -28,7 +28,7 @@ export default async function ParticipantPlayPage({ params }: PlayPageProps) {
 
   const { data: quiz } = await serviceSupabase
     .from("quizzes")
-    .select("title, brand_id, custom_logo, custom_logo_label")
+    .select("title, brand_id, custom_logo, custom_logo_label, custom_logo_active")
     .eq("id", session.quiz_id)
     .maybeSingle();
 
@@ -36,14 +36,15 @@ export default async function ParticipantPlayPage({ params }: PlayPageProps) {
     notFound();
   }
 
-  const brand = resolveParticipantBrand(quiz.brand_id);
+  const brand = await resolveParticipantBrand(serviceSupabase, quiz.brand_id);
+  const effectiveLogo = quiz.custom_logo_active ? quiz.custom_logo : null;
 
   return (
     <PlayScreen
       pin={pin}
       brand={brand}
-      customLogo={quiz.custom_logo}
-      customLogoLabel={quiz.custom_logo_label}
+      customLogo={effectiveLogo}
+      customLogoLabel={effectiveLogo ? quiz.custom_logo_label : null}
       gameMode={session.game_mode}
     />
   );

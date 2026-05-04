@@ -1,13 +1,6 @@
-import { AdminShell } from "@/src/components/admin/AdminShell";
+import { redirect } from "next/navigation";
 
-import { BrandSettingsScreen } from "./brand-settings-screen";
-
-export const dynamic = "force-dynamic";
-
-export default function AdminBrandSettingsPage() {
-  return (
-    <AdminShell>
-      <BrandSettingsScreen />
-    </AdminShell>
-  );
+/** Redirect legacy bookmark to the new brand library page. */
+export default function AdminBrandSettingsRedirectPage() {
+  redirect("/admin/settings/brands");
 }

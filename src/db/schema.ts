@@ -1,4 +1,5 @@
 export * from "./schema/answers";
+export * from "./schema/brands";
 export * from "./schema/enums";
 export * from "./schema/participants";
 export * from "./schema/progress";

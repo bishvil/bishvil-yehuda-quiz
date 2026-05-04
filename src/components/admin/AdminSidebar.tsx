@@ -80,7 +80,7 @@ export function AdminSidebar({
 
       <NavGroupHeading>הגדרות</NavGroupHeading>
       <SettingsLink
-        href="/admin/settings/brand"
+        href="/admin/settings/brands"
         glyph="◐"
         label="מותג ותצוגה"
         active={pathname.startsWith("/admin/settings/brand")}

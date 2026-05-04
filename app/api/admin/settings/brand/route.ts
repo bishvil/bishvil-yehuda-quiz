@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
-import { PARTICIPANT_BRANDS } from "@/src/lib/participant/brands";
+import { loadBrands } from "@/src/lib/participant/brands";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 
 interface BrandGetBody {
@@ -51,7 +51,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const brand = typeof body.brand === "string" ? body.brand : "";
-  if (!brand || !(brand in PARTICIPANT_BRANDS)) {
+  if (!brand) {
     return privateNoStoreJson<BrandErrorBody>(
       { error: "INVALID_REQUEST", message: "Unknown brand id." },
       { status: 400 },
@@ -59,6 +59,14 @@ export async function PUT(request: NextRequest) {
   }
 
   const supabase = await createServiceRoleSupabaseClient();
+  const availableBrands = await loadBrands(supabase);
+  const validIds = new Set(availableBrands.map((b) => b.id));
+  if (!validIds.has(brand)) {
+    return privateNoStoreJson<BrandErrorBody>(
+      { error: "INVALID_REQUEST", message: "Unknown brand id." },
+      { status: 400 },
+    );
+  }
   const { data: existing } = await supabase.auth.admin.getUserById(
     auth.claims.userId,
   );

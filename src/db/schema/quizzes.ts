@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   integer,
   jsonb,
   pgTable,
@@ -51,6 +52,7 @@ export const quizzes = pgTable("quizzes", {
     .default(sql.raw(`'${JSON.stringify(DEFAULT_JOIN_FIELDS)}'::jsonb`)),
   customLogo: text("custom_logo"),
   customLogoLabel: text("custom_logo_label"),
+  customLogoActive: boolean("custom_logo_active").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
 });

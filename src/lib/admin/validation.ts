@@ -19,6 +19,7 @@ export const adminQuizCreateSchema = z.object({
   defaultGameMode: z.enum(GAME_MODES),
   customLogo: z.string().url().optional(),
   customLogoLabel: z.string().min(1).optional(),
+  customLogoActive: z.boolean().optional(),
   joinFields: joinFieldsSchema.optional(),
 });
 
@@ -33,6 +34,7 @@ export const adminQuizUpdateSchema = adminQuizCreateSchema.partial().extend({
   archivedAt: z.string().datetime().nullable().optional(),
   customLogo: z.string().url().nullable().optional(),
   customLogoLabel: z.string().min(1).nullable().optional(),
+  customLogoActive: z.boolean().optional(),
 });
 
 const optionSchema = z.object({
@@ -98,3 +100,40 @@ export type AdminQuestionCreate = z.infer<typeof adminQuestionCreateSchema>;
 export type AdminQuestionUpdate = z.infer<typeof adminQuestionUpdateSchema>;
 export type AdminQuestionReorder = z.infer<typeof adminQuestionReorderSchema>;
 export type AdminSessionCreate = z.infer<typeof adminSessionCreateSchema>;
+
+// ---- Brand CRUD schemas ----
+
+export const adminBrandCreateSchema = z.object({
+  name: z.string().trim().min(1),
+  tagline: z.string().trim().optional(),
+  logoUrl: z.string().url(),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+});
+
+/**
+ * For user-created (non-system) brands: all fields are patchable.
+ */
+export const adminBrandUpdateSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  tagline: z.string().trim().nullable().optional(),
+  logoUrl: z.string().url().optional(),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+});
+
+/**
+ * For system brands: only cosmetic fields (tagline, colors) may be changed.
+ * Uses `.strict()` so any extra field (name, logoUrl) is rejected at parse time.
+ */
+export const adminBrandSystemUpdateSchema = z
+  .object({
+    tagline: z.string().trim().nullable().optional(),
+    primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+    accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  })
+  .strict();
+
+export type AdminBrandCreate = z.infer<typeof adminBrandCreateSchema>;
+export type AdminBrandUpdate = z.infer<typeof adminBrandUpdateSchema>;
+export type AdminBrandSystemUpdate = z.infer<typeof adminBrandSystemUpdateSchema>;

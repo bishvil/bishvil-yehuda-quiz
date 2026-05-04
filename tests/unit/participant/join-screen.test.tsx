@@ -3,7 +3,17 @@ import type { ComponentProps, ImgHTMLAttributes } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { JoinScreen } from "@/app/[pin]/join-screen";
-import { DEFAULT_PARTICIPANT_BRAND } from "@/src/lib/participant/brands";
+import type { ParticipantBrand } from "@/src/lib/participant/brands";
+
+/** Inline fixture — mirrors the seeded yehuda system brand. */
+const YEHUDA_BRAND: ParticipantBrand = {
+  id: "yehuda",
+  name: "בשביל יהודה",
+  tagline: "מורשת בדרך ערך",
+  logoUrl: "/logos/logo_yehuda.png",
+  primary: "#306030",
+  accent: "#A0C040",
+};
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -37,7 +47,7 @@ function renderJoinScreen(
   return render(
     <JoinScreen
       pin="123456"
-      brand={DEFAULT_PARTICIPANT_BRAND}
+      brand={YEHUDA_BRAND}
       quizTitle="חידון בדיקה"
       customLogo={null}
       customLogoLabel={null}

@@ -588,7 +588,7 @@ interface BrandFooterProps {
 }
 
 function BrandFooter({ brand, customLogo, customLogoLabel }: BrandFooterProps) {
-  const label = customLogoLabel ?? brand.name;
+  const label = customLogo ? (customLogoLabel ?? brand.name) : brand.name;
   return (
     <p className="bg-bsy-paper px-5 pb-4 pt-1 text-center text-[10px] uppercase tracking-[0.18em] text-bsy-stone-400">
       {customLogo ? `${label} · בשביל יהודה` : label}

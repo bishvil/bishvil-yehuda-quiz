@@ -14,6 +14,7 @@ import {
   createServerSupabaseClient,
   createServiceRoleSupabaseClient,
 } from "@/src/lib/supabase/server";
+import type { ParticipantBrand } from "@/src/lib/participant/brands";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export interface LeaderboardRowDto {
 
 interface ResultPageData {
   pin: string;
-  brandId: string;
+  brand: ParticipantBrand;
   customLogo: string | null;
   customLogoLabel: string | null;
   quizTitle: string;
@@ -56,13 +57,12 @@ export default async function ParticipantResultPage({
     notFound();
   }
 
-  const brand = resolveParticipantBrand(data.brandId);
   const maxScorePerQuestion = DEFAULT_QUESTION_POINTS;
 
   return (
     <ResultScreen
       pin={data.pin}
-      brand={brand}
+      brand={data.brand}
       customLogo={data.customLogo}
       customLogoLabel={data.customLogoLabel}
       quizTitle={data.quizTitle}
@@ -84,7 +84,7 @@ async function loadResultPageData(pin: string): Promise<ResultPageData | null> {
 
   const { data: quiz } = await serviceSupabase
     .from("quizzes")
-    .select("title, brand_id, custom_logo, custom_logo_label")
+    .select("title, brand_id, custom_logo, custom_logo_label, custom_logo_active")
     .eq("id", session.quiz_id)
     .maybeSingle();
   if (!quiz) return null;
@@ -169,11 +169,14 @@ async function loadResultPageData(pin: string): Promise<ResultPageData | null> {
     }
   }
 
+  const brand = await resolveParticipantBrand(serviceSupabase, quiz.brand_id);
+  const effectiveLogo = quiz.custom_logo_active ? quiz.custom_logo : null;
+
   return {
     pin: session.pin,
-    brandId: quiz.brand_id,
-    customLogo: quiz.custom_logo,
-    customLogoLabel: quiz.custom_logo_label,
+    brand,
+    customLogo: effectiveLogo,
+    customLogoLabel: effectiveLogo ? quiz.custom_logo_label : null,
     quizTitle: quiz.title,
     questionCount: questionCount ?? 0,
     myScore,

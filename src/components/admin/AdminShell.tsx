@@ -1,16 +1,13 @@
 import type { ReactNode } from "react";
 
-import {
-  DEFAULT_PARTICIPANT_BRAND,
-  type ParticipantBrand,
-} from "@/src/lib/participant/brands";
+import type { ParticipantBrand } from "@/src/lib/participant/brands";
 
 import { AdminMobileNav } from "./AdminMobileNav";
 import { AdminSidebar } from "./AdminSidebar";
 
 interface AdminShellProps {
   children: ReactNode;
-  brand?: ParticipantBrand;
+  brand: ParticipantBrand;
 }
 
 /**
@@ -18,10 +15,7 @@ interface AdminShellProps {
  * The sidebar collapses below `md` (768px) — the page itself takes over
  * with its own mobile-specific top strip per spec.
  */
-export function AdminShell({
-  children,
-  brand = DEFAULT_PARTICIPANT_BRAND,
-}: AdminShellProps) {
+export function AdminShell({ children, brand }: AdminShellProps) {
   return (
     <div className="flex min-h-screen w-full bg-bsy-paper flex-col">
       <AdminMobileNav

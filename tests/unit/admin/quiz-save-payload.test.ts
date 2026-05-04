@@ -13,6 +13,7 @@ const BASE_QUIZ: EditableQuiz = {
   defaultGameMode: "sync",
   customLogo: null,
   customLogoLabel: null,
+  customLogoActive: false,
   joinFields: ["name", "phone"],
   archivedAt: null,
 };
@@ -42,6 +43,13 @@ describe("buildQuizSavePayload (Wave-2 review M1)", () => {
     expect(payload.customLogo).toBeNull();
     // The key MUST be present (omitting it would leave the DB value).
     expect(Object.prototype.hasOwnProperty.call(payload, "customLogo")).toBe(true);
+  });
+
+  it("forwards customLogoActive boolean", () => {
+    const off = buildQuizSavePayload({ ...BASE_QUIZ, customLogoActive: false });
+    expect(off.customLogoActive).toBe(false);
+    const on = buildQuizSavePayload({ ...BASE_QUIZ, customLogoActive: true });
+    expect(on.customLogoActive).toBe(true);
   });
 
   it("forwards null for customLogoLabel when the editor cleared it", () => {

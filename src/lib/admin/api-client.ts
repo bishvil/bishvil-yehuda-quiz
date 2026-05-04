@@ -34,6 +34,7 @@ export interface AdminQuizListItem {
   title: string;
   brandId: string;
   defaultGameMode: GameMode;
+  customLogoActive: boolean;
   archivedAt: string | null;
   createdAt: string;
   questionCount?: number;
@@ -50,6 +51,7 @@ export interface AdminQuizCreateRequest {
   defaultGameMode: GameMode;
   customLogo?: string;
   customLogoLabel?: string;
+  customLogoActive?: boolean;
   joinFields?: string[];
 }
 
@@ -66,6 +68,7 @@ export interface AdminQuizDetail {
   defaultGameMode: GameMode;
   customLogo: string | null;
   customLogoLabel: string | null;
+  customLogoActive: boolean;
   joinFields: string[];
   archivedAt: string | null;
   createdAt: string;
@@ -84,10 +87,11 @@ export interface AdminQuizDetailResponse {
  * is nothing to clear at construction time.
  */
 export interface AdminQuizUpdateRequest
-  extends Partial<Omit<AdminQuizCreateRequest, "customLogo" | "customLogoLabel">> {
+  extends Partial<Omit<AdminQuizCreateRequest, "customLogo" | "customLogoLabel" | "customLogoActive">> {
   archivedAt?: string | null;
   customLogo?: string | null;
   customLogoLabel?: string | null;
+  customLogoActive?: boolean;
 }
 
 export interface AdminQuizDeleteResponse {

@@ -13,7 +13,7 @@ import { LogoUploader } from "@/src/components/admin/upload/LogoUploader";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import { useQuestionReorder } from "@/src/hooks/useQuestionReorder";
 import { GAME_MODES, QUESTION_TYPE_LABELS, type GameMode } from "@/src/lib/constants";
-import { PARTICIPANT_BRANDS } from "@/src/lib/participant/brands";
+import type { ParticipantBrand } from "@/src/lib/participant/brands";
 import {
   createAdminQuestion,
   createAdminSession,
@@ -37,6 +37,7 @@ import { useDebouncedAutoSave } from "@/src/lib/hooks/useDebouncedAutoSave";
 
 interface Props {
   quizId: string;
+  brands: ParticipantBrand[];
 }
 
 type Status = "loading" | "ready" | "error";
@@ -58,7 +59,7 @@ function rowToEditable(row: AdminQuestionListItem): EditableQuestion {
   };
 }
 
-export function QuizEditorScreen({ quizId }: Props) {
+export function QuizEditorScreen({ quizId, brands }: Props) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -110,6 +111,7 @@ export function QuizEditorScreen({ quizId }: Props) {
         defaultGameMode: quizBody.quiz.defaultGameMode,
         customLogo: quizBody.quiz.customLogo,
         customLogoLabel: quizBody.quiz.customLogoLabel,
+        customLogoActive: quizBody.quiz.customLogoActive,
         joinFields: quizBody.quiz.joinFields,
         archivedAt: quizBody.quiz.archivedAt,
       });
@@ -488,7 +490,7 @@ export function QuizEditorScreen({ quizId }: Props) {
             mobileView === "edit" ? "hidden md:block" : "block",
           ].join(" ")}
         >
-          <QuizMetaCard quiz={quiz} onChange={setQuiz} disabled={launching} />
+          <QuizMetaCard quiz={quiz} onChange={setQuiz} disabled={launching} brands={brands} />
           <h3 className="mt-6 mb-3 text-[12px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400">
             {questions.length} תחנות
           </h3>
@@ -581,10 +583,12 @@ function QuizMetaCard({
   quiz,
   onChange,
   disabled,
+  brands,
 }: {
   quiz: EditableQuiz;
   onChange: (next: EditableQuiz) => void;
   disabled?: boolean;
+  brands: ParticipantBrand[];
 }) {
   return (
     <div className="rounded-md border border-bsy-stone-100 bg-white p-4 md:p-6">
@@ -636,7 +640,7 @@ function QuizMetaCard({
             }
             disabled={disabled}
           >
-            {Object.values(PARTICIPANT_BRANDS).map((brand) => (
+            {brands.map((brand) => (
               <option key={brand.id} value={brand.id}>
                 {brand.name}
               </option>
@@ -688,31 +692,56 @@ function QuizMetaCard({
           מיתוג ייעודי
         </legend>
         <div className="mt-2 grid gap-2">
-          <LogoUploader
-            value={quiz.customLogo}
-            onChange={(customLogo) =>
-              onChange({
-                ...quiz,
-                customLogo,
-                customLogoLabel: customLogo ? quiz.customLogoLabel : null,
-              })
-            }
-            disabled={disabled}
-          />
-          {quiz.customLogo !== null ? (
+          <label
+            className={[
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[12px] w-fit",
+              quiz.customLogoActive
+                ? "border-bsy-forest bg-bsy-forest/10 text-bsy-forest"
+                : "border-bsy-stone-200 bg-white text-bsy-stone-700",
+            ].join(" ")}
+          >
             <input
-              className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px]"
-              placeholder="שם האירוע (לדוגמה: גדוד 890)"
-              value={quiz.customLogoLabel ?? ""}
+              type="checkbox"
+              checked={quiz.customLogoActive}
+              disabled={disabled}
               onChange={(event) =>
+                onChange({ ...quiz, customLogoActive: event.target.checked })
+              }
+              className="h-3.5 w-3.5 accent-bsy-forest"
+            />
+            <span>פעיל</span>
+          </label>
+          <p className="text-[11px] text-bsy-stone-400">
+            כשפעיל — הלוגו הייעודי מופיע במסך ההצטרפות, בלוח החי ובלוח התוצאות
+          </p>
+          <div className={quiz.customLogoActive ? undefined : "opacity-60"}>
+            <LogoUploader
+              value={quiz.customLogo}
+              onChange={(customLogo) =>
                 onChange({
                   ...quiz,
-                  customLogoLabel: event.target.value || null,
+                  customLogo,
+                  customLogoLabel: customLogo ? quiz.customLogoLabel : null,
                 })
               }
-              disabled={disabled}
+              disabled={disabled || !quiz.customLogoActive}
             />
-          ) : null}
+          </div>
+          <input
+            className={[
+              "rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px]",
+              quiz.customLogoActive && quiz.customLogo !== null ? "" : "opacity-60",
+            ].join(" ")}
+            placeholder="שם האירוע (לדוגמה: גדוד 890)"
+            value={quiz.customLogoLabel ?? ""}
+            onChange={(event) =>
+              onChange({
+                ...quiz,
+                customLogoLabel: event.target.value || null,
+              })
+            }
+            disabled={disabled || !quiz.customLogoActive || quiz.customLogo === null}
+          />
         </div>
       </fieldset>
     </div>

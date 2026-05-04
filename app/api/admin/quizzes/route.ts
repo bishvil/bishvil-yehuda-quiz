@@ -12,6 +12,7 @@ interface AdminQuizListItem {
   title: string;
   brandId: string;
   defaultGameMode: "sync" | "async";
+  customLogoActive: boolean;
   archivedAt: string | null;
   createdAt: string;
   questionCount?: number;
@@ -39,7 +40,7 @@ export async function GET() {
   const { data, error } = await serviceSupabase
     .from("quizzes")
     .select(
-      "id, title, brand_id, default_game_mode, archived_at, created_at, questions(count), sessions(count)",
+      "id, title, brand_id, default_game_mode, custom_logo_active, archived_at, created_at, questions(count), sessions(count)",
     )
     .order("created_at", { ascending: false });
 
@@ -55,6 +56,7 @@ export async function GET() {
     title: row.title,
     brandId: row.brand_id,
     defaultGameMode: row.default_game_mode,
+    customLogoActive: row.custom_logo_active,
     archivedAt: row.archived_at,
     createdAt: row.created_at,
     questionCount: Array.isArray(row.questions)
@@ -88,13 +90,14 @@ export async function POST(request: NextRequest) {
     default_game_mode: parsed.data.defaultGameMode,
     custom_logo: parsed.data.customLogo ?? null,
     custom_logo_label: parsed.data.customLogoLabel ?? null,
+    custom_logo_active: parsed.data.customLogoActive ?? false,
     ...(parsed.data.joinFields ? { join_fields: parsed.data.joinFields } : {}),
   };
 
   const { data, error } = await serviceSupabase
     .from("quizzes")
     .insert(insert)
-    .select("id, title, brand_id, default_game_mode, archived_at, created_at")
+    .select("id, title, brand_id, default_game_mode, custom_logo_active, archived_at, created_at")
     .single();
 
   if (error || !data) {
@@ -116,6 +119,7 @@ export async function POST(request: NextRequest) {
         title: data.title,
         brandId: data.brand_id,
         defaultGameMode: data.default_game_mode,
+        customLogoActive: data.custom_logo_active,
         archivedAt: data.archived_at,
         createdAt: data.created_at,
       },

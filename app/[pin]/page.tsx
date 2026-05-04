@@ -28,7 +28,7 @@ export default async function ParticipantJoinPage({ params }: JoinPageProps) {
 
   const { data: quiz } = await serviceSupabase
     .from("quizzes")
-    .select("title, brand_id, custom_logo, custom_logo_label")
+    .select("title, brand_id, custom_logo, custom_logo_label, custom_logo_active")
     .eq("id", session.quiz_id)
     .maybeSingle();
 
@@ -36,15 +36,16 @@ export default async function ParticipantJoinPage({ params }: JoinPageProps) {
     notFound();
   }
 
-  const brand = resolveParticipantBrand(quiz.brand_id);
+  const brand = await resolveParticipantBrand(serviceSupabase, quiz.brand_id);
+  const effectiveLogo = quiz.custom_logo_active ? quiz.custom_logo : null;
 
   return (
     <JoinScreen
       pin={pin}
       brand={brand}
       quizTitle={quiz.title}
-      customLogo={quiz.custom_logo}
-      customLogoLabel={quiz.custom_logo_label}
+      customLogo={effectiveLogo}
+      customLogoLabel={effectiveLogo ? quiz.custom_logo_label : null}
       sessionStatus={session.status}
     />
   );

@@ -18,6 +18,7 @@ interface AdminQuizDetailBody {
     defaultGameMode: "sync" | "async";
     customLogo: string | null;
     customLogoLabel: string | null;
+    customLogoActive: boolean;
     joinFields: string[];
     archivedAt: string | null;
     createdAt: string;
@@ -57,7 +58,7 @@ export async function GET(
   const { data, error } = await serviceSupabase
     .from("quizzes")
     .select(
-      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, join_fields, archived_at, created_at",
+      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, custom_logo_active, join_fields, archived_at, created_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -84,6 +85,7 @@ export async function GET(
       defaultGameMode: data.default_game_mode,
       customLogo: data.custom_logo,
       customLogoLabel: data.custom_logo_label,
+      customLogoActive: data.custom_logo_active,
       joinFields: normalizeJoinFields(data.join_fields),
       archivedAt: data.archived_at,
       createdAt: data.created_at,
@@ -119,6 +121,9 @@ export async function PUT(
   if (parsed.data.customLogoLabel !== undefined) {
     update.custom_logo_label = parsed.data.customLogoLabel;
   }
+  if (parsed.data.customLogoActive !== undefined) {
+    update.custom_logo_active = parsed.data.customLogoActive;
+  }
   if (parsed.data.archivedAt !== undefined) {
     update.archived_at = parsed.data.archivedAt;
   }
@@ -132,7 +137,7 @@ export async function PUT(
     .update(update)
     .eq("id", id)
     .select(
-      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, join_fields, archived_at, created_at",
+      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, custom_logo_active, join_fields, archived_at, created_at",
     )
     .maybeSingle();
 
@@ -158,6 +163,7 @@ export async function PUT(
       defaultGameMode: data.default_game_mode,
       customLogo: data.custom_logo,
       customLogoLabel: data.custom_logo_label,
+      customLogoActive: data.custom_logo_active,
       joinFields: normalizeJoinFields(data.join_fields),
       archivedAt: data.archived_at,
       createdAt: data.created_at,

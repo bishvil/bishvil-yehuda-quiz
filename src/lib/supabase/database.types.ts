@@ -110,6 +110,7 @@ export interface Database {
           join_fields: Json;
           custom_logo: string | null;
           custom_logo_label: string | null;
+          custom_logo_active: boolean;
           created_at: string;
           archived_at: string | null;
         };
@@ -122,6 +123,7 @@ export interface Database {
           join_fields?: Json;
           custom_logo?: string | null;
           custom_logo_label?: string | null;
+          custom_logo_active?: boolean;
           created_at?: string;
           archived_at?: string | null;
         };

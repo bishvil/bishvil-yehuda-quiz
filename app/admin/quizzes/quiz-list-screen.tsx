@@ -15,16 +15,18 @@ import {
   type AdminQuizListItem,
 } from "@/src/lib/admin/api-client";
 import { GAME_MODE_LABELS } from "@/src/lib/constants";
-import {
-  DEFAULT_PARTICIPANT_BRAND,
-  PARTICIPANT_BRANDS,
-} from "@/src/lib/participant/brands";
+import type { ParticipantBrand } from "@/src/lib/participant/brands";
 
 const DEFAULT_QUIZ_TITLE = "חידון חדש";
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 
-export function QuizListScreen() {
+interface QuizListScreenProps {
+  brands: ParticipantBrand[];
+  defaultBrandId: string;
+}
+
+export function QuizListScreen({ brands, defaultBrandId }: QuizListScreenProps) {
   const [quizzes, setQuizzes] = useState<AdminQuizListItem[]>([]);
   const [status, setStatus] = useState<LoadStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export function QuizListScreen() {
     setCreating(true);
     setErrorMessage(null);
     const body = await createAdminQuiz({
-      brandId: DEFAULT_PARTICIPANT_BRAND.id,
+      brandId: defaultBrandId,
       title: DEFAULT_QUIZ_TITLE,
       defaultGameMode: "sync",
     });
@@ -69,7 +71,7 @@ export function QuizListScreen() {
     if (typeof window !== "undefined") {
       window.location.href = `/admin/quizzes/${body.quiz.id}`;
     }
-  }, []);
+  }, [defaultBrandId]);
 
   const handleArchive = useCallback(async (quizId: string) => {
     if (
@@ -169,6 +171,7 @@ export function QuizListScreen() {
               <li key={quiz.id}>
                 <QuizCard
                   quiz={quiz}
+                  brands={brands}
                   onArchive={() => handleArchive(quiz.id)}
                   onUnarchive={() => handleUnarchive(quiz.id)}
                   onHardDelete={() => handleHardDelete(quiz.id)}
@@ -221,11 +224,13 @@ function EmptyState({
 
 function QuizCard({
   quiz,
+  brands,
   onArchive,
   onUnarchive,
   onHardDelete,
 }: {
   quiz: AdminQuizListItem;
+  brands: ParticipantBrand[];
   onArchive: () => void;
   onUnarchive: () => void;
   onHardDelete: () => void;
@@ -260,7 +265,7 @@ function QuizCard({
             ? `${quiz.questionCount} תחנות`
             : "—"}
           <span className="px-1">·</span>
-          <span>{PARTICIPANT_BRANDS[quiz.brandId]?.name ?? quiz.brandId}</span>
+          <span>{brands.find((b) => b.id === quiz.brandId)?.name ?? quiz.brandId}</span>
         </p>
       </div>
       <div className="mt-4 flex items-center justify-between gap-2">

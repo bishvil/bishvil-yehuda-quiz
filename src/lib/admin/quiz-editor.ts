@@ -52,6 +52,7 @@ export interface EditableQuiz {
   defaultGameMode: GameMode;
   customLogo: string | null;
   customLogoLabel: string | null;
+  customLogoActive: boolean;
   joinFields: string[];
   archivedAt: string | null;
 }
@@ -171,6 +172,7 @@ export interface QuizSavePayload {
   defaultGameMode: GameMode;
   customLogo: string | null;
   customLogoLabel: string | null;
+  customLogoActive: boolean;
   joinFields: string[];
 }
 
@@ -289,6 +291,7 @@ export function buildQuizSavePayload(quiz: EditableQuiz): QuizSavePayload {
     defaultGameMode: quiz.defaultGameMode,
     customLogo: quiz.customLogo,
     customLogoLabel: quiz.customLogoLabel,
+    customLogoActive: quiz.customLogoActive,
     joinFields: quiz.joinFields,
   };
 }

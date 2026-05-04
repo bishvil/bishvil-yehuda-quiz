@@ -175,7 +175,7 @@ export function AdminMobileNav({
           הגדרות
         </div>
         <Link
-          href={"/admin/settings/brand" as never}
+          href={"/admin/settings/brands" as never}
           onClick={() => setOpen(false)}
           className="flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-bold text-bsy-stone-700 hover:bg-white/60"
         >

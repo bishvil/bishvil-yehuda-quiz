@@ -83,6 +83,17 @@ import { QuizEditorScreen } from "@/app/admin/quizzes/[quizId]/quiz-editor-scree
 const QUIZ_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const SERVER_QUESTION_ID = "qqqqqqqq-qqqq-4qqq-8qqq-qqqqqqqqqqqq";
 
+const BRANDS_FIXTURE = [
+  {
+    id: "yehuda",
+    name: "בשביל יהודה",
+    tagline: "מורשת בדרך ערך",
+    logoUrl: "/logos/logo_yehuda.png",
+    primary: "#306030",
+    accent: "#A0C040",
+  },
+];
+
 const QUIZ_FIXTURE = {
   quiz: {
     id: QUIZ_ID,
@@ -91,6 +102,7 @@ const QUIZ_FIXTURE = {
     defaultGameMode: "sync" as const,
     customLogo: null,
     customLogoLabel: null,
+    customLogoActive: false,
     joinFields: ["name", "phone"],
     archivedAt: null,
     createdAt: "2026-01-01T00:00:00Z",
@@ -140,7 +152,7 @@ describe("QuizEditorScreen — delete-while-POST-in-flight race (QA-C)", () => {
       );
       vi.mocked(createAdminQuestion).mockReturnValue(postPromise);
 
-      render(<QuizEditorScreen quizId={QUIZ_ID} />);
+      render(<QuizEditorScreen quizId={QUIZ_ID} brands={BRANDS_FIXTURE} />);
 
       // Wait for initial load to finish (data fetched, editor renders).
       const addBtn = await screen.findByTestId("admin-add-question", {}, { timeout: 5000 });
@@ -199,7 +211,7 @@ describe("QuizEditorScreen — delete-while-POST-in-flight race (QA-C)", () => {
         new Error("network error"),
       );
 
-      render(<QuizEditorScreen quizId={QUIZ_ID} />);
+      render(<QuizEditorScreen quizId={QUIZ_ID} brands={BRANDS_FIXTURE} />);
 
       const addBtn = await screen.findByTestId("admin-add-question", {}, { timeout: 5000 });
 
