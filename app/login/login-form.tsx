@@ -27,7 +27,30 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotState, setForgotState] = useState<
+    "idle" | "sending" | "sent"
+  >("idle");
   const router = useRouter();
+
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      setError("נא להזין כתובת אימייל לשליחת קישור איפוס");
+      return;
+    }
+    setError(null);
+    setForgotState("sending");
+    try {
+      await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+    } catch {
+      // intentionally swallow — endpoint never returns failure to avoid enumeration
+    } finally {
+      setForgotState("sent");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -247,6 +270,39 @@ export default function LoginForm() {
         >
           {loading ? "נכנס..." : "כניסה"}
         </button>
+
+        <div style={{ textAlign: "center", marginTop: "0.25rem" }}>
+          {forgotState === "sent" ? (
+            <span
+              style={{
+                fontSize: "0.8125rem",
+                color: "var(--bsy-stone-700)",
+              }}
+            >
+              אם הכתובת קיימת, נשלח אליה קישור איפוס.
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={forgotState === "sending"}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--bsy-green-forest)",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                cursor:
+                  forgotState === "sending" ? "default" : "pointer",
+                padding: 0,
+              }}
+            >
+              {forgotState === "sending"
+                ? "שולח קישור איפוס…"
+                : "שכחתי סיסמה"}
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );

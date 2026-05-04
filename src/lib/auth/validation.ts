@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const MIN_PASSWORD_LENGTH = 8;
+
 export const participantJoinRequestSchema = z.object({
   firstName: z.string().trim().min(1),
   lastName: z.string().trim().min(1),
@@ -11,6 +13,27 @@ export const participantJoinRequestSchema = z.object({
 export const passwordSignInRequestSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(1),
+});
+
+const teamRoleSchema = z.enum(["admin", "host"]);
+
+export const teamCreateSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(MIN_PASSWORD_LENGTH),
+  role: teamRoleSchema,
+});
+
+export const teamPatchSchema = z.object({
+  userId: z.string().uuid(),
+  role: teamRoleSchema,
+});
+
+export const teamUserIdSchema = z.object({
+  userId: z.string().uuid(),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email(),
 });
 
 export const choiceAnswerSchema = z.object({

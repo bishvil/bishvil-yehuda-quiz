@@ -125,7 +125,7 @@ function ActiveSessionCard({ session }: { session: ActiveSessionRow }) {
         {session.gameMode === "sync" ? (
           <Link
             href={`/host/${session.pin}`}
-            className="inline-flex items-center rounded-full bg-bsy-green-forest px-4 py-2 text-[13px] font-bold text-bsy-paper hover:opacity-90"
+            className="inline-flex items-center rounded-full bg-bsy-forest px-4 py-2 text-[13px] font-bold text-bsy-paper hover:opacity-90"
           >
             פתח לוח בקרה
           </Link>

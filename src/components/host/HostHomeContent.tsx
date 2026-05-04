@@ -138,7 +138,7 @@ function EmptyState({ isAdmin }: { isAdmin: boolean }) {
       {isAdmin ? (
         <Link
           href="/admin/quizzes"
-          className="inline-flex items-center rounded-full bg-bsy-green-forest px-4 py-2 text-[13px] font-bold text-bsy-paper hover:opacity-90"
+          className="inline-flex items-center rounded-full bg-bsy-forest px-4 py-2 text-[13px] font-bold text-bsy-paper hover:opacity-90"
         >
           ניהול חידונים ←
         </Link>

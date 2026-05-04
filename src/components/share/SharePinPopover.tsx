@@ -135,7 +135,7 @@ export function SharePinPopover({
             <button
               type="button"
               onClick={copy}
-              className="w-full rounded-full bg-bsy-green-forest px-4 py-2 text-[13px] font-bold text-bsy-paper hover:opacity-90"
+              className="w-full rounded-full bg-bsy-forest px-4 py-2 text-[13px] font-bold text-bsy-paper hover:opacity-90"
             >
               {copied ? "הקישור הועתק" : "העתק קישור"}
             </button>
