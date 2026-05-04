@@ -22,6 +22,10 @@ interface AnswerSubmittedBody {
   timeBonus?: number;
   correctIds?: string[] | null;
   explanation?: string | null;
+  /** Haversine distance in km — geo map answers only (async reveal). */
+  distanceKm?: number | null;
+  /** 0..1 correctness ratio — geo map + multi-select (async reveal). */
+  correctnessRatio?: number | null;
 }
 
 interface AnswerErrorBody {
@@ -157,28 +161,20 @@ export async function POST(
 
   const submittedAtDate = new Date();
 
-  // ADR-0011 §5: branch on the pin shape. Geo pins have `{lat,lng}`; legacy
-  // raster pins have `{x,y}`. The RPC signature accepts both pairs and
-  // routes scoring on the basis of which pair is non-null.
   const rpcArgs = (() => {
     const base = {
       p_session_id: session.id,
       p_participant_id: participantId,
       p_question_id: submission.questionId,
       p_selected_ids: null as string[] | null,
-      p_pin_x: null as number | null,
-      p_pin_y: null as number | null,
       p_pin_lat: null as number | null,
       p_pin_lng: null as number | null,
     };
     if ("selectedIds" in submission) {
       base.p_selected_ids = submission.selectedIds;
-    } else if ("lat" in submission.pin) {
+    } else {
       base.p_pin_lat = submission.pin.lat;
       base.p_pin_lng = submission.pin.lng;
-    } else {
-      base.p_pin_x = submission.pin.x;
-      base.p_pin_y = submission.pin.y;
     }
     return base;
   })();
@@ -307,6 +303,12 @@ function buildSubmittedResponse(
         timeBonus: answer.time_bonus,
         correctIds: answer.correct_ids ?? null,
         explanation: answer.explanation ?? null,
+        distanceKm:
+          answer.distance_km != null ? Number(answer.distance_km) : null,
+        correctnessRatio:
+          answer.correctness_ratio != null
+            ? Number(answer.correctness_ratio)
+            : null,
       },
       { status: 200 },
     );

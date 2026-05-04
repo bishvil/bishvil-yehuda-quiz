@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
+import { writeLog } from "@/src/lib/logging";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 
 export interface TeamMemberRow {
@@ -37,6 +38,15 @@ export async function GET() {
   const supabase = await createServiceRoleSupabaseClient();
   const { data, error } = await supabase.auth.admin.listUsers({ perPage: 200 });
   if (error) {
+    writeLog({
+      level: "error",
+      message: "listUsers failed in team route",
+      context: {
+        code: (error as { code?: string }).code ?? null,
+        status: (error as { status?: number }).status ?? null,
+        authMessage: error.message,
+      },
+    });
     return privateNoStoreJson<TeamErrorBody>(
       { error: "READ_FAILED", message: "Failed to list team members." },
       { status: 500 },

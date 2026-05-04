@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AnswerOption, type AnswerOptionState } from "@/src/components/participant/AnswerOption";
 import { FeedbackCard } from "@/src/components/participant/FeedbackCard";
-import { MapQuestion } from "@/src/components/participant/MapQuestion";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import { ProgressBar } from "@/src/components/participant/ProgressBar";
 import { QuestionCard } from "@/src/components/participant/QuestionCard";
@@ -37,14 +36,6 @@ interface PlayScreenProps {
   gameMode: GameMode;
 }
 
-interface QuestionMapShape {
-  image_url: string;
-}
-
-interface QuestionMapMeta {
-  imageUrl: string;
-}
-
 export function PlayScreen({
   pin,
   brand,
@@ -61,7 +52,6 @@ export function PlayScreen({
   } = useParticipantState({ pin });
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [mapPin, setMapPin] = useState<{ x: number; y: number } | null>(null);
   const [mapGeoPin, setMapGeoPin] = useState<{ lat: number; lng: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -70,6 +60,9 @@ export function PlayScreen({
     isCorrect: boolean;
     correctIds: string[] | null;
     explanation: string | null;
+    score?: number | null;
+    distanceKm?: number | null;
+    correctnessRatio?: number | null;
   } | null>(null);
 
   const question = state?.question ?? null;
@@ -85,7 +78,6 @@ export function PlayScreen({
   useEffect(() => {
     if (previousQuestionKeyRef.current !== currentQuestionKey) {
       setSelectedIds([]);
-      setMapPin(null);
       setMapGeoPin(null);
       setPendingReveal(null);
       setSubmitError(null);
@@ -137,6 +129,22 @@ export function PlayScreen({
     pendingReveal?.isCorrect ??
     (myAnswer && "isCorrect" in myAnswer ? myAnswer.isCorrect ?? null : null);
 
+  // Partial-credit display fields (ADR-0006 Open Q2+Q3 RESOLVED).
+  // Score source: pendingReveal (async immediate reveal) → myAnswer (polled state).
+  const revealedScore =
+    pendingReveal?.score ??
+    (myAnswer?.status === "revealed" ? (myAnswer.score ?? null) : null);
+  const revealedDistanceKm =
+    pendingReveal?.distanceKm ??
+    (myAnswer?.status === "revealed" ? (myAnswer.distanceKm ?? null) : null);
+
+  // For multi-select: count how many of the participant's selected options
+  // are in the correct set (for "X מתוך W סימונים נכונים" display).
+  const multiCorrectCount = useMemo(() => {
+    if (question?.type !== "multi" || !isRevealed) return null;
+    return selectedIds.filter((id) => correctSet.has(id)).length;
+  }, [question?.type, isRevealed, selectedIds, correctSet]);
+
   function handleToggleOption(optionId: string) {
     if (!question || !isAnswering || hasSubmitted) return;
     setSelectedIds((prev) => {
@@ -147,11 +155,6 @@ export function PlayScreen({
       }
       return [optionId];
     });
-  }
-
-  function handleMapPin(next: { x: number; y: number }) {
-    if (!question || !isAnswering || hasSubmitted) return;
-    setMapPin(next);
   }
 
   function handleMapGeoPin(next: { lat: number; lng: number }) {
@@ -168,11 +171,9 @@ export function PlayScreen({
     const body =
       question.type === "map" && mapGeoPin
         ? { questionId: question.id, pin: { lat: mapGeoPin.lat, lng: mapGeoPin.lng } }
-        : question.type === "map" && mapPin
-          ? { questionId: question.id, pin: mapPin }
-          : selectedIds.length > 0
-            ? { questionId: question.id, selectedIds }
-            : null;
+        : selectedIds.length > 0
+          ? { questionId: question.id, selectedIds }
+          : null;
 
     if (!body || !body.questionId) {
       setSubmitting(false);
@@ -197,6 +198,9 @@ export function PlayScreen({
           isCorrect: response.isCorrect,
           correctIds: response.correctIds ?? null,
           explanation: response.explanation ?? null,
+          score: response.score ?? null,
+          distanceKm: response.distanceKm ?? null,
+          correctnessRatio: response.correctnessRatio ?? null,
         });
       }
 
@@ -213,7 +217,6 @@ export function PlayScreen({
     isAnswering,
     hasSubmitted,
     submitting,
-    mapPin,
     mapGeoPin,
     selectedIds,
     pin,
@@ -269,7 +272,7 @@ export function PlayScreen({
     submitting ||
     hasSubmitted ||
     !isAnswering ||
-    (question.type === "map" ? !mapPin && !mapGeoPin : selectedIds.length === 0);
+    (question.type === "map" ? !mapGeoPin : selectedIds.length === 0);
 
   const isLastQuestion = question.index === question.total;
 
@@ -302,14 +305,11 @@ export function PlayScreen({
         {question.type === "map" ? (
           renderMapQuestion({
             question,
-            mapPin,
             mapGeoPin,
             isRevealed,
             isAnswering,
             hasSubmitted,
-            mapTarget: reveal?.mapTarget ?? null,
             mapGeoTarget: reveal?.mapGeoTarget ?? null,
-            onPin: handleMapPin,
             onGeoPin: handleMapGeoPin,
           })
         ) : (
@@ -351,6 +351,15 @@ export function PlayScreen({
           <FeedbackCard
             isCorrect={Boolean(submittedIsCorrect)}
             explanation={explanation}
+            score={revealedScore}
+            totalPoints={question?.points ?? null}
+            distanceKm={revealedDistanceKm}
+            correctCount={question?.type === "multi" ? multiCorrectCount : null}
+            totalCorrect={
+              question?.type === "multi"
+                ? (reveal?.correctIds ?? pendingReveal?.correctIds)?.length ?? null
+                : null
+            }
           />
         ) : null}
 
@@ -397,81 +406,43 @@ export function PlayScreen({
 
 interface RenderMapArgs {
   question: NonNullable<ParticipantStateResponse["question"]>;
-  mapPin: { x: number; y: number } | null;
   mapGeoPin: { lat: number; lng: number } | null;
   isRevealed: boolean;
   isAnswering: boolean;
   hasSubmitted: boolean;
-  mapTarget: { x: number; y: number } | null;
   mapGeoTarget: { lat: number; lng: number } | null;
-  onPin: (pin: { x: number; y: number }) => void;
   onGeoPin: (pin: { lat: number; lng: number }) => void;
 }
 
 function renderMapQuestion({
   question,
-  mapPin,
   mapGeoPin,
   isRevealed,
   isAnswering,
   hasSubmitted,
-  mapTarget,
   mapGeoTarget,
-  onPin,
   onGeoPin,
 }: RenderMapArgs) {
   const locked = !isAnswering || hasSubmitted;
 
-  // Geographic path — ADR-0011 §5.
-  if (question.map && "geo" in question.map && question.map.geo) {
-    return (
-      <MapQuestionInteractive
-        geo={question.map.geo}
-        pin={mapGeoPin}
-        onPin={onGeoPin}
-        revealed={isRevealed}
-        locked={locked}
-        target={isRevealed ? mapGeoTarget : null}
-      />
-    );
-  }
-
-  // Legacy raster path.
-  const mapMeta = extractMapMeta(question.map);
-  if (!mapMeta) {
+  if (!question.map?.geo) {
     return (
       <div className="rounded-md border border-bsy-error/30 bg-bsy-error/10 p-3 text-center text-sm text-bsy-error">
         מפת השאלה חסרה. צרו קשר עם המארגנים.
       </div>
     );
   }
-  const toleranceRadius = question.tolerance ?? 8;
-  const lockedHelpText = isRevealed
-    ? "הסימון נחשף."
-    : locked
-      ? "התחנה ננעלה — הזמן הסתיים."
-      : mapPin
-        ? "אפשר עוד להזיז — הקישו על מקום אחר."
-        : "הקישו על המפה במקום שאתם חושבים שמיקום היעד.";
+
   return (
-    <MapQuestion
-      imageUrl={mapMeta.imageUrl}
-      pin={mapPin}
-      tolerance={toleranceRadius}
-      target={isRevealed ? mapTarget : null}
+    <MapQuestionInteractive
+      geo={question.map.geo}
+      pin={mapGeoPin}
+      onPin={onGeoPin}
       revealed={isRevealed}
       locked={locked}
-      onPin={onPin}
-      helpText={lockedHelpText}
+      target={isRevealed ? mapGeoTarget : null}
     />
   );
-}
-
-function extractMapMeta(map: NonNullable<ParticipantStateResponse["question"]>["map"]): QuestionMapMeta | null {
-  if (!map || typeof map !== "object") return null;
-  const candidate = map as unknown as QuestionMapShape;
-  if (!candidate.image_url) return null;
-  return { imageUrl: candidate.image_url };
 }
 
 function computeOptionState(args: {

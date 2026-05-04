@@ -24,6 +24,7 @@ interface AdminSessionListRow {
   startedAt: string | null;
   endedAt: string | null;
   createdAt: string;
+  archivedAt: string | null;
 }
 
 interface AdminSessionListBody {
@@ -60,18 +61,24 @@ export async function GET(request: NextRequest) {
   const auth = await requireRole("admin");
   if (!auth.ok) return auth.response;
 
-  const quizId = request.nextUrl.searchParams.get("quizId");
+  const { searchParams } = new URL(request.url);
+  const quizId = searchParams.get("quizId");
+  const includeArchived = searchParams.get("includeArchived") === "1";
   const serviceSupabase = await createServiceRoleSupabaseClient();
 
   let query = serviceSupabase
     .from("sessions")
     .select(
-      "id, pin, quiz_id, status, game_mode, auto_reveal, host_id, started_at, ended_at, created_at",
+      "id, pin, quiz_id, status, game_mode, auto_reveal, host_id, started_at, ended_at, created_at, archived_at",
     )
     .order("created_at", { ascending: false });
 
   if (quizId) {
     query = query.eq("quiz_id", quizId);
+  }
+
+  if (!includeArchived) {
+    query = query.is("archived_at", null);
   }
 
   const [{ data, error }, hostUsers] = await Promise.all([
@@ -99,6 +106,7 @@ export async function GET(request: NextRequest) {
     startedAt: row.started_at,
     endedAt: row.ended_at,
     createdAt: row.created_at,
+    archivedAt: row.archived_at,
   }));
 
   return privateNoStoreJson<AdminSessionListBody>({ sessions });

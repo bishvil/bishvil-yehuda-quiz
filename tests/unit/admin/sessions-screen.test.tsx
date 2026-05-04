@@ -119,7 +119,6 @@ describe("SessionsScreen — non-empty quiz launch enforcement (M2)", () => {
           explanation: null,
           timeSeconds: 25,
           points: 1500,
-          tolerance: null,
         },
       ],
     });

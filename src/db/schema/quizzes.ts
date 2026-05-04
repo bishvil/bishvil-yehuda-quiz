@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm";
 import {
   integer,
   jsonb,
-  numeric,
   pgTable,
   text,
   timestamp,
@@ -25,14 +24,19 @@ export interface QuestionOption {
   imageUrl?: string;
 }
 
-export interface MapTarget {
-  x: number;
-  y: number;
+export interface MapGeoTarget {
+  lat: number;
+  lng: number;
 }
 
 export interface QuestionMap {
-  imageUrl: string;
-  target: MapTarget;
+  geo: {
+    target: MapGeoTarget;
+    center?: MapGeoTarget;
+    zoom?: number;
+    toleranceKm: number;
+    styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+  };
 }
 
 export const quizzes = pgTable("quizzes", {
@@ -70,7 +74,6 @@ export const questions = pgTable(
       .notNull()
       .default(DEFAULT_QUESTION_TIME_SECONDS),
     points: integer("points").notNull().default(DEFAULT_QUESTION_POINTS),
-    tolerance: numeric("tolerance", { precision: 6, scale: 3 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

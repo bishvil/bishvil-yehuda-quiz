@@ -6,6 +6,24 @@
 
 ---
 
+> **Update 2026-05-04 — legacy %-based path sunset (Open Q4 RESOLVED).**
+>
+> The legacy `{x,y}` map path described throughout §6.1, §6.3, §6.6 and Open
+> Q4 has been **deleted** in migration `20260504010000_drop_legacy_map_path.sql`
+> together with the supporting code (`MapQuestion.tsx`, `isMapAnswerCorrect`,
+> the `mapAnswerSchema` zod variant, the `pin_x` / `pin_y` columns, the
+> `questions.tolerance` column, and the legacy %-based scoring branch in
+> the `submit_answer` RPC). The `map` JSON column is now geo-only:
+> `{ geo: { target, center?, zoom?, toleranceKm, styleHint? } }`. No
+> production data was lost — there was no admin UI to author legacy `{x,y}`
+> questions, so the columns were always empty.
+>
+> The sections below are left as the historical record of the additive
+> design that landed in Wave 3; for the current shape see the migration
+> and `src/lib/schemas/question-content.ts`.
+
+---
+
 ## Context
 
 Wave 1/Wave 2 shipped a placeholder "map" question type that rendered a raster
@@ -430,15 +448,32 @@ for the new path; both are read inside the function.
 1. **Style hint surface.** The `styleHint` enum is a v1 escape hatch; we keep
    it minimal until we see real authoring patterns. Adding a new style
    requires a one-line change in `resolveStyleUrl`.
-2. **Map clustering on the host live view** — out of scope; the host live
+2. **Partial-credit map scoring — RESOLVED.** Linear proximity decay is now
+   implemented for both the geo path (this ADR §5) and the legacy raster path
+   (ADR-0006 §5). Scoring formula:
+   ```
+   correctness_ratio = distance_km < toleranceKm ? (1 - d/tol) : 0
+   is_correct        = ratio > 0       (strict: pin exactly at tolerance earns 0)
+   score             = floor(base * ratio) + (is_correct ? time_bonus : 0)
+   ```
+   `distance_km` and `correctness_ratio` are persisted as nullable columns on
+   `answers`. The boundary is **strict** (`<`) on the new path, which departs
+   from the legacy `isMapAnswerCorrectGeo` inclusive `<=` boundary. The legacy
+   binary helper is kept for back-compat but is deprecated in favour of
+   `scoreMapAnswerProximity` from `src/lib/scoring.ts`. See ADR-0006 Open Q2
+   RESOLVED and migration `20260503202808_submit_answer_partial_credit.sql`.
+3. **Map clustering on the host live view** — out of scope; the host live
    route currently shows a static raster summary and is not blocked by this
    ADR.
-3. **Sunset of the legacy `{x,y}` path.** Once the integration tail wires
-   the new components into `QuestionEditor` and `play-screen`, a follow-up
-   ADR (or a §amendment to this one if appropriate) should document removing
-   the `image_url` / `target.{x,y}` keys, the `pin_x` / `pin_y` columns, and
-   the `MapQuestion.tsx` component. This subtask deliberately defers that to
-   keep the parallel Wave 3 commits compatible.
+4. **Sunset of the legacy `{x,y}` path — RESOLVED 2026-05-04.** The legacy
+   raster path was never wired into the admin editor, so no production
+   question ever carried `image_url` + `target.{x,y}`. Migration
+   `20260504010000_drop_legacy_map_path.sql` drops `answers.pin_x`,
+   `answers.pin_y`, and `questions.tolerance`; deletes `MapQuestion.tsx`,
+   `isMapAnswerCorrect`, `mapAnswerSchema`, `isLegacyMap`, and the legacy
+   %-based branch of the `submit_answer` RPC; and collapses the `map` JSON
+   schema to geo-only. The sunset notice at the top of this ADR is the
+   binding record.
 
 ---
 

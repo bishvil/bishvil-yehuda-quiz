@@ -22,7 +22,6 @@ interface AdminQuestionListItem {
   explanation: string | null;
   timeSeconds: number;
   points: number;
-  tolerance: string | null;
   createdAt: string;
 }
 
@@ -54,7 +53,6 @@ function toListItem(
     explanation: row.explanation,
     timeSeconds: row.time_seconds,
     points: row.points,
-    tolerance: row.tolerance,
     createdAt: row.created_at,
   };
 }
@@ -128,7 +126,6 @@ export async function POST(
     explanation: parsed.data.explanation ?? null,
     time_seconds: parsed.data.timeSeconds,
     points: parsed.data.points,
-    tolerance: parsed.data.tolerance?.toString() ?? null,
   };
 
   const { data, error } = await serviceSupabase

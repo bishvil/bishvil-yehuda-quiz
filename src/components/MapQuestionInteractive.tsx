@@ -2,9 +2,8 @@
 
 /**
  * Participant view of a map question backed by an interactive MapLibre map
- * (ADR-0011). Self-contained — the integration tail wires this into
- * `app/[pin]/play/play-screen.tsx` in place of the legacy
- * `MapQuestion` component for questions whose `map.geo` block is set.
+ * (ADR-0011). Wired into `app/[pin]/play/play-screen.tsx` for every
+ * `type === 'map'` question.
  *
  * Wire-up contract (consumed by the integration brief):
  *
@@ -92,8 +91,12 @@ export function MapQuestionInteractive({
 
   const distanceKm =
     revealed && pin && target ? haversineKmInline(pin, target) : null;
+  // Strict boundary: d < tolerance is correct. Matches the server-side
+  // partial-credit formula in `submit_answer` (d=tol earns ratio=0, not correct).
+  // Note: the legacy binary helper `isMapAnswerCorrectGeo` intentionally keeps
+  // inclusive `<=` for back-compat; this component is on the new geo path only.
   const isCorrect =
-    distanceKm !== null ? distanceKm <= geo.toleranceKm : null;
+    distanceKm !== null ? distanceKm < geo.toleranceKm : null;
 
   const markers = useMemo(() => {
     const list: InteractiveMarker[] = [];

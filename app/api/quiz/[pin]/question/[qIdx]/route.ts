@@ -20,22 +20,16 @@ interface PublicQuestionSuccessBody {
   imageUrl: string | null;
   /**
    * Public-safe slice. The correct target lives in the reveal payload
-   * (ADR-0008 §2). Either the legacy raster `image_url` or the additive
-   * `geo` block (ADR-0011 §6.1) appears, never both — `target` and the
-   * geo `target` are stripped here.
+   * (ADR-0008 §2). The geo `target` is stripped here (ADR-0011 §6.1).
    */
-  map:
-    | { image_url: string; geo?: never }
-    | {
-        image_url?: never;
-        geo: {
-          center?: { lat: number; lng: number };
-          zoom?: number;
-          toleranceKm: number;
-          styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
-        };
-      }
-    | null;
+  map: {
+    geo: {
+      center?: { lat: number; lng: number };
+      zoom?: number;
+      toleranceKm: number;
+      styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+    };
+  } | null;
   timeSeconds: number;
   points: number;
 }
@@ -130,26 +124,18 @@ export async function GET(
   })) ?? null;
 
   // ADR-0008 §2: never expose `target` coordinates pre-reveal — strip the
-  // target dot. ADR-0011 §6.1: the additive `geo` block is public-safe
-  // minus its target.
+  // geo target. ADR-0011 §6.1.
   const parsedMap = parsedContent.data.map;
-  const mapPayload: PublicQuestionSuccessBody["map"] = (() => {
-    if (!parsedMap) return null;
-    if (parsedMap.geo) {
-      return {
+  const mapPayload: PublicQuestionSuccessBody["map"] = parsedMap
+    ? {
         geo: {
           center: parsedMap.geo.center,
           zoom: parsedMap.geo.zoom,
           toleranceKm: parsedMap.geo.toleranceKm,
           styleHint: parsedMap.geo.styleHint,
         },
-      };
-    }
-    if (parsedMap.image_url) {
-      return { image_url: parsedMap.image_url };
-    }
-    return null;
-  })();
+      }
+    : null;
 
   return publicCachedJson<PublicQuestionResponseBody>(
     {

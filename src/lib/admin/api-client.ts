@@ -119,7 +119,6 @@ export interface AdminQuestionListItem {
   explanation: string | null;
   timeSeconds: number;
   points: number;
-  tolerance: string | null;
   createdAt?: string;
 }
 
@@ -138,7 +137,6 @@ export interface AdminQuestionCreateRequest {
   explanation?: string;
   timeSeconds?: number;
   points?: number;
-  tolerance?: number;
 }
 
 export type AdminQuestionUpdateRequest = Partial<AdminQuestionCreateRequest>;
@@ -179,6 +177,17 @@ export interface AdminSessionListRow {
   startedAt: string | null;
   endedAt: string | null;
   createdAt: string;
+  archivedAt: string | null;
+}
+
+export interface AdminSessionArchiveResponse {
+  status: "archived";
+  archivedAt: string;
+}
+
+export interface AdminSessionHardDeleteResponse {
+  status: "deleted";
+  id: string;
 }
 
 export interface AdminSessionListResponse {
@@ -244,8 +253,8 @@ export interface AdminSessionResultAnswer {
   participantId: string;
   submittedAt: string;
   selectedIds: string[] | null;
-  pinX: string | null;
-  pinY: string | null;
+  pinLat: string | null;
+  pinLng: string | null;
   isCorrect: boolean;
   score: number;
   timeBonus: number;
@@ -409,9 +418,26 @@ export function reorderAdminQuestions(
 
 // ---------- Sessions -----------------------------------------------------
 
-export function listAdminSessions(quizId?: string) {
-  const search = quizId ? `?quizId=${encodeURIComponent(quizId)}` : "";
+export function listAdminSessions(quizId?: string, includeArchived = false) {
+  const params = new URLSearchParams();
+  if (quizId) params.set("quizId", quizId);
+  if (includeArchived) params.set("includeArchived", "1");
+  const search = params.size > 0 ? `?${params.toString()}` : "";
   return getJson<AdminSessionListResponse>(`/api/admin/sessions${search}`);
+}
+
+export function archiveAdminSession(sessionId: string) {
+  return bodyJson<AdminSessionArchiveResponse>(
+    `/api/admin/sessions/${encodeURIComponent(sessionId)}`,
+    "DELETE",
+  );
+}
+
+export function hardDeleteAdminSession(sessionId: string) {
+  return bodyJson<AdminSessionHardDeleteResponse>(
+    `/api/admin/sessions/${encodeURIComponent(sessionId)}?hard=true`,
+    "DELETE",
+  );
 }
 
 export function createAdminSession(body: AdminSessionCreateRequest) {

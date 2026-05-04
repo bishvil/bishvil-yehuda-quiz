@@ -5,7 +5,6 @@ import {
   EARTH_RADIUS_KM,
   haversineKm,
   isChoiceAnswerCorrect,
-  isMapAnswerCorrect,
   isMapAnswerCorrectGeo,
 } from "@/src/lib/scoring";
 
@@ -86,20 +85,6 @@ describe("choice answer correctness", () => {
 
   it("rejects supersets", () => {
     expect(isChoiceAnswerCorrect(["a", "b", "c"], ["a", "b"])).toBe(false);
-  });
-});
-
-describe("map answer correctness (legacy %-distance, ADR-0006 §5)", () => {
-  it("accepts pins inside the tolerance radius", () => {
-    expect(
-      isMapAnswerCorrect({ x: 50.5, y: 49.5 }, { x: 50, y: 50 }, 1),
-    ).toBe(true);
-  });
-
-  it("rejects pins outside the tolerance radius", () => {
-    expect(
-      isMapAnswerCorrect({ x: 60, y: 60 }, { x: 50, y: 50 }, 1),
-    ).toBe(false);
   });
 });
 

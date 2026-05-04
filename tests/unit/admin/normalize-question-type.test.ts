@@ -9,6 +9,13 @@ import {
 } from "@/src/lib/admin/quiz-editor";
 import type { QuestionType } from "@/src/lib/constants";
 
+const SEED_GEO_MAP = {
+  geo: {
+    target: { lat: 31.5, lng: 34.9 } as const,
+    toleranceKm: 5,
+  },
+} as const;
+
 function withOverrides(
   overrides: Partial<EditableQuestion>,
 ): EditableQuestion {
@@ -37,21 +44,16 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
       });
     });
 
-    it("preserves an existing map when entering from another type via no-op chain", () => {
+    it("re-seeds the default map after a no-op chain through another type", () => {
       const map: EditableQuestion = withOverrides({
         type: "map",
         options: null,
         correctIds: [],
-        map: { image_url: "https://example.com/m.jpg", target: { x: 10, y: 20 } },
-        tolerance: "5",
+        map: { ...SEED_GEO_MAP },
       });
-      // toggle through single and back; tolerance lives only on map
       const single = normalizeQuestionForType(map, "single");
-      expect(single.tolerance).toBeNull();
       expect(single.map).toBeNull();
       const back = normalizeQuestionForType(single, "map");
-      // Default map seeded because we lost it on the way out — this is
-      // the documented behavior (only map keeps map/tolerance).
       expect(back.map).toEqual({
         geo: {
           target: { lat: 31.5, lng: 34.9 },
@@ -62,18 +64,16 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
   });
 
   describe("← map", () => {
-    it("clears map and tolerance when leaving map for any other type", () => {
+    it("clears map when leaving map for any other type", () => {
       const seeded = withOverrides({
         type: "map",
         options: null,
         correctIds: [],
-        map: { image_url: "https://example.com/m.jpg", target: { x: 1, y: 2 } },
-        tolerance: "10",
+        map: { ...SEED_GEO_MAP },
       });
       for (const target of ["single", "multi", "image", "truefalse"] as const) {
         const next = normalizeQuestionForType(seeded, target);
         expect(next.map, `${target} map`).toBeNull();
-        expect(next.tolerance, `${target} tolerance`).toBeNull();
       }
     });
 
@@ -82,7 +82,7 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
         type: "map",
         options: null,
         correctIds: [],
-        map: { image_url: "x", target: { x: 0, y: 0 } },
+        map: { ...SEED_GEO_MAP },
       });
       const next = normalizeQuestionForType(seeded, "single");
       expect(next.options).toEqual(SCAFFOLDED_OPTIONS);
@@ -103,18 +103,15 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
   });
 
   describe("→ image", () => {
-    it("preserves imageUrl across choice ↔ image transitions and clears map/tolerance", () => {
+    it("preserves imageUrl across choice ↔ image transitions and clears map", () => {
       const seeded = withOverrides({
         type: "single",
         imageUrl: null,
-        map: { image_url: "stale", target: { x: 1, y: 1 } },
-        tolerance: "9",
+        map: { ...SEED_GEO_MAP },
       });
       const next = normalizeQuestionForType(seeded, "image");
       expect(next.type).toBe("image");
       expect(next.map).toBeNull();
-      expect(next.tolerance).toBeNull();
-      // imageUrl was null and stays null — the editor will fill it in.
       expect(next.imageUrl).toBeNull();
       expect(next.options).toEqual(SCAFFOLDED_OPTIONS);
     });
@@ -159,17 +156,15 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
       expect(next.correctIds).toEqual(["yes"]);
     });
 
-    it("clears map, tolerance and imageUrl on the way in", () => {
+    it("clears map and imageUrl on the way in", () => {
       const seeded = withOverrides({
         type: "map",
         options: null,
         correctIds: [],
-        map: { image_url: "x", target: { x: 1, y: 1 } },
-        tolerance: "5",
+        map: { ...SEED_GEO_MAP },
       });
       const next = normalizeQuestionForType(seeded, "truefalse");
       expect(next.map).toBeNull();
-      expect(next.tolerance).toBeNull();
       expect(next.imageUrl).toBeNull();
       expect(next.options).toEqual(TRUE_FALSE_OPTIONS);
     });
@@ -194,8 +189,7 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
         type: "map",
         options: null,
         correctIds: [],
-        map: { image_url: "x", target: { x: 1, y: 1 } },
-        tolerance: "5",
+        map: { ...SEED_GEO_MAP },
       }),
     };
 
@@ -208,13 +202,11 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
           if (to !== "image") expect(next.imageUrl).toBeNull();
           if (to !== "map") {
             expect(next.map).toBeNull();
-            expect(next.tolerance).toBeNull();
           }
           if (to === "map") {
             expect(next.options).toBeNull();
             expect(next.correctIds).toEqual([]);
           } else {
-            // Choice/truefalse/image always have non-empty options.
             expect(next.options?.length ?? 0).toBeGreaterThan(0);
           }
           if (to === "single") {

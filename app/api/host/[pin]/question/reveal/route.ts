@@ -52,9 +52,9 @@ export async function POST(
   const { pin } = await context.params;
   const ctx = await loadHostContext(pin);
   if (!ctx.ok) return ctx.response;
-  const { session, serviceSupabase } = ctx;
+  const { session, serviceSupabase, canControl } = ctx;
 
-  if (session.game_mode !== "sync") {
+  if (!canControl) {
     return privateNoStoreJson<HostRevealResponseBody>(
       {
         error: "ASYNC_NOT_REVEALABLE",

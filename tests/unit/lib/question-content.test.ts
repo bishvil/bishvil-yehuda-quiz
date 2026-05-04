@@ -27,17 +27,22 @@ describe("stored question content schemas", () => {
     const parsed = validateStoredQuestionContent({
       type: "map",
       options: null,
-      map: { image_url: "/map.jpg", target: { x: 42, y: 64 } },
+      map: {
+        geo: {
+          target: { lat: 31.5, lng: 34.9 },
+          toleranceKm: 5,
+        },
+      },
     });
 
     expect(parsed.success).toBe(true);
   });
 
-  it("rejects malformed map payloads", () => {
+  it("rejects map payloads without a geo block", () => {
     const parsed = validateStoredQuestionContent({
       type: "map",
       options: null,
-      map: { image_url: "/map.jpg" },
+      map: { target: { lat: 31.5, lng: 34.9 } },
     });
 
     expect(parsed.success).toBe(false);

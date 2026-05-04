@@ -60,6 +60,10 @@ export interface SubmitAnswerSuccessResponse {
   timeBonus?: number;
   correctIds?: string[] | null;
   explanation?: string | null;
+  /** Haversine distance in km — geo map answers only (async reveal). */
+  distanceKm?: number | null;
+  /** 0..1 correctness ratio — geo map + multi-select (async reveal). */
+  correctnessRatio?: number | null;
 }
 
 export interface SubmitAnswerErrorResponse {

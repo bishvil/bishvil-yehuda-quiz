@@ -38,7 +38,17 @@ export async function POST(
   const { pin } = await context.params;
   const ctx = await loadHostContext(pin);
   if (!ctx.ok) return ctx.response;
-  const { session, serviceSupabase } = ctx;
+  const { session, serviceSupabase, canControl } = ctx;
+
+  if (!canControl) {
+    return privateNoStoreJson<HostEndResponseBody>(
+      {
+        error: "INVALID_TRANSITION",
+        message: "Async sessions cannot be ended by the host — use the admin panel.",
+      },
+      { status: 409 },
+    );
+  }
 
   if (session.status === "ended") {
     return privateNoStoreJson<HostEndResponseBody>(

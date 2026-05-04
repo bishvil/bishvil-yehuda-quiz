@@ -18,19 +18,15 @@ export const TRUE_FALSE_OPTIONS: QuestionOption[] = [
   { id: "no", text: "לא נכון" },
 ];
 
-export type EditableQuestionMap =
-  | { image_url: string; target: { x: number; y: number }; geo?: never }
-  | {
-      image_url?: never;
-      target?: never;
-      geo: {
-        target: { lat: number; lng: number };
-        center?: { lat: number; lng: number };
-        zoom?: number;
-        toleranceKm: number;
-        styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
-      };
-    };
+export interface EditableQuestionMap {
+  geo: {
+    target: { lat: number; lng: number };
+    center?: { lat: number; lng: number };
+    zoom?: number;
+    toleranceKm: number;
+    styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+  };
+}
 
 export interface EditableQuestion {
   /** Server-issued UUID (null until first save). */
@@ -47,8 +43,6 @@ export interface EditableQuestion {
   explanation: string | null;
   timeSeconds: number;
   points: number;
-  /** Stored as a string in the DB (numeric column); we keep it as a string here. */
-  tolerance: string | null;
 }
 
 export interface EditableQuiz {
@@ -87,7 +81,6 @@ export function makeBlankQuestion(ordinal: number): EditableQuestion {
     explanation: null,
     timeSeconds: 25,
     points: 1500,
-    tolerance: null,
   };
 }
 
@@ -148,7 +141,7 @@ export function validateQuestions(
         message: "חסרה כתובת תמונה",
       });
     }
-    if (q.type === "map" && (!q.map || !q.map.image_url)) {
+    if (q.type === "map" && !q.map?.geo) {
       findings.push({
         questionClientId: q.clientId,
         field: "map",
@@ -184,20 +177,20 @@ export interface QuizSavePayload {
 /**
  * Wave-2 review M3 — normalize a question to the next type, stripping
  * any field that does not belong to that type so the auto-save never
- * persists stale `map`, `tolerance`, `imageUrl`, or `correctIds` rows
- * that contradict the chosen `type`. Returns the same instance when
+ * persists stale `map`, `imageUrl`, or `correctIds` rows that
+ * contradict the chosen `type`. Returns the same instance when
  * `nextType === question.type` so React identity stays stable.
  *
  * Rules (matched to the question schema in ADR-0004 §"Required Table:
  * questions" and the `supportsOptions` predicate in QuestionEditor):
  *
- * | nextType   | options                | correctIds                          | map           | tolerance | imageUrl    |
- * | ---------- | ---------------------- | ----------------------------------- | ------------- | --------- | ----------- |
- * | single     | scaffold if absent     | first id only                       | null          | null      | null        |
- * | multi      | scaffold if absent     | carry over                          | null          | null      | null        |
- * | image      | scaffold if absent     | carry over                          | null          | null      | carry over  |
- * | truefalse  | replace with [yes,no]  | filter to {yes,no}; default ["yes"] | null          | null      | null        |
- * | map        | null                   | []                                  | default if -  | carry     | null        |
+ * | nextType   | options                | correctIds                          | map           | imageUrl    |
+ * | ---------- | ---------------------- | ----------------------------------- | ------------- | ----------- |
+ * | single     | scaffold if absent     | first id only                       | null          | null        |
+ * | multi      | scaffold if absent     | carry over                          | null          | null        |
+ * | image      | scaffold if absent     | carry over                          | null          | carry over  |
+ * | truefalse  | replace with [yes,no]  | filter to {yes,no}; default ["yes"] | null          | null        |
+ * | map        | null                   | []                                  | default geo   | null        |
  *
  * Image questions keep `options` + `correctIds` because the renderer
  * (`QuestionEditor.supportsOptions`) treats `image` as a choice question
@@ -223,7 +216,6 @@ export function normalizeQuestionForType(
         options: carryOptions,
         correctIds,
         map: null,
-        tolerance: null,
         imageUrl: null,
       };
     }
@@ -234,7 +226,6 @@ export function normalizeQuestionForType(
         options: carryOptions,
         correctIds: question.correctIds ?? [],
         map: null,
-        tolerance: null,
         imageUrl: null,
       };
     case "image":
@@ -244,7 +235,6 @@ export function normalizeQuestionForType(
         options: carryOptions,
         correctIds: question.correctIds ?? [],
         map: null,
-        tolerance: null,
         // imageUrl carries over verbatim (may already be null)
       };
     case "truefalse": {
@@ -257,7 +247,6 @@ export function normalizeQuestionForType(
         options: TRUE_FALSE_OPTIONS.map((option) => ({ ...option })),
         correctIds,
         map: null,
-        tolerance: null,
         imageUrl: null,
       };
     }
@@ -273,7 +262,6 @@ export function normalizeQuestionForType(
             toleranceKm: 5,
           },
         },
-        tolerance: null,
         imageUrl: null,
       };
     default: {

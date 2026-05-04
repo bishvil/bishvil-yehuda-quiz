@@ -11,7 +11,6 @@ import {
   buildParticipantAnswerPayload,
   buildParticipantQuestionPayload,
   extractMapGeoTarget,
-  extractMapTarget,
   type ParticipantStateResponse,
 } from "@/src/lib/sessions/participant-payload";
 import { writeLog } from "@/src/lib/logging";
@@ -130,7 +129,7 @@ export async function GET(
     const { data: currentQuestion } = await serviceSupabase
       .from("questions")
       .select(
-        "id, ordinal, type, prompt, options, map, image_url, time_seconds, tolerance, correct_ids, explanation",
+        "id, ordinal, type, prompt, options, map, image_url, time_seconds, points, correct_ids, explanation",
       )
       .eq("id", currentQuestionId)
       .maybeSingle();
@@ -207,7 +206,6 @@ export async function GET(
       ? {
           correctIds: currentQuestion.correct_ids,
           explanation: currentQuestion.explanation,
-          mapTarget: extractMapTarget(currentQuestion.map),
           mapGeoTarget: extractMapGeoTarget(currentQuestion.map),
         }
       : null;
@@ -316,7 +314,7 @@ export async function GET(
   const { data: question } = await serviceSupabase
     .from("questions")
     .select(
-      "id, ordinal, type, prompt, options, map, image_url, time_seconds, tolerance, correct_ids, explanation",
+      "id, ordinal, type, prompt, options, map, image_url, time_seconds, points, correct_ids, explanation",
     )
     .eq("id", currentProgress.question_id)
     .maybeSingle();
@@ -381,7 +379,6 @@ export async function GET(
     ? {
         correctIds: question.correct_ids,
         explanation: question.explanation,
-        mapTarget: extractMapTarget(question.map),
         mapGeoTarget: extractMapGeoTarget(question.map),
       }
     : null;

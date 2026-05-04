@@ -45,7 +45,7 @@ export function QuestionEditor({
     (nextType: QuestionType) => {
       // Wave-2 review M3 — delegate to a pure normalizer that strips
       // every field that does not belong to `nextType`. This prevents
-      // stale `map` / `tolerance` / `imageUrl` / `correctIds` rows from
+      // stale `map` / `imageUrl` / `correctIds` rows from
       // riding along to the API on a type switch.
       onChange(normalizeQuestionForType(question, nextType));
     },
@@ -293,7 +293,6 @@ function writeMapGeoDraft(
         styleHint: next.styleHint,
       },
     },
-    tolerance: null,
   };
 }
 

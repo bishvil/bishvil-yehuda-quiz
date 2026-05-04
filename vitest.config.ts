@@ -24,6 +24,8 @@ export default defineConfig({
     "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),
   },
   test: {
+    maxWorkers: '50%',
+    minWorkers: 1,
     environment: "jsdom",
     globals: true,
     setupFiles: ["./tests/setup.ts"],

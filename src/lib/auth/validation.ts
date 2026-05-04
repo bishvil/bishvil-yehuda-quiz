@@ -18,15 +18,7 @@ export const choiceAnswerSchema = z.object({
   selectedIds: z.array(z.string().min(1)).min(1),
 });
 
-export const mapAnswerSchema = z.object({
-  questionId: z.string().uuid(),
-  pin: z.object({
-    x: z.number().min(0).max(100),
-    y: z.number().min(0).max(100),
-  }),
-});
-
-/** Geographic-pin variant — additive new path (ADR-0011 §5). */
+/** Geographic-pin map answer (ADR-0011 §5). */
 export const mapGeoAnswerSchema = z.object({
   questionId: z.string().uuid(),
   pin: z.object({
@@ -37,7 +29,6 @@ export const mapGeoAnswerSchema = z.object({
 
 export const submitAnswerRequestSchema = z.union([
   choiceAnswerSchema,
-  mapAnswerSchema,
   mapGeoAnswerSchema,
 ]);
 

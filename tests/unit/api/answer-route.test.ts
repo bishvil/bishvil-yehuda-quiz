@@ -311,18 +311,20 @@ describe("POST /api/session/[pin]/answer", () => {
       participantId: fixtures.participantId,
     });
 
-    // Malformation: target coordinates out of the 0..100 range. Passes the
-    // db-level `questions_map_payload_present_check` (both `image_url` and
-    // `target` keys are present) but trips the application-level Zod
-    // validator at scoring time. ADR-0011 §6 added the structural CHECK
-    // so we can't simply omit `target` here anymore.
+    // Malformation: lat outside the -90..90 range. Stored as JSON so the
+    // db column accepts it; the application-level Zod validator rejects
+    // it at scoring time.
     await sql`
       update public.questions
       set type = 'map',
           options = null,
           correct_ids = null,
-          map = ${sql.json({ image_url: "/broken-map.jpg", target: { x: 999, y: 999 } })},
-          tolerance = 5
+          map = ${sql.json({
+            geo: {
+              target: { lat: 999, lng: 34.9 },
+              toleranceKm: 5,
+            },
+          })}
       where id = ${fixtures.questionId}::uuid
     `;
     await sql`
@@ -342,7 +344,7 @@ describe("POST /api/session/[pin]/answer", () => {
       fixtures.pin,
       fixtures.participantId,
       fixtures.sessionId,
-      { questionId: fixtures.questionId, pin: { x: 10, y: 20 } },
+      { questionId: fixtures.questionId, pin: { lat: 31.5, lng: 34.9 } },
     );
 
     expect(result.status).toBe(500);

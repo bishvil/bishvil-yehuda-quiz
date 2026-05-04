@@ -4,6 +4,7 @@ import {
   cleanupFixtures,
   getTestPostgres,
   seedSyncFixtures,
+  SEED_HOST_ID,
 } from "./test-db";
 
 interface MockClaims {
@@ -120,12 +121,20 @@ describe("host route ownership", () => {
   });
 
   it("rejects host controls for async sessions", async () => {
+    // Async sessions now pass ownership (loadHostContext returns canControl: false
+    // instead of 403). The /end mutation guard fires first and returns 409.
     const fixtures = await seedSyncFixtures(sql, { gameMode: "async" });
     cleanupTargets.push(fixtures);
 
-    const result = await callHostEnd(fixtures.pin, "11111111-1111-4111-8111-111111111111");
+    const result = await callHostEnd(fixtures.pin, SEED_HOST_ID);
 
-    expect(result.status).toBe(403);
-    expect(result.body).toMatchObject({ error: "FORBIDDEN" });
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ error: "INVALID_TRANSITION" });
+
+    // Session must remain live (mutation did not execute).
+    const [session] = await sql<{ status: string }[]>`
+      select status from public.sessions where id = ${fixtures.sessionId}::uuid
+    `;
+    expect(session?.status).toBe("live");
   });
 });

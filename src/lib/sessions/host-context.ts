@@ -15,6 +15,11 @@ export type HostContextResult =
       session: SessionRow;
       hostId: string;
       serviceSupabase: ServiceSupabase;
+      /**
+       * True when the host may issue control mutations (sync mode).
+       * False for async sessions — host is read-only monitor only.
+       */
+      canControl: boolean;
     }
   | { ok: false; response: NextResponse };
 
@@ -54,17 +59,11 @@ export async function loadHostContext(
     };
   }
 
-  if (session.game_mode !== "sync") {
-    return {
-      ok: false,
-      response: forbiddenJson("Host controls are only available for sync sessions."),
-    };
-  }
-
   return {
     ok: true,
     session,
     hostId: auth.claims.userId,
     serviceSupabase,
+    canControl: session.game_mode === "sync",
   };
 }

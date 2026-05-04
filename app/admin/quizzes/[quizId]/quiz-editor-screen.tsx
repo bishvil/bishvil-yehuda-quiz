@@ -55,7 +55,6 @@ function rowToEditable(row: AdminQuestionListItem): EditableQuestion {
     explanation: row.explanation ?? null,
     timeSeconds: row.timeSeconds,
     points: row.points,
-    tolerance: row.tolerance,
   };
 }
 
@@ -79,6 +78,11 @@ export function QuizEditorScreen({ quizId }: Props) {
   // always wins because `useDebouncedAutoSave.performSave` reads the
   // current `valueRef.current` when its turn arrives.
   const questionsSaveInflightRef = useRef<Promise<void> | null>(null);
+  // Synchronously updated map from clientId → server id, stamped the
+  // moment the POST response arrives (before the React re-render fires).
+  // This lets removeQuestion read the real server id after flush() even
+  // though the questions state update hasn't been committed to the tree yet.
+  const serverIdsByClientIdRef = useRef<Map<string, string>>(new Map());
 
   // ---- Initial load ----------------------------------------------------
   useEffect(() => {
@@ -169,7 +173,6 @@ export function QuizEditorScreen({ quizId }: Props) {
         prevRow.prompt !== row.prompt ||
         prevRow.timeSeconds !== row.timeSeconds ||
         prevRow.points !== row.points ||
-        prevRow.tolerance !== row.tolerance ||
         prevRow.imageUrl !== row.imageUrl ||
         prevRow.explanation !== row.explanation ||
         JSON.stringify(prevRow.options) !== JSON.stringify(row.options) ||
@@ -201,14 +204,15 @@ export function QuizEditorScreen({ quizId }: Props) {
             ...(q.explanation ? { explanation: q.explanation } : {}),
             timeSeconds: q.timeSeconds,
             points: q.points,
-            ...(q.tolerance !== null && q.tolerance !== ""
-              ? { tolerance: Number(q.tolerance) }
-              : {}),
           });
           if (isAdminApiError(body)) {
             throw new Error(body.message);
           }
-          // Stamp the server id onto the local row so subsequent saves PUT.
+          // Stamp synchronously into the ref so removeQuestion can read the
+          // server id immediately after flush() — before the React state
+          // update has propagated through the render cycle.
+          serverIdsByClientIdRef.current.set(q.clientId, body.question.id);
+          // Also stamp the server id onto the local row so subsequent saves PUT.
           setQuestions((prev) =>
             prev.map((row) =>
               row.clientId === q.clientId
@@ -228,9 +232,6 @@ export function QuizEditorScreen({ quizId }: Props) {
             explanation: q.explanation ?? undefined,
             timeSeconds: q.timeSeconds,
             points: q.points,
-            ...(q.tolerance !== null && q.tolerance !== ""
-              ? { tolerance: Number(q.tolerance) }
-              : {}),
           });
           if (isAdminApiError(body)) {
             throw new Error(body.message);
@@ -334,8 +335,34 @@ export function QuizEditorScreen({ quizId }: Props) {
         return;
       }
 
-      if (serverId) {
-        const body = await deleteAdminQuestion(quizId, serverId);
+      // Flush any pending or in-flight autosave so the POST for a newly-added
+      // question completes before we decide whether to call DELETE.
+      try {
+        await questionsSave.flush();
+      } catch {
+        // The POST failed — the question was never persisted on the server.
+        // Drop the row locally and return without issuing a DELETE.
+        setQuestions((prev) => {
+          const next = prev
+            .filter((q) => q.clientId !== clientId)
+            .map((q, idx) => ({ ...q, ordinal: idx + 1 }));
+          setActiveIndex((current) =>
+            Math.min(current, Math.max(0, next.length - 1)),
+          );
+          return next;
+        });
+        return;
+      }
+
+      // After the flush, the POST may have resolved and stamped the server id
+      // into serverIdsByClientIdRef synchronously — read it here, falling
+      // back to the original closure value (for questions that were already
+      // persisted before this call).
+      const resolvedServerId =
+        serverIdsByClientIdRef.current.get(clientId) ?? serverId;
+
+      if (resolvedServerId) {
+        const body = await deleteAdminQuestion(quizId, resolvedServerId);
         if (isAdminApiError(body)) {
           setErrorMessage(body.message);
           return;
@@ -351,7 +378,7 @@ export function QuizEditorScreen({ quizId }: Props) {
         return next;
       });
     },
-    [quizId],
+    [quizId, questionsSave],
   );
 
   const { reorderQuestion } = useQuestionReorder({
@@ -757,7 +784,7 @@ function QuestionRow({
         </div>
         <div className="text-[11px] text-bsy-stone-400">
           {question.type === "map"
-            ? `נקודה על מפה · ${question.timeSeconds} שניות · סובלנות ${question.tolerance ?? "—"}`
+            ? `נקודה על מפה · ${question.timeSeconds} שניות`
             : `${optionsCount} תשובות · ${question.timeSeconds} שניות · ${correctCount} נכונות`}
         </div>
       </button>

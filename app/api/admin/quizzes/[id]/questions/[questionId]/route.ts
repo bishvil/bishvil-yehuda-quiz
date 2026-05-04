@@ -23,7 +23,6 @@ interface AdminQuestionDetailBody {
     explanation: string | null;
     timeSeconds: number;
     points: number;
-    tolerance: string | null;
   };
 }
 
@@ -51,7 +50,6 @@ function toDetail(
     explanation: row.explanation,
     timeSeconds: row.time_seconds,
     points: row.points,
-    tolerance: row.tolerance,
   };
 }
 
@@ -90,9 +88,6 @@ export async function PUT(
     update.time_seconds = parsed.data.timeSeconds;
   }
   if (parsed.data.points !== undefined) update.points = parsed.data.points;
-  if (parsed.data.tolerance !== undefined) {
-    update.tolerance = parsed.data.tolerance.toString();
-  }
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
   const { data, error } = await serviceSupabase

@@ -39,7 +39,17 @@ export async function POST(
   const { pin } = await context.params;
   const ctx = await loadHostContext(pin);
   if (!ctx.ok) return ctx.response;
-  const { session, serviceSupabase } = ctx;
+  const { session, serviceSupabase, canControl } = ctx;
+
+  if (!canControl) {
+    return privateNoStoreJson<HostQuestionNextResponseBody>(
+      {
+        error: "SESSION_NOT_LIVE",
+        message: "Async sessions are self-paced — question advancement is participant-driven.",
+      },
+      { status: 409 },
+    );
+  }
 
   if (session.status === "paused") {
     return privateNoStoreJson<HostQuestionNextResponseBody>(

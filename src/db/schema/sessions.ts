@@ -31,6 +31,7 @@ export const sessions = pgTable(
     endedAt: timestamp("ended_at", { withTimezone: true }),
     hostLastSeenAt: timestamp("host_last_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("sessions_pin_active_idx")

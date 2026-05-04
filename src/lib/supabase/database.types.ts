@@ -25,8 +25,13 @@ export interface QuestionOption {
 }
 
 export interface QuestionMap {
-  image_url: string;
-  target: { x: number; y: number };
+  geo: {
+    target: { lat: number; lng: number };
+    center?: { lat: number; lng: number };
+    zoom?: number;
+    toleranceKm: number;
+    styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+  };
 }
 
 export interface Database {
@@ -46,6 +51,7 @@ export interface Database {
           ended_at: string | null;
           host_last_seen_at: string | null;
           created_at: string;
+          archived_at: string | null;
         };
         Insert: {
           id?: string;
@@ -60,6 +66,7 @@ export interface Database {
           ended_at?: string | null;
           host_last_seen_at?: string | null;
           created_at?: string;
+          archived_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["sessions"]["Insert"]>;
         Relationships: [];
@@ -135,7 +142,6 @@ export interface Database {
           explanation: string | null;
           time_seconds: number;
           points: number;
-          tolerance: string | null;
           created_at: string;
         };
         Insert: {
@@ -151,7 +157,6 @@ export interface Database {
           explanation?: string | null;
           time_seconds?: number;
           points?: number;
-          tolerance?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["questions"]["Insert"]>;
@@ -165,8 +170,6 @@ export interface Database {
           participant_id: string;
           submitted_at: string;
           selected_ids: string[] | null;
-          pin_x: string | null;
-          pin_y: string | null;
           /** ADR-0011 §6.3 — geographic pin (degrees). */
           pin_lat: string | null;
           /** ADR-0011 §6.3 — geographic pin (degrees). */
@@ -174,6 +177,18 @@ export interface Database {
           is_correct: boolean;
           time_bonus: number;
           score: number;
+          /**
+           * Haversine distance in km between participant pin and correct target.
+           * Populated for geo map answers only; null for all other types.
+           * ADR-0006 Open Q2 RESOLVED.
+           */
+          distance_km: string | null;
+          /**
+           * 0..1 correctness ratio. Populated for geo map and multi-select.
+           * Null for single / truefalse / image.
+           * ADR-0006 Open Q3 RESOLVED.
+           */
+          correctness_ratio: string | null;
         };
         Insert: {
           id?: string;
@@ -182,13 +197,13 @@ export interface Database {
           participant_id: string;
           submitted_at?: string;
           selected_ids?: string[] | null;
-          pin_x?: string | null;
-          pin_y?: string | null;
           pin_lat?: string | null;
           pin_lng?: string | null;
           is_correct: boolean;
           time_bonus?: number;
           score?: number;
+          distance_km?: string | null;
+          correctness_ratio?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["answers"]["Insert"]>;
         Relationships: [];
@@ -270,8 +285,6 @@ export interface Database {
           p_participant_id: string;
           p_question_id: string;
           p_selected_ids?: string[] | null;
-          p_pin_x?: number | null;
-          p_pin_y?: number | null;
           /** ADR-0011 §5 — geographic pin (degrees, WGS-84). */
           p_pin_lat?: number | null;
           /** ADR-0011 §5 — geographic pin (degrees, WGS-84). */
@@ -286,13 +299,18 @@ export interface Database {
           participant_id: string | null;
           submitted_at: string | null;
           selected_ids: string[] | null;
-          pin_x: string | null;
-          pin_y: string | null;
           pin_lat: string | null;
           pin_lng: string | null;
           is_correct: boolean | null;
           time_bonus: number | null;
           score: number | null;
+          /** Haversine distance in km — populated for geo map answers. */
+          distance_km: string | null;
+          /**
+           * 0..1 correctness ratio — populated for geo map and multi-select.
+           * Null for single / truefalse / image.
+           */
+          correctness_ratio: string | null;
           question_status: string | null;
           deadline_at: string | null;
           correct_ids: string[] | null;

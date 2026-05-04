@@ -31,11 +31,20 @@ export const answers = pgTable(
       .notNull()
       .defaultNow(),
     selectedIds: text("selected_ids").array(),
-    pinX: numeric("pin_x", { precision: 6, scale: 3 }),
-    pinY: numeric("pin_y", { precision: 6, scale: 3 }),
+    /** Geographic answer pin (ADR-0011 §6.3). */
+    pinLat: numeric("pin_lat", { precision: 8, scale: 5 }),
+    pinLng: numeric("pin_lng", { precision: 9, scale: 5 }),
     isCorrect: boolean("is_correct").notNull(),
     timeBonus: integer("time_bonus").notNull().default(0),
     score: integer("score").notNull().default(0),
+    /** Populated for geo map answers only. Haversine distance in km. */
+    distanceKm: numeric("distance_km", { precision: 10, scale: 3 }),
+    /**
+     * 0..1 ratio of how correct the answer was. Set for geo map and
+     * multi-select. Null for single / truefalse / image — treat as
+     * `is_correct ? 1.0 : 0.0` downstream.
+     */
+    correctnessRatio: numeric("correctness_ratio", { precision: 4, scale: 3 }),
   },
   (table) => [
     uniqueIndex("answers_session_question_participant_idx").on(

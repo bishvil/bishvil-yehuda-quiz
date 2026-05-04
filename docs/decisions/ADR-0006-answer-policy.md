@@ -6,6 +6,14 @@
 
 ---
 
+> **Update 2026-05-04 — legacy %-based map scoring removed.** §5's Euclidean
+> %-distance formula and the supporting `pin_x` / `pin_y` columns and
+> `questions.tolerance` column are gone (see ADR-0011 sunset notice). Map
+> questions are now geo-only — haversine against `map.geo.toleranceKm`
+> with linear proximity decay. The §5 text below is the historical record.
+
+---
+
 ## Context
 
 Answer submission is the highest-stakes write in the system. Getting the policy wrong causes: duplicate scores, information leaks (client-side correct-answer computation), scoring disputes, or unfair timing advantages.
@@ -199,5 +207,19 @@ This is the critical behavioral difference. Implement it as a mode flag in the q
    score      = is_correct ? base + time_bonus : 0
    ```
    At the default of 1500: `base = 1000`, `time_max = 500` — matching the prototype exactly. A question configured to 900 points gives `base = 600`, `time_max = 300`. `lib/scoring.ts` must use `question.points` (not a hardcoded 1500).
-2. **Map scoring granularity:** Should distance produce a partial score (closer = more points)? Current decision: binary correct/wrong with time bonus, matching the prototype. Partial distance scoring is a product feature for a later wave.
-3. **Multi-correct questions:** For `type == 'multi'`, scoring currently requires exact match (all correct selected, no wrong selected). Should partial credit apply? Current decision: no partial credit — exact match only.
+2. **Map scoring granularity — RESOLVED:** Linear proximity decay is implemented. For geo map questions (`map.geo` block set):
+   ```
+   distance_km       = haversine(pin, target, R=6371)
+   correctness_ratio = distance_km < toleranceKm ? (1 - d/tol) : 0
+   is_correct        = correctness_ratio > 0      -- strict boundary: d=tol earns 0
+   score             = floor(base * ratio) + (is_correct ? time_bonus : 0)
+   ```
+   For legacy raster map questions the same formula applies using Euclidean %-distance / tolerance. Two new nullable columns on `answers`: `distance_km numeric(10,3)` and `correctness_ratio numeric(4,3)`. For single / truefalse / image questions both stay NULL and downstream code treats them as `is_correct ? 1.0 : 0.0`. See `src/lib/scoring.ts` `scoreMapAnswerProximity` and the `submit_answer` RPC migration `20260503202808_submit_answer_partial_credit.sql`.
+3. **Multi-correct questions — RESOLVED:** Jaccard partial credit is implemented for `type == 'multi'`:
+   ```
+   jaccard_ratio     = |selected ∩ correct| / |selected ∪ correct|
+   correctness_ratio = jaccard_ratio
+   is_correct        = (correctness_ratio == 1.0)   -- exact set match only earns time bonus
+   score             = floor(base * ratio) + (is_correct ? time_bonus : 0)
+   ```
+   Extra wrong picks and missed correct picks are both penalised proportionally. Time bonus is awarded only on an exact match (ratio = 1.0) to discourage random multi-selections. `correctness_ratio` is persisted on the answer row. Postgres implementation uses `unnest + INTERSECT/UNION` — NOT the `intarray` `&`/`|` operators which are integer-array-only and would silently fail on `text[]`. See `src/lib/scoring.ts` `jaccardRatio` + `scoreMultiAnswer` and the same RPC migration.

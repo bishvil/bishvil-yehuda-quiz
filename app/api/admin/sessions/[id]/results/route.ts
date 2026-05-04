@@ -27,8 +27,8 @@ interface AdminSessionResultAnswer {
   participantId: string;
   submittedAt: string;
   selectedIds: string[] | null;
-  pinX: string | null;
-  pinY: string | null;
+  pinLat: string | null;
+  pinLng: string | null;
   isCorrect: boolean;
   score: number;
   timeBonus: number;
@@ -93,7 +93,7 @@ export async function GET(
     serviceSupabase
       .from("answers")
       .select(
-        "question_id, participant_id, submitted_at, selected_ids, pin_x, pin_y, is_correct, score, time_bonus",
+        "question_id, participant_id, submitted_at, selected_ids, pin_lat, pin_lng, is_correct, score, time_bonus",
       )
       .eq("session_id", sessionId),
   ]);
@@ -125,8 +125,8 @@ export async function GET(
       participantId: row.participant_id,
       submittedAt: row.submitted_at,
       selectedIds: row.selected_ids,
-      pinX: row.pin_x,
-      pinY: row.pin_y,
+      pinLat: row.pin_lat,
+      pinLng: row.pin_lng,
       isCorrect: row.is_correct,
       score: row.score,
       timeBonus: row.time_bonus,

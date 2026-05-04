@@ -124,7 +124,7 @@ When a participant requests their next question:
 
 Async mode uses `auto_reveal = true` on the session. When a participant's question transitions to `locked` (via lazy expiry or cron), the server immediately also sets it to `revealed` in the same transaction. The participant receives the correct answer and explanation without waiting for a host.
 
-#### 2.5 How Async Avoids Host Dependency
+#### 2.5 How Async Avoids Host Dependency (for participant flow)
 
 - No host is needed online. The question lifecycle is entirely driven by:
   1. The participant's own first-fetch (creates timer).
@@ -141,6 +141,18 @@ If a participant leaves mid-quiz and returns:
 3. Returns the last active question row.
 4. If `now() > deadline_at`: lazy expiry locks and reveals the question. Participant sees "missed this question" and can advance.
 5. If `now() <= deadline_at`: participant can still answer. The timer resumes from the remaining time (`deadline_at - now()`).
+
+#### 2.7 Async Host Monitor View (read-only)
+
+Although async mode has no controlling host, a host or admin may still navigate to `/host/[pin]` to observe a running async session. The host dashboard exposes a **read-only live monitor**:
+
+- All control mutations (`/start`, `/end`, `/pause`, `/resume`, `/question/start`, `/question/next`, `/question/reveal`) return HTTP 409 for async sessions. The `loadHostContext()` helper sets `canControl: false` for async sessions; each mutation handler checks this flag as its first guard.
+- The host live response (`GET /api/host/[pin]/live`) includes `canControl: false` so the client can hide the control bar.
+- **Per-participant progress** is sourced from `participant_question_progress` (the authoritative async progress table defined in §2.2) and surfaced as `participantProgress: HostLiveParticipantProgress[]` in the live response. The UI renders a progress-bar list showing which question each participant is currently on.
+- **Live aggregates** (leaderboard, answer counts for the most recently active question per participant) remain available — the host can see how the cohort is progressing in aggregate without controlling them.
+- The host-side map guide view (`mapAnswers`) also populates for async sessions, subject to the same reveal-gating contract as sync (ADR-0008 §2): `isCorrect` and `distanceKm` are null until the participant's own question is `revealed` (auto-reveal fires on lock in async per §2.4).
+
+**Consequence for admin-initiated session end:** Because the host cannot end async sessions, the only paths to end an async session are: (a) the admin panel (`DELETE /api/admin/sessions/[id]`), (b) the `session.ended_at` deadline cron, or (c) the session-expiry cron (ADR-0004 §4.1).
 
 ---
 
@@ -194,7 +206,7 @@ The game mode (`sync` / `async`) is set at quiz creation time and fixed for a se
 - `question_session_state` table (ADR-0005) is required in both modes, but its semantics differ: shared in sync, per-participant in async. The primary key in async mode includes `participant_id`.
 - The session row must have `game_mode` column (`'sync' | 'async'`).
 - Route handlers must branch on `session.game_mode` for: question-start, answer-reveal, participant next-question.
-- In async mode, the host dashboard (if any) shows aggregate progress across participants — not a real-time ticker tied to a single `current_question_id`.
+- In async mode, the host dashboard shows aggregate progress across participants — not a real-time ticker tied to a single `current_question_id`. `loadHostContext()` returns `canControl: false`; all mutation endpoints reject with 409 for async sessions. See §2.7.
 
 ---
 

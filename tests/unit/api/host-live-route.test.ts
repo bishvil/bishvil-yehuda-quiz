@@ -121,10 +121,10 @@ describe("GET /api/host/[pin]/live", () => {
       expect(Object.keys(option)).not.toContain("correct");
       expect(Object.keys(option)).not.toContain("is_correct");
     }
-    // Map (when present) carries only image_url, never `target`.
+    // Map (when present) carries only the geo block minus `target`.
     if (question.map) {
-      const map = question.map as Record<string, unknown>;
-      expect(Object.keys(map)).not.toContain("target");
+      const map = question.map as { geo?: Record<string, unknown> };
+      expect(Object.keys(map.geo ?? {})).not.toContain("target");
     }
 
     // Top-level shape must not leak correct_ids either.
