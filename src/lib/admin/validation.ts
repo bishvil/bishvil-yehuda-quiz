@@ -123,16 +123,12 @@ export const adminBrandUpdateSchema = z.object({
 });
 
 /**
- * For system brands: only cosmetic fields (tagline, colors) may be changed.
- * Uses `.strict()` so any extra field (name, logoUrl) is rejected at parse time.
+ * Kept as an alias of {@link adminBrandUpdateSchema}. Historically system
+ * brands were locked down to cosmetic fields only, but the product now allows
+ * admins to edit name and logo for system brands too — they remain protected
+ * from deletion (see DELETE handler), not from edits.
  */
-export const adminBrandSystemUpdateSchema = z
-  .object({
-    tagline: z.string().trim().nullable().optional(),
-    primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
-    accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
-  })
-  .strict();
+export const adminBrandSystemUpdateSchema = adminBrandUpdateSchema;
 
 export type AdminBrandCreate = z.infer<typeof adminBrandCreateSchema>;
 export type AdminBrandUpdate = z.infer<typeof adminBrandUpdateSchema>;

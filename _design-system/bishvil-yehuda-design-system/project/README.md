@@ -18,7 +18,8 @@ The brand is a family of sister projects, all sharing the visual DNA (mountains 
 | `logo_yehuda.png`  | בשביל יהודה                  | Judea (the flagship) |
 | `logo_haari.png`   | בשביל הארי (lion)            | The Ari trail (Galilee, mystical history) |
 | `logo_tzafon.png`  | בשביל הצפון (deer)           | The North |
-| `logo_etzion.jpeg` | בשביל עציון (oak)            | Gush Etzion |
+| `logo_etzion.png`  | בשביל עציון (oak)            | Gush Etzion |
+| `logo_shomeron.png`| בשביל השומרון                | Samaria |
 | `logo_haganat.png` | בשביל הגנת היישוב (fortress) | Defense-of-the-Yishuv tour |
 
 Each sibling logo keeps the same hiker, mountains, and tagline but swaps in a **regional emblem-animal/landmark** (lion, deer, oak, fortress wall) — a mark-system pattern worth preserving in any future expansion.

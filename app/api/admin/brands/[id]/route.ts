@@ -2,10 +2,7 @@ import { type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { requireRole } from "@/src/lib/auth/server-auth";
-import {
-  adminBrandUpdateSchema,
-  adminBrandSystemUpdateSchema,
-} from "@/src/lib/admin/validation";
+import { adminBrandUpdateSchema } from "@/src/lib/admin/validation";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { type AdminBrand } from "@/src/lib/participant/brands";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
@@ -29,6 +26,9 @@ interface AdminBrandErrorBody {
   message: string;
   quizTitles?: string[];
 }
+
+// `SYSTEM_BRAND` is preserved in the union for the DELETE handler, which still
+// rejects archive attempts on system brands.
 
 interface AdminBrandRouteContext {
   params: Promise<{ id: string }>;
@@ -112,53 +112,6 @@ export async function PUT(
     );
   }
 
-  const isSystem = existingRow.is_system;
-
-  // For system brands, use the strict schema that only allows cosmetic fields.
-  if (isSystem) {
-    const parsed = adminBrandSystemUpdateSchema.safeParse(rawBody);
-    if (!parsed.success) {
-      return privateNoStoreJson<AdminBrandErrorBody>(
-        {
-          error: "SYSTEM_BRAND",
-          message:
-            "System brands: only tagline and colors may be modified. " +
-            parsed.error.issues.map((i) => i.message).join("; "),
-        },
-        { status: 403 },
-      );
-    }
-
-    const updates: Record<string, unknown> = {};
-    if (parsed.data.tagline !== undefined)
-      updates.tagline = parsed.data.tagline;
-    if (parsed.data.primaryColor !== undefined)
-      updates.primary_color = parsed.data.primaryColor;
-    if (parsed.data.accentColor !== undefined)
-      updates.accent_color = parsed.data.accentColor;
-
-    const { data: updated, error: updateError } = await db
-      .from("brands")
-      .update(updates)
-      .eq("id", id)
-      .select(
-        "id, slug, name, tagline, logo_url, primary_color, accent_color, is_system, created_at",
-      )
-      .single();
-
-    if (updateError || !updated) {
-      return privateNoStoreJson<AdminBrandErrorBody>(
-        { error: "WRITE_FAILED", message: "Failed to update brand." },
-        { status: 500 },
-      );
-    }
-
-    return privateNoStoreJson<AdminBrandUpdateBody>({
-      brand: rowToAdminBrand(updated as BrandRowNoArchive),
-    });
-  }
-
-  // User-created brand: allow all editable fields.
   const parsed = adminBrandUpdateSchema.safeParse(rawBody);
   if (!parsed.success) {
     return privateNoStoreJson<AdminBrandErrorBody>(

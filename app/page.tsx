@@ -235,7 +235,8 @@ export default function HomePage() {
               { src: "/logos/logo_yehuda.png", alt: "בשביל יהודה" },
               { src: "/logos/logo_haari.png", alt: "בשביל הארי" },
               { src: "/logos/logo_tzafon.png", alt: "בשביל הצפון" },
-              { src: "/logos/logo_etzion.jpeg", alt: "בשביל עציון" },
+              { src: "/logos/logo_etzion.png", alt: "בשביל עציון" },
+              { src: "/logos/logo_shomeron.png", alt: "בשביל השומרון" },
               { src: "/logos/logo_haganat.png", alt: "בשביל הגנת היישוב" },
             ].map((logo) => (
               <li key={logo.src}>

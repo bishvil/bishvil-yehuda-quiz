@@ -139,14 +139,12 @@ export function BrandsScreen({
     setMode({ kind: "list" });
   }
 
-  async function handleUpdate(id: string, form: BrandFormState, isSystem: boolean) {
+  async function handleUpdate(id: string, form: BrandFormState) {
     const payload: Record<string, unknown> = {
+      name: form.name,
       tagline: form.tagline || null,
+      logoUrl: form.logoUrl ?? undefined,
     };
-    if (!isSystem) {
-      payload.name = form.name;
-      payload.logoUrl = form.logoUrl ?? undefined;
-    }
     const res = await fetch(`/api/admin/brands/${id}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
@@ -214,7 +212,6 @@ export function BrandsScreen({
               <BrandForm
                 title="מותג חדש"
                 initialValues={EMPTY_FORM}
-                isSystem={false}
                 onCancel={() => setMode({ kind: "list" })}
                 onSubmit={handleCreate}
               />
@@ -226,11 +223,8 @@ export function BrandsScreen({
               <BrandForm
                 title={`עריכת "${mode.brand.name}"`}
                 initialValues={brandToForm(mode.brand)}
-                isSystem={mode.brand.isSystem}
                 onCancel={() => setMode({ kind: "list" })}
-                onSubmit={(form) =>
-                  handleUpdate(mode.brand.id, form, mode.brand.isSystem)
-                }
+                onSubmit={(form) => handleUpdate(mode.brand.id, form)}
               />
             </div>
           )}
@@ -419,7 +413,6 @@ function BrandCard({
 interface BrandFormProps {
   title: string;
   initialValues: BrandFormState;
-  isSystem: boolean;
   onCancel: () => void;
   onSubmit: (form: BrandFormState) => Promise<void>;
 }
@@ -427,7 +420,6 @@ interface BrandFormProps {
 function BrandForm({
   title,
   initialValues,
-  isSystem,
   onCancel,
   onSubmit,
 }: BrandFormProps) {
@@ -441,7 +433,7 @@ function BrandForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.logoUrl && !isSystem) {
+    if (!form.logoUrl) {
       setError("יש להעלות לוגו.");
       return;
     }
@@ -472,17 +464,12 @@ function BrandForm({
         <input
           type="text"
           required
-          disabled={isSystem || submitting}
+          disabled={submitting}
           value={form.name}
           onChange={(e) => patch({ name: e.target.value })}
           className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[13px] disabled:opacity-60"
           placeholder="שם המותג"
         />
-        {isSystem && (
-          <span className="text-[11px] text-bsy-stone-400">
-            שם מותג מערכת אינו ניתן לשינוי.
-          </span>
-        )}
       </label>
 
       {/* Tagline */}
@@ -501,17 +488,11 @@ function BrandForm({
       {/* Logo */}
       <div className="flex flex-col gap-1">
         <span className="text-[12px] font-bold text-bsy-ink">לוגו</span>
-        {isSystem ? (
-          <p className="text-[12px] text-bsy-stone-400">
-            לוגו מותג מערכת אינו ניתן לשינוי.
-          </p>
-        ) : (
-          <LogoUploader
-            value={form.logoUrl}
-            onChange={(url) => patch({ logoUrl: url })}
-            disabled={submitting}
-          />
-        )}
+        <LogoUploader
+          value={form.logoUrl}
+          onChange={(url) => patch({ logoUrl: url })}
+          disabled={submitting}
+        />
       </div>
 
       {error && (
