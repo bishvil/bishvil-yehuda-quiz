@@ -139,19 +139,6 @@ export function MapQuestionEditor({
     [draft, onChange],
   );
 
-  const handleStyleHint = useCallback(
-    (raw: string) => {
-      const styleHint =
-        raw === "maptiler-streets" ||
-        raw === "israel-hiking" ||
-        raw === "osm-liberty"
-          ? raw
-          : undefined;
-      onChange({ ...draft, styleHint });
-    },
-    [draft, onChange],
-  );
-
   const sliderValue = kmToSlider(draft.toleranceKm);
 
   return (
@@ -255,21 +242,6 @@ export function MapQuestionEditor({
         </span>
       </label>
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
-          סגנון מפה (אופציונלי)
-        </span>
-        <select
-          className="w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[13px]"
-          value={draft.styleHint ?? ""}
-          onChange={(e) => handleStyleHint(e.target.value)}
-        >
-          <option value="">ברירת מחדל (MapTiler streets / demotiles)</option>
-          <option value="maptiler-streets">MapTiler streets</option>
-          <option value="israel-hiking">Israel Hiking Map (overlay)</option>
-          <option value="osm-liberty">OSM Liberty</option>
-        </select>
-      </label>
     </div>
   );
 }

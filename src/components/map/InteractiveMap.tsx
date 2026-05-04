@@ -52,6 +52,18 @@ import type { Feature, FeatureCollection, LineString } from "geojson";
 export const MAP_DEFAULT_CENTER = { lat: 31.5, lng: 34.9 } as const;
 export const MAP_DEFAULT_ZOOM = 7;
 
+/**
+ * Camera is locked to Israel + a small buffer so participants can't pan to
+ * other countries. Bounds are [west, south, east, north] in WGS-84 degrees.
+ * Buffer chosen to comfortably include Eilat, the Galilee, the Golan, and
+ * the West Bank without revealing Cyprus or the Sinai interior.
+ */
+export const MAP_ISRAEL_BOUNDS: [number, number, number, number] = [
+  33.8, 29.3, 36.0, 33.5,
+];
+export const MAP_MIN_ZOOM = 6.5;
+export const MAP_MAX_ZOOM = 17;
+
 /** Geographic coordinate. WGS-84 degrees. */
 export interface LatLng {
   lat: number;
@@ -70,76 +82,51 @@ export const MAP_RTL_TEXT_PLUGIN_URL =
   "https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.js";
 
 /**
- * Resolve the MapLibre style for a given hint.
+ * Resolve the single MapLibre style used by the map question.
  *
- * Per ADR-0011 §1, MapTiler is the primary tile source via a public env
- * var. Without a key each hint falls back to a DISTINCT free public style
- * so that the style-switch UI is meaningful even in development:
+ * The game uses satellite imagery only (matches the visual style of the
+ * israel-map-game inspiration). MapTiler `satellite` is preferred; without
+ * a key we fall back to Esri World Imagery (free, no key required).
  *
- *   maptiler-streets  → OpenFreeMap Liberty   (vector, no key needed)
- *   osm-liberty       → OpenFreeMap Positron  (vector, no key needed)
- *   israel-hiking     → OpenTopoMap raster    (inline StyleSpecification)
- *
- * For `israel-hiking` the return value is a full StyleSpecification object
- * so that no external JSON fetch is required and the raster tiles are
- * served directly — callers must accept `string | StyleSpecification`.
+ * The `styleHint` parameter is accepted for backward compatibility with
+ * stored question content but is ignored — every map renders satellite.
  */
 export function resolveStyle(
   styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty",
 ): string | StyleSpecification {
+  void styleHint;
   const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
-  if (styleHint === "israel-hiking") {
-    // Inline raster style — no key required. QA-20: switched from
-    // OpenTopoMap (labels baked into raster) to CartoDB "light_nolabels"
-    // — free, no API key, and label-free at the tile level so the
-    // post-style-load symbol-hiding hook below has nothing to do for
-    // raster styles either. Trade-off: we lose OpenTopoMap's topographic
-    // shading but gain the clean base map QA-20 mandates.
-    const labelFreeRasterStyle: StyleSpecification = {
-      version: 8,
-      sources: {
-        "carto-light-nolabels": {
-          type: "raster",
-          tiles: [
-            "https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
-            "https://b.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
-            "https://c.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
-            "https://d.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
-          ],
-          tileSize: 256,
-          attribution:
-            '© <a href="https://carto.com/attributions">CARTO</a> © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
-          maxzoom: 19,
-        },
-      },
-      layers: [
-        {
-          id: "carto-light-nolabels-layer",
-          type: "raster",
-          source: "carto-light-nolabels",
-          minzoom: 0,
-          maxzoom: 22,
-        },
-      ],
-    };
-    return labelFreeRasterStyle;
-  }
-
-  if (styleHint === "osm-liberty") {
-    if (key) {
-      return `https://api.maptiler.com/maps/openstreetmap/style.json?key=${encodeURIComponent(key)}`;
-    }
-    // Free fallback: OpenFreeMap Positron — visually distinct from Liberty.
-    return "https://tiles.openfreemap.org/styles/positron";
-  }
-
-  // Default / maptiler-streets
   if (key) {
-    return `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(key)}`;
+    return `https://api.maptiler.com/maps/satellite/style.json?key=${encodeURIComponent(key)}`;
   }
-  // Free fallback: OpenFreeMap Liberty — no key required.
-  return "https://tiles.openfreemap.org/styles/liberty";
+
+  // Free fallback: Esri World Imagery — raster aerial photography, no key.
+  const esriSatelliteStyle: StyleSpecification = {
+    version: 8,
+    sources: {
+      "esri-world-imagery": {
+        type: "raster",
+        tiles: [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        ],
+        tileSize: 256,
+        attribution:
+          'Tiles © <a href="https://www.esri.com/">Esri</a> — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+        maxzoom: 19,
+      },
+    },
+    layers: [
+      {
+        id: "esri-world-imagery-layer",
+        type: "raster",
+        source: "esri-world-imagery",
+        minzoom: 0,
+        maxzoom: 22,
+      },
+    ],
+  };
+  return esriSatelliteStyle;
 }
 
 /**
@@ -151,8 +138,6 @@ export function resolveStyleUrl(
 ): string {
   const result = resolveStyle(styleHint);
   if (typeof result === "string") return result;
-  // israel-hiking inline style — fall back to demotiles string for
-  // legacy callers that cannot handle an object.
   return "https://demotiles.maplibre.org/style.json";
 }
 
@@ -333,6 +318,9 @@ const InteractiveMapImpl = forwardRef<InteractiveMapHandle, InteractiveMapProps>
           initialViewState={initialViewState}
           mapStyle={mapStyle}
           RTLTextPlugin={MAP_RTL_TEXT_PLUGIN_URL}
+          maxBounds={MAP_ISRAEL_BOUNDS}
+          minZoom={MAP_MIN_ZOOM}
+          maxZoom={MAP_MAX_ZOOM}
           dragRotate={false}
           attributionControl={{ compact: true }}
           onClick={handleClick}
