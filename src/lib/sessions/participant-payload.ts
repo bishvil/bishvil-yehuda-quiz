@@ -60,6 +60,13 @@ export type ParticipantAnswerStatus =
 export interface ParticipantAnswerPayload {
   submittedAt: string;
   status: ParticipantAnswerStatus;
+  /**
+   * The participant's submitted choice ids (single / truefalse / image /
+   * multi). Surfaced so the reveal screen can render
+   * "X מתוך W סימונים נכונים" for multi-select after a remount, when the
+   * client-side selection state has been cleared.
+   */
+  selectedIds?: string[] | null;
   isCorrect?: boolean;
   score?: number;
   timeBonus?: number;
@@ -180,12 +187,14 @@ export function buildParticipantAnswerPayload(
     return {
       submittedAt: answer.submitted_at,
       status: "submitted_awaiting_reveal",
+      selectedIds: answer.selected_ids,
     };
   }
 
   return {
     submittedAt: answer.submitted_at,
     status: "revealed",
+    selectedIds: answer.selected_ids,
     isCorrect: answer.is_correct,
     score: answer.score,
     timeBonus: answer.time_bonus,

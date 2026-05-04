@@ -138,12 +138,20 @@ export function PlayScreen({
     pendingReveal?.distanceKm ??
     (myAnswer?.status === "revealed" ? (myAnswer.distanceKm ?? null) : null);
 
-  // For multi-select: count how many of the participant's selected options
+  // For multi-select: count how many of the participant's submitted options
   // are in the correct set (for "X מתוך W סימונים נכונים" display).
+  // Prefer the server-side `myAnswer.selectedIds` so the count survives a
+  // remount/refresh after submission — the local UI `selectedIds` state is
+  // reset on every question change. Falls back to the UI state only for
+  // the brief window between submit and the next state refresh.
   const multiCorrectCount = useMemo(() => {
     if (question?.type !== "multi" || !isRevealed) return null;
-    return selectedIds.filter((id) => correctSet.has(id)).length;
-  }, [question?.type, isRevealed, selectedIds, correctSet]);
+    const submitted =
+      myAnswer && "selectedIds" in myAnswer && myAnswer.selectedIds
+        ? myAnswer.selectedIds
+        : selectedIds;
+    return submitted.filter((id) => correctSet.has(id)).length;
+  }, [question?.type, isRevealed, selectedIds, correctSet, myAnswer]);
 
   function handleToggleOption(optionId: string) {
     if (!question || !isAnswering || hasSubmitted) return;
