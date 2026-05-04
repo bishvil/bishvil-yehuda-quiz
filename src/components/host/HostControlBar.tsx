@@ -14,6 +14,11 @@ interface HostControlBarProps {
   busy?: boolean;
   /** Compact = mobile bottom sheet. Wide = desktop projector. */
   variant?: "wide" | "compact";
+  /**
+   * When false (async session), all control buttons are hidden — host is
+   * read-only monitor only (ADR-0007 §2.7).
+   */
+  canControl?: boolean;
 }
 
 /**
@@ -34,7 +39,19 @@ export function HostControlBar({
   onEnd,
   busy = false,
   variant = "wide",
+  canControl = true,
 }: HostControlBarProps) {
+  if (!canControl) {
+    return (
+      <p
+        dir="rtl"
+        className="m-0 text-center text-[12px] text-bsy-stone-400"
+      >
+        מצב צפייה בלבד — המשתתפים קובעים את הקצב בעצמם
+      </p>
+    );
+  }
+
   const showPause = sessionStatus === "live";
   const showResume = sessionStatus === "paused";
   const showEnd =

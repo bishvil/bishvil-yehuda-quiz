@@ -1,14 +1,52 @@
+import { formatKm } from "@/src/lib/format/distance";
+
 interface FeedbackCardProps {
   isCorrect: boolean;
   explanation?: string | null;
+  /**
+   * Earned score for this question (shown when provided alongside totalPoints).
+   * Enables "X/Y נקודות" display for partial-credit questions.
+   */
+  score?: number | null;
+  /** Maximum possible points for the question. */
+  totalPoints?: number | null;
+  /**
+   * Haversine distance in km — passed for geo map questions to render the
+   * "Z ק״מ מהיעד" suffix (ADR-0006 Open Q2 RESOLVED).
+   */
+  distanceKm?: number | null;
+  /**
+   * Number of correct options selected vs total correct options — used for
+   * the multi-select reveal hint "X מתוך W סימונים נכונים".
+   */
+  correctCount?: number | null;
+  /** Total count of correct options in the question. */
+  totalCorrect?: number | null;
 }
 
 /**
  * Reveal feedback row — used at the bottom of the play screen once the
  * server has revealed the question. Two variants: correct (lime), wrong
  * (clay). No emoji — uses ✓ / ✕ glyphs in the design system.
+ *
+ * Partial-credit display:
+ *  - Map (geo): shows "X/Y נקודות · Z ק״מ מהיעד"
+ *  - Multi-select: shows "X/Y נקודות · Z מתוך W סימונים נכונים"
+ *  - Binary correct: shows "מצוין!" with score if provided
  */
-export function FeedbackCard({ isCorrect, explanation }: FeedbackCardProps) {
+export function FeedbackCard({
+  isCorrect,
+  explanation,
+  score,
+  totalPoints,
+  distanceKm,
+  correctCount,
+  totalCorrect,
+}: FeedbackCardProps) {
+  const hasScore = score != null && totalPoints != null;
+  const hasDistance = distanceKm != null;
+  const hasMultiDetail = correctCount != null && totalCorrect != null;
+
   return (
     <div
       className={[
@@ -32,6 +70,20 @@ export function FeedbackCard({ isCorrect, explanation }: FeedbackCardProps) {
         <p className="m-0 font-[var(--font-display)] text-base text-bsy-brown">
           {isCorrect ? "מצוין!" : "לא מדויק"}
         </p>
+        {hasScore ? (
+          <p className="m-0 mt-1 text-[13px] font-bold text-bsy-stone-700">
+            {score}/{totalPoints} נקודות
+            {hasDistance ? ` · ${formatKm(distanceKm)} ק״מ מהיעד` : null}
+            {hasMultiDetail && !hasDistance
+              ? ` · ${correctCount} מתוך ${totalCorrect} סימונים נכונים`
+              : null}
+          </p>
+        ) : null}
+        {!hasScore && hasDistance ? (
+          <p className="m-0 mt-1 text-[13px] text-bsy-stone-700">
+            {formatKm(distanceKm)} ק״מ מהיעד
+          </p>
+        ) : null}
         {explanation ? (
           <p className="m-0 mt-1 text-[13px] text-bsy-stone-700">{explanation}</p>
         ) : null}
@@ -39,3 +91,4 @@ export function FeedbackCard({ isCorrect, explanation }: FeedbackCardProps) {
     </div>
   );
 }
+

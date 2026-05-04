@@ -101,6 +101,8 @@ export function useDebouncedAutoSave<T>(
         setErrorMessage(
           caught instanceof Error ? caught.message : "השמירה נכשלה",
         );
+        // Re-throw so that callers who await flush() can detect save failures.
+        throw caught;
       } finally {
         inflightRef.current = null;
       }
@@ -116,7 +118,9 @@ export function useDebouncedAutoSave<T>(
       debounceTimerRef.current = null;
     }
     if (inflightRef.current) {
-      await inflightRef.current;
+      // Swallow in-flight rejections so performSave() always runs and decides
+      // whether the snapshot needs another attempt.
+      await inflightRef.current.catch(() => {});
     }
     await performSave();
   }, [performSave]);
@@ -140,7 +144,9 @@ export function useDebouncedAutoSave<T>(
 
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
-      void performSave();
+      performSave().catch(() => {
+        // Error is reflected in state (status="error"); caller can flush() to rethrow.
+      });
     }, debounceMs);
 
     return () => {

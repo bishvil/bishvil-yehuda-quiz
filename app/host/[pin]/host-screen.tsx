@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { HostAnswerBars } from "@/src/components/host/HostAnswerBars";
+import { HostAsyncProgressList } from "@/src/components/host/HostAsyncProgressList";
 import { HostControlBar } from "@/src/components/host/HostControlBar";
 import { HostHeader } from "@/src/components/host/HostHeader";
 import { HostMapSummary } from "@/src/components/host/HostMapSummary";
@@ -259,10 +260,12 @@ export function HostScreen({
     totalQuestions: state.totalQuestions,
   };
 
+  const canControl = state.canControl;
   const showRevealedHighlight = question?.status === "revealed";
   const correctIds = showRevealedHighlight ? (state.reveal?.correctIds ?? []) : null;
   const isMapQuestion = question?.type === "map";
   const hasOptions = !isMapQuestion && Array.isArray(question?.options);
+  const participantPins = state.mapAnswers ?? null;
 
   const banner = lifecycleBanner({
     sessionStatus,
@@ -310,12 +313,10 @@ export function HostScreen({
               ) : null}
               {isMapQuestion ? (
                 <HostMapSummary
-                  imageUrl={question.map?.image_url ?? null}
                   geo={question.map?.geo ?? null}
-                  target={state.reveal?.mapTarget ?? null}
                   geoTarget={state.reveal?.mapGeoTarget ?? null}
-                  toleranceRadiusPercent={question.tolerance}
                   isRevealed={showRevealedHighlight}
+                  participantPins={participantPins}
                 />
               ) : null}
               {showRevealedHighlight && state.reveal?.explanation ? (
@@ -323,19 +324,27 @@ export function HostScreen({
               ) : null}
             </div>
             <aside className="flex min-h-0 flex-col gap-4">
-              <HostTimerPanel
-                remainingSeconds={countdown.remainingSeconds}
-                fraction={countdown.fraction}
-                isWarning={countdown.isWarning}
-                responseCount={state.responseCount}
-                totalPlayers={state.totalPlayers}
-              />
+              {canControl ? (
+                <HostTimerPanel
+                  remainingSeconds={countdown.remainingSeconds}
+                  fraction={countdown.fraction}
+                  isWarning={countdown.isWarning}
+                  responseCount={state.responseCount}
+                  totalPlayers={state.totalPlayers}
+                />
+              ) : null}
               <div className="flex min-h-0 flex-1">
                 <HostPlayerList
                   players={state.players}
                   hideAnsweredDot={!question}
                 />
               </div>
+              {!canControl && state.participantProgress ? (
+                <HostAsyncProgressList
+                  progress={state.participantProgress}
+                  totalQuestions={state.totalQuestions}
+                />
+              ) : null}
             </aside>
           </div>
         ) : (
@@ -357,6 +366,7 @@ export function HostScreen({
             onResume={handleResume}
             onEnd={handleEnd}
             busy={busy}
+            canControl={canControl}
             variant="wide"
           />
         </footer>
@@ -395,12 +405,14 @@ export function HostScreen({
                   totalQuestions={state.totalQuestions}
                   imageUrl={question.imageUrl}
                 />
-                <HostTimerPanel
-                  variant="compact"
-                  remainingSeconds={countdown.remainingSeconds}
-                  fraction={countdown.fraction}
-                  isWarning={countdown.isWarning}
-                />
+                {canControl ? (
+                  <HostTimerPanel
+                    variant="compact"
+                    remainingSeconds={countdown.remainingSeconds}
+                    fraction={countdown.fraction}
+                    isWarning={countdown.isWarning}
+                  />
+                ) : null}
                 {hasOptions ? (
                   <HostAnswerBars
                     options={question.options ?? []}
@@ -411,12 +423,10 @@ export function HostScreen({
                 ) : null}
                 {isMapQuestion ? (
                   <HostMapSummary
-                    imageUrl={question.map?.image_url ?? null}
                     geo={question.map?.geo ?? null}
-                    target={state.reveal?.mapTarget ?? null}
                     geoTarget={state.reveal?.mapGeoTarget ?? null}
-                    toleranceRadiusPercent={question.tolerance}
                     isRevealed={showRevealedHighlight}
+                    participantPins={participantPins}
                   />
                 ) : null}
                 {showRevealedHighlight && state.reveal?.explanation ? (
@@ -447,6 +457,12 @@ export function HostScreen({
                 hideAnsweredDot={!question}
               />
             </div>
+            {!canControl && state.participantProgress ? (
+              <HostAsyncProgressList
+                progress={state.participantProgress}
+                totalQuestions={state.totalQuestions}
+              />
+            ) : null}
           </section>
         )}
 
@@ -459,6 +475,7 @@ export function HostScreen({
             onResume={handleResume}
             onEnd={handleEnd}
             busy={busy}
+            canControl={canControl}
             variant="compact"
           />
         </footer>
