@@ -223,3 +223,56 @@ This is the critical behavioral difference. Implement it as a mode flag in the q
    score             = floor(base * ratio) + (is_correct ? time_bonus : 0)
    ```
    Extra wrong picks and missed correct picks are both penalised proportionally. Time bonus is awarded only on an exact match (ratio = 1.0) to discourage random multi-selections. `correctness_ratio` is persisted on the answer row. Postgres implementation uses `unnest + INTERSECT/UNION` — NOT the `intarray` `&`/`|` operators which are integer-array-only and would silently fail on `text[]`. See `src/lib/scoring.ts` `jaccardRatio` + `scoreMultiAnswer` and the same RPC migration.
+
+---
+
+> **Update 2026-05-04 — unified scoring contract.**
+>
+> Three behaviour changes ship in
+> `supabase/migrations/20260504100000_unify_correct_count_and_ratio.sql`,
+> `…100100_backfill_correctness_ratio.sql`,
+> `…100200_rescore_session_rpc.sql`:
+>
+> 1. **`correctness_ratio` is non-null for every answer.** Binary types
+>    (single / truefalse / image) used to store NULL and downstream code
+>    treated NULL as `is_correct ? 1 : 0`. The RPC now writes the literal
+>    `1.0` / `0.0` so the wire and DB contracts match. Pre-existing rows
+>    are backfilled. UI consumers can rely on the column.
+> 2. **`participant_scores.correct_count` and
+>    `session_participants.streak` gate on `score > 0`, not
+>    `is_correct`.** Multi-select Jaccard partial answers (0 < r < 1) now
+>    increment both — same as geo proximity partials always did. Binary
+>    types are unaffected (`score>0` ⇔ `is_correct=true`). The unified
+>    rule is: *an answer that earned points is a "correct" answer for
+>    counting and streak purposes.*
+> 3. **Authoritative scoring is SQL-only.** `src/lib/scoring.ts` no longer
+>    mirrors the formula — it now exposes only `haversineKm` for the
+>    "X km from target" host label. The prior duplicate (`computeScore`,
+>    `scoreMapAnswerProximity`, `scoreMultiAnswer`, `jaccardRatio`,
+>    `isMapAnswerCorrectGeo`, `isChoiceAnswerCorrect`, the
+>    `SCORING_BASE_FRACTION_*` constants) is deleted. The fixture in
+>    `tests/fixtures/scoring/cases.json` documents expected RPC outputs
+>    case-by-case; `tests/unit/scoring.rpc-fixture.test.ts` enforces
+>    fixture self-consistency.
+>
+> **Recompute path — `rescore_session(session_id)`.** When an admin
+> changes a score-affecting field on a question after submissions exist
+> (`points`, `time_seconds`, `correct_ids`, `map`), the stored
+> `answers.score` and `participant_scores.total_score` go stale. The new
+> RPC reapplies the same scoring branches as `submit_answer` against the
+> *current* question rows, using each answer's `submitted_at`,
+> `selected_ids`, and pin coordinates as input. It rebuilds
+> `participant_scores` from a fresh aggregate and recomputes
+> `session_participants.streak` (= trailing run of `score > 0`). Granted
+> to `service_role` only. Exposed at
+> `POST /api/admin/sessions/[id]/rescore`.
+>
+> **Edit guard — `SCORES_LOCKED`.** The admin question PUT handler
+> (`PUT /api/admin/quizzes/[id]/questions/[questionId]`) blocks score-
+> affecting field mutations once any answer row exists for any session
+> of the quiz, returning `409 SCORES_LOCKED` with `affectedSessionIds`.
+> The admin can pass `?force=1` to override; the response then includes
+> `requiresRescore: string[]` so the editor UI can prompt for follow-up
+> rescores via `POST /api/admin/sessions/[id]/rescore`. Live/paused/ended
+> sessions are all eligible for rescore.
+

@@ -93,8 +93,6 @@ export function MapQuestionInteractive({
     revealed && pin && target ? haversineKmInline(pin, target) : null;
   // Strict boundary: d < tolerance is correct. Matches the server-side
   // partial-credit formula in `submit_answer` (d=tol earns ratio=0, not correct).
-  // Note: the legacy binary helper `isMapAnswerCorrectGeo` intentionally keeps
-  // inclusive `<=` for back-compat; this component is on the new geo path only.
   const isCorrect =
     distanceKm !== null ? distanceKm < geo.toleranceKm : null;
 

@@ -1,0 +1,190 @@
+{
+  "$comment": "Golden fixture for the submit_answer RPC (ADR-0006). Each case describes a self-contained scoring scenario: a question with `points`, `time_seconds`, type-specific config, and one or more (selected_ids|pin) inputs sampled at known time offsets from the question deadline. `expected.score / is_correct / time_bonus / correctness_ratio / distance_km` are the values the RPC must persist on the resulting answer row. Regenerate with `pnpm tsx scripts/scoring-fixture-refresh.ts` against a freshly migrated local Supabase.",
+  "cases": [
+    {
+      "name": "single-correct-fast",
+      "type": "single",
+      "points": 1500,
+      "time_seconds": 25,
+      "correct_ids": ["a"],
+      "input": { "selected_ids": ["a"] },
+      "submit_offset_seconds_from_start": 0,
+      "expected": {
+        "is_correct": true,
+        "correctness_ratio": 1,
+        "score": 1500,
+        "time_bonus": 500,
+        "distance_km": null
+      }
+    },
+    {
+      "name": "single-correct-at-deadline",
+      "type": "single",
+      "points": 1500,
+      "time_seconds": 25,
+      "correct_ids": ["a"],
+      "input": { "selected_ids": ["a"] },
+      "submit_offset_seconds_from_start": 25,
+      "expected": {
+        "is_correct": true,
+        "correctness_ratio": 1,
+        "score": 1000,
+        "time_bonus": 0,
+        "distance_km": null
+      }
+    },
+    {
+      "name": "single-wrong",
+      "type": "single",
+      "points": 1500,
+      "time_seconds": 25,
+      "correct_ids": ["a"],
+      "input": { "selected_ids": ["b"] },
+      "submit_offset_seconds_from_start": 5,
+      "expected": {
+        "is_correct": false,
+        "correctness_ratio": 0,
+        "score": 0,
+        "time_bonus": 0,
+        "distance_km": null
+      }
+    },
+    {
+      "name": "single-points-override-900",
+      "type": "single",
+      "points": 900,
+      "time_seconds": 25,
+      "correct_ids": ["a"],
+      "input": { "selected_ids": ["a"] },
+      "submit_offset_seconds_from_start": 0,
+      "expected": {
+        "is_correct": true,
+        "correctness_ratio": 1,
+        "score": 900,
+        "time_bonus": 300,
+        "distance_km": null
+      }
+    },
+    {
+      "name": "multi-perfect-fast",
+      "type": "multi",
+      "points": 1500,
+      "time_seconds": 25,
+      "correct_ids": ["a", "b"],
+      "input": { "selected_ids": ["a", "b"] },
+      "submit_offset_seconds_from_start": 0,
+      "expected": {
+        "is_correct": true,
+        "correctness_ratio": 1,
+        "score": 1500,
+        "time_bonus": 500,
+        "distance_km": null
+      }
+    },
+    {
+      "name": "multi-half-jaccard",
+      "type": "multi",
+      "points": 1500,
+      "time_seconds": 25,
+      "correct_ids": ["a", "b"],
+      "$jaccard": "intersect={a}, union={a,b,c} → 1/3",
+      "input": { "selected_ids": ["a", "c"] },
+      "submit_offset_seconds_from_start": 0,
+      "expected": {
+        "is_correct": false,
+        "correctness_ratio": 0.333,
+        "score": 333,
+        "time_bonus": 0,
+        "distance_km": null
+      }
+    },
+    {
+      "name": "multi-empty-selection",
+      "type": "multi",
+      "points": 1500,
+      "time_seconds": 25,
+      "correct_ids": ["a", "b"],
+      "input": { "selected_ids": [] },
+      "submit_offset_seconds_from_start": 0,
+      "expected": {
+        "is_correct": false,
+        "correctness_ratio": 0,
+        "score": 0,
+        "time_bonus": 0,
+        "distance_km": null
+      }
+    },
+    {
+      "name": "geo-on-target-fast",
+      "type": "map",
+      "points": 1500,
+      "time_seconds": 25,
+      "map": { "geo": { "target": { "lat": 32.0853, "lng": 34.7818 }, "toleranceKm": 5 } },
+      "input": { "pin_lat": 32.0853, "pin_lng": 34.7818 },
+      "submit_offset_seconds_from_start": 0,
+      "expected": {
+        "is_correct": true,
+        "correctness_ratio": 1,
+        "score": 1500,
+        "time_bonus": 500,
+        "distance_km": 0
+      }
+    },
+    {
+      "name": "geo-half-tolerance",
+      "type": "map",
+      "points": 1500,
+      "time_seconds": 25,
+      "map": { "geo": { "target": { "lat": 32.0853, "lng": 34.7818 }, "toleranceKm": 5 } },
+      "$comment": "Pin ≈2.5 km north of target — distance/tol ≈ 0.5, ratio ≈ 0.5",
+      "input": { "pin_lat": 32.10785, "pin_lng": 34.7818 },
+      "submit_offset_seconds_from_start": 0,
+      "expected": {
+        "is_correct": true,
+        "correctness_ratio_min": 0.49,
+        "correctness_ratio_max": 0.51,
+        "score_min": 480,
+        "score_max": 520,
+        "time_bonus": 500,
+        "distance_km_min": 2.4,
+        "distance_km_max": 2.6
+      }
+    },
+    {
+      "name": "geo-at-tolerance-strict-zero",
+      "type": "map",
+      "points": 1500,
+      "time_seconds": 25,
+      "map": { "geo": { "target": { "lat": 32.0853, "lng": 34.7818 }, "toleranceKm": 5 } },
+      "$comment": "Pin exactly at 5 km — strict bound, ratio = 0",
+      "input": { "pin_lat": 32.130290, "pin_lng": 34.7818 },
+      "submit_offset_seconds_from_start": 0,
+      "expected": {
+        "is_correct": false,
+        "correctness_ratio": 0,
+        "score": 0,
+        "time_bonus": 0,
+        "distance_km_min": 4.95,
+        "distance_km_max": 5.05
+      }
+    },
+    {
+      "name": "geo-far",
+      "type": "map",
+      "points": 1500,
+      "time_seconds": 25,
+      "map": { "geo": { "target": { "lat": 32.0853, "lng": 34.7818 }, "toleranceKm": 5 } },
+      "$comment": "Jerusalem — way outside tolerance",
+      "input": { "pin_lat": 31.7683, "pin_lng": 35.2137 },
+      "submit_offset_seconds_from_start": 0,
+      "expected": {
+        "is_correct": false,
+        "correctness_ratio": 0,
+        "score": 0,
+        "time_bonus": 0,
+        "distance_km_min": 53.5,
+        "distance_km_max": 54.5
+      }
+    }
+  ]
+}

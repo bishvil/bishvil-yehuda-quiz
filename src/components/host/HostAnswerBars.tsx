@@ -15,12 +15,6 @@ interface HostAnswerBarsProps {
   /** Correct option ids — only passed when revealed. Pre-reveal must be `null`. */
   correctIds: string[] | null;
   variant?: "desktop" | "mobile";
-  /**
-   * Average correctness ratio across all submitted answers (0..1).
-   * Passed for multi-select questions to show partial-credit context
-   * (ADR-0006 Open Q3 RESOLVED). Null for binary question types.
-   */
-  avgCorrectnessRatio?: number | null;
 }
 
 /**
@@ -38,16 +32,9 @@ export function HostAnswerBars({
   counts,
   correctIds,
   variant = "desktop",
-  avgCorrectnessRatio,
 }: HostAnswerBarsProps) {
   const bars = computeAnswerBars({ options, counts });
   const isRevealed = Array.isArray(correctIds);
-
-  // Average partial-credit ratio label (multi-select, post-reveal).
-  const ratioLabel =
-    isRevealed && avgCorrectnessRatio != null
-      ? `ממוצע דיוק: ${Math.round(avgCorrectnessRatio * 100)}%`
-      : null;
 
   if (variant === "mobile") {
     return (
@@ -66,9 +53,6 @@ export function HostAnswerBars({
             />
           );
         })}
-        {ratioLabel ? (
-          <p className="text-center text-[12px] text-bsy-stone-700">{ratioLabel}</p>
-        ) : null}
       </div>
     );
   }
@@ -98,9 +82,6 @@ export function HostAnswerBars({
           );
         })}
       </div>
-      {ratioLabel ? (
-        <p className="text-center text-[12px] text-bsy-stone-700">{ratioLabel}</p>
-      ) : null}
     </div>
   );
 }
