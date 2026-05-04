@@ -8,8 +8,10 @@ import { HostStatusPill } from "@/src/components/host/HostStatusPill";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import { SharePinPopover } from "@/src/components/share/SharePinPopover";
 import {
+  archiveAdminSession,
   createAdminSession,
   getAdminQuiz,
+  hardDeleteAdminSession,
   isAdminApiError,
   listAdminQuestions,
   listAdminSessions,
@@ -33,6 +35,7 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
   const [team, setTeam] = useState<AdminTeamMember[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedHostId, setSelectedHostId] = useState<string>("");
+  const [showArchived, setShowArchived] = useState(false);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -47,7 +50,7 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
       const [quizBody, sessionsBody, questionsBody, teamBody] =
         await Promise.all([
           getAdminQuiz(quizId),
-          listAdminSessions(quizId),
+          listAdminSessions(quizId, showArchived),
           listAdminQuestions(quizId),
           listAdminTeam(),
         ]);
@@ -83,7 +86,7 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [quizId]);
+  }, [quizId, showArchived]);
 
   // ADR-0004 `draft → scheduled` requires at least one authored question.
   // The API also enforces this (Wave-2 review M2) — disabling here keeps
@@ -128,6 +131,7 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
           startedAt: null,
           endedAt: body.session.endedAt,
           createdAt: body.session.createdAt,
+          archivedAt: null,
         },
         ...prev,
       ]);
@@ -152,6 +156,47 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     [],
   );
 
+  const handleArchive = useCallback(async (sessionId: string) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("לארכב את המשחק? פעולה זו תסיים ותסתיר את המשחק מהרשימה.")
+    ) {
+      return;
+    }
+    setErrorMessage(null);
+    const body = await archiveAdminSession(sessionId);
+    if (isAdminApiError(body)) {
+      setErrorMessage(body.message);
+      return;
+    }
+    // If not showing archived, remove the row; otherwise update it with archivedAt.
+    setSessions((prev) =>
+      showArchived
+        ? prev.map((s) =>
+            s.id === sessionId ? { ...s, archivedAt: body.archivedAt } : s,
+          )
+        : prev.filter((s) => s.id !== sessionId),
+    );
+  }, [showArchived]);
+
+  const handleHardDelete = useCallback(async (sessionId: string) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "למחוק לצמיתות? פעולה זו אינה הפיכה. המשחק וכל הנתונים שלו יימחקו.",
+      )
+    ) {
+      return;
+    }
+    setErrorMessage(null);
+    const body = await hardDeleteAdminSession(sessionId);
+    if (isAdminApiError(body)) {
+      setErrorMessage(body.message);
+      return;
+    }
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+  }, []);
+
   return (
     <>
       <AdminTopBar
@@ -162,6 +207,15 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
         ]}
         tools={
           <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-[12px] text-bsy-stone-700">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+                className="h-4 w-4 accent-bsy-forest"
+              />
+              <span>הצג מאורכבים</span>
+            </label>
             <HostPicker
               members={team}
               value={selectedHostId}
@@ -229,6 +283,8 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
                   team={team}
                   currentUserId={currentUserId}
                   onReassign={handleReassign}
+                  onArchive={handleArchive}
+                  onHardDelete={handleHardDelete}
                 />
               </li>
             ))}
@@ -324,17 +380,31 @@ function SessionCard({
   team,
   currentUserId,
   onReassign,
+  onArchive,
+  onHardDelete,
 }: {
   session: AdminSessionListRow;
   quizId: string;
   team: AdminTeamMember[];
   currentUserId: string | null;
   onReassign: (sessionId: string, hostUserId: string) => void;
+  onArchive: (sessionId: string) => void;
+  onHardDelete: (sessionId: string) => void;
 }) {
   const created = new Date(session.createdAt);
   const canReassign = HOST_REASSIGNABLE_STATUSES.includes(session.status);
   const hostLabel = session.hostEmail ?? "ללא מנחה";
   const isMine = session.hostId !== null && session.hostId === currentUserId;
+  const isArchived = session.archivedAt !== null;
+  // Archive is available for ended/draft/scheduled (not live/paused).
+  const canArchive =
+    !isArchived &&
+    (session.status === "ended" ||
+      session.status === "draft" ||
+      session.status === "scheduled");
+  // Hard-delete only after archiving.
+  const canHardDelete = isArchived;
+
   return (
     <article
       className="flex h-full flex-col justify-between rounded-md border border-bsy-stone-100 bg-white p-4 shadow-[var(--shadow-xs)]"
@@ -346,6 +416,11 @@ function SessionCard({
           <span className="text-[11px] text-bsy-stone-400">
             {GAME_MODE_LABELS[session.gameMode]}
           </span>
+          {isArchived ? (
+            <span className="rounded-full bg-bsy-stone-100 px-2 py-0.5 text-[10px] text-bsy-stone-500">
+              מאורכב
+            </span>
+          ) : null}
         </div>
         <div className="mt-3 flex items-baseline gap-3">
           <span
@@ -388,8 +463,8 @@ function SessionCard({
           )}
         </div>
       </div>
-      <div className="mt-4 flex items-center gap-3 text-[13px]">
-        {session.gameMode === "sync" ? (
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-[13px]">
+        {session.gameMode === "sync" && !isArchived ? (
           <Link
             href={`/host/${session.pin}`}
             className="font-bold text-bsy-forest hover:underline"
@@ -412,8 +487,28 @@ function SessionCard({
         >
           תוצאות
         </Link>
-        <span className="ms-auto">
-          <SharePinPopover pin={session.pin} variant="compact" />
+<span className="ms-auto flex items-center gap-2">
+          {canArchive ? (
+            <button
+              type="button"
+              onClick={() => onArchive(session.id)}
+              className="text-[12px] text-bsy-stone-500 hover:text-bsy-error"
+              data-testid="admin-session-archive"
+            >
+              ארכב
+            </button>
+          ) : null}
+          {canHardDelete ? (
+            <button
+              type="button"
+              onClick={() => onHardDelete(session.id)}
+              className="text-[12px] text-bsy-error hover:underline"
+              data-testid="admin-session-hard-delete"
+            >
+              מחק לצמיתות
+            </button>
+          ) : null}
+          {!isArchived ? <SharePinPopover pin={session.pin} variant="compact" /> : null}
         </span>
       </div>
     </article>
