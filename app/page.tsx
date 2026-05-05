@@ -220,12 +220,6 @@ export default function HomePage() {
           style={{ background: "var(--bsy-paper)" }}
           aria-label="מסלולי בשביל"
         >
-          <p
-            className="text-center mb-8 text-xs font-bold tracking-widest uppercase"
-            style={{ color: "var(--bsy-stone-400)" }}
-          >
-            המסלולים שלנו
-          </p>
           <ul
             className="flex flex-wrap justify-center items-center gap-8 list-none p-0 m-0"
             role="list"
