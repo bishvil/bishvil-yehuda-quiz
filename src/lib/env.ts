@@ -1,8 +1,7 @@
 type RequiredEnvironmentVariableName =
   | "NEXT_PUBLIC_SUPABASE_URL"
   | "NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  | "SUPABASE_SERVICE_ROLE_KEY"
-  | "CRON_SECRET";
+  | "SUPABASE_SERVICE_ROLE_KEY";
 
 export function getRequiredEnvironmentVariable(
   name: RequiredEnvironmentVariableName,

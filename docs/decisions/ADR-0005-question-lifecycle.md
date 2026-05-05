@@ -86,18 +86,16 @@ This means in async mode each participant has their own `started_at` / `deadline
 
 #### 3.2 `answering → locked` (deadline expiry)
 
-**Actor:** system (cron or lazy expiry)
+**Actor:** system (lazy expiry only — see ADR-0004 §4.3 for why the cron was removed)
 
-**Cron path:** A Vercel Cron job runs every minute (`* * * * *`) and updates all `answering` questions where `now() > deadline_at` to `locked`. Vercel Cron minimum resolution is 1 minute. The cron job uses the `CRON_SECRET` env var for authorization.
-
-**Lazy expiry path (critical — see ADR-0004 §4.3):**
+**Lazy expiry path:**
 Any server-side handler that reads question state MUST check:
 ```
 if status == 'answering' AND now() > deadline_at:
     UPDATE status = 'locked'
     RETURN locked state
 ```
-This means cron failure never causes incorrect scoring. The next request that touches the question self-heals the state.
+The `submit_answer` Postgres RPC also performs this check inline before evaluating any submission, so submission is race-safe even with no preceding GET.
 
 #### 3.3 `locked → revealed`
 
@@ -160,7 +158,7 @@ Client does NOT use `Date.now()` for deadline math. It uses `server_now` from th
 
 - `question_session_state` is a required table (columns listed in §2). Used in **sync mode only**. PK: `(session_id, question_id)`.
 - In **async mode**, per-participant question timer state lives in `participant_question_progress` (see ADR-0007 §2.2). `question_session_state` is not populated for async sessions.
-- Cron job must be configured: `{ path: '/api/cron/expire-questions', schedule: '* * * * *' }` (every minute — Vercel Cron minimum). The `CRON_SECRET` env var guards this route.
+- No cron is configured for question expiry. Lazy expiry inside route handlers and the `submit_answer` RPC owns the `answering → locked` transition (see ADR-0004 §4.3).
 - Realtime subscription + 5s polling fallback must be implemented in the participant client component.
 - Pre-reveal state (between `locked` and `revealed` in sync) must NOT expose `question.correct` in any participant-facing API response. See ADR-0008.
 

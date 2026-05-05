@@ -1,3 +1,8 @@
+import {
+  questionCacheTag,
+  questionCountsCacheTag,
+  safeRevalidateTag,
+} from "@/src/lib/cache/tags";
 import type { ServiceSupabase } from "@/src/lib/sessions/lookup";
 import type {
   AsyncQuestionStatusEnum,
@@ -63,6 +68,11 @@ export async function lazyExpireSyncQuestionState(
     return { row: data, changed: false };
   }
 
+  safeRevalidateTag(questionCacheTag(sessionId, questionId));
+  if (options.autoReveal) {
+    safeRevalidateTag(questionCountsCacheTag(sessionId, questionId));
+  }
+
   return { row: updated, changed: true };
 }
 
@@ -119,6 +129,8 @@ export async function lazyExpireAsyncProgress(
   if (updateError || !updated) {
     return { row: data, changed: false };
   }
+
+  safeRevalidateTag(questionCacheTag(sessionId, questionId));
 
   return { row: updated, changed: true };
 }

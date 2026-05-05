@@ -47,7 +47,7 @@ This repo lives on `instance-neo` where the dev server is **PM2-managed**. Do **
 
 ### Routing & request flow
 
-- `app/` — App Router. Top-level surfaces: `app/page.tsx` (landing), `app/login`, `app/admin`, `app/host/[pin]`, `app/[pin]` (participant join/play), `app/api/**` (route handlers grouped by actor: `admin`, `host`, `participant`, `auth`, `quiz`, `session`, `cron`).
+- `app/` — App Router. Top-level surfaces: `app/page.tsx` (landing), `app/login`, `app/admin`, `app/host/[pin]`, `app/[pin]` (participant join/play), `app/api/**` (route handlers grouped by actor: `admin`, `host`, `participant`, `auth`, `quiz`, `session`).
 - `proxy.ts` — Next 16 Proxy (replaces middleware) calling `src/lib/supabase/middleware.ts#updateSession` to refresh Supabase auth cookies on every non-static request.
 - `next.config.ts` — `typedRoutes: true`, `allowedDevOrigins: ["instance-neo"]` (required for HMR over Tailscale hostname).
 
@@ -60,7 +60,7 @@ This repo lives on `instance-neo` where the dev server is **PM2-managed**. Do **
 - `src/lib/scoring.ts` — Shared scoring algorithm (used in both sync and async).
 - `src/lib/auth/`, `src/lib/supabase/` — Auth and Supabase server/browser/middleware clients (`@supabase/ssr`).
 - `src/lib/cache/` + ADR-0008 — Cache and privacy contract: route handlers must set the right `Cache-Control` based on actor and session state. Don't add caching without consulting ADR-0008.
-- `src/lib/env.ts` — `getRequiredEnvironmentVariable(...)` is the only sanctioned env accessor for the four required vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`).
+- `src/lib/env.ts` — `getRequiredEnvironmentVariable(...)` is the only sanctioned env accessor for the three required vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
 - `src/components/{admin,host,participant,landing,login,map,illustrations}/` — Client components grouped by surface. `MapQuestionInteractive.tsx` (MapLibre + react-map-gl) implements ADR-0011's interactive map question.
 
 ### Sync vs async (ADR-0007)

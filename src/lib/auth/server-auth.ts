@@ -4,7 +4,6 @@ import { NextResponse } from "next/server";
 
 import type { AuthRole } from "@/src/lib/constants";
 import { PRIVATE_NO_STORE_HEADER } from "@/src/lib/constants";
-import { getRequiredEnvironmentVariable } from "@/src/lib/env";
 import { writeLog } from "@/src/lib/logging";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import type { Database } from "@/src/lib/supabase/database.types";
@@ -153,26 +152,3 @@ export async function requireRole(role: AuthRole): Promise<RequireRoleResult> {
   return { ok: true, claims };
 }
 
-/**
- * Cron requests are signed with `Authorization: Bearer <CRON_SECRET>`.
- * Vercel sets this on the scheduled invocation; locally we set it directly.
- */
-export function requireCronAuth(request: Request): RequireRoleResult {
-  const expected = getRequiredEnvironmentVariable("CRON_SECRET");
-  const header = request.headers.get("authorization");
-  const token = header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
-
-  if (!token || !timingSafeSecretMatch(token, expected)) {
-    return { ok: false, response: unauthorizedJson("Cron secret required.") };
-  }
-
-  return {
-    ok: true,
-    claims: {
-      userId: "cron",
-      role: "admin",
-      sessionId: null,
-      participantId: null,
-    },
-  };
-}

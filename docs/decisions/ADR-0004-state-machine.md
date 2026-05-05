@@ -161,13 +161,18 @@ Every state-mutating API call must be idempotent:
 - If `now() > deadline_at`: question is locked server-side (see ADR-0005). Participant missed it; score = 0 for that question.
 - If `now() < deadline_at`: participant can still submit.
 
-#### 4.3 Cron delayed or failed
+#### 4.3 Lazy expiry (no cron)
 
-Cron is a *freshness optimizer*, not the authority on state transitions.
+Question expiry is handled exclusively by lazy expiry inside route handlers and the
+`submit_answer` RPC — there is no cron worker. (Earlier revisions of this ADR
+described a `* * * * *` cron; that was removed once it was clear every active
+client path already triggered lazy expiry, and the cron's only unique role was
+cache-tag invalidation, which now happens inline in `lazyExpire*` helpers.)
 
-- Every request handler that reads question state MUST check `now() > question_deadline_at` before processing.
-- If the cron missed a deadline, the next real request (participant submit, host GET) performs the lazy lock.
-- This means question expiry is *eventually consistent* with the wall clock, but no data loss or double-scoring occurs.
+- Every request handler that reads question state MUST check `now() > question_deadline_at` before processing (`src/lib/sessions/expiry.ts`).
+- The `submit_answer` Postgres RPC self-heals expired rows before evaluating the submission, so submission is always race-safe even without any preceding GET.
+- A "dead" session (no active clients) may keep `answering` rows in the DB until somebody returns; this is harmless. When the session ends, `session.status='ended'` overrides per-question state everywhere.
+- Question expiry is *eventually consistent* with the wall clock; no data loss or double-scoring can occur.
 
 #### 4.4 Participant submits after session ends
 
