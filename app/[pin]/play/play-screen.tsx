@@ -9,8 +9,8 @@ import { FeedbackCard } from "@/src/components/participant/FeedbackCard";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import { ProgressBar } from "@/src/components/participant/ProgressBar";
 import { QuestionCard } from "@/src/components/participant/QuestionCard";
-import { QuestionMediaSpotlight } from "@/src/components/participant/QuestionMediaSpotlight";
 import { TimerBar } from "@/src/components/participant/TimerBar";
+import { VideoQuestionSpotlight } from "@/src/components/participant/VideoQuestionSpotlight";
 import type { GameMode } from "@/src/lib/constants";
 import { useParticipantState } from "@/src/lib/hooks/useParticipantState";
 import {
@@ -89,11 +89,11 @@ export function PlayScreen({
       setSubmitError(null);
       previousQuestionKeyRef.current = currentQuestionKey;
     }
-    if (previousQuestionIdRef.current !== currentQuestionId) {
+    if (gameMode === "async" && previousQuestionIdRef.current !== currentQuestionId) {
       setMediaSettled(false);
       previousQuestionIdRef.current = currentQuestionId;
     }
-  }, [currentQuestionKey, currentQuestionId]);
+  }, [currentQuestionKey, currentQuestionId, gameMode]);
 
   // End-state route.
   useEffect(() => {
@@ -289,9 +289,9 @@ export function PlayScreen({
   const isVideoQuestion = question.type === "video";
   const needsSpotlight =
     isVideoQuestion &&
-    !mediaSettled &&
     !hasSubmitted &&
     !isRevealed &&
+    (gameMode === "sync" ? question.status === "presenting" : !mediaSettled) &&
     (question.videoUrl !== null || question.videoEmbedUrl !== null);
 
   const submitDisabled =
@@ -439,16 +439,16 @@ export function PlayScreen({
         customLogoLabel={customLogoLabel}
       />
       {needsSpotlight ? (
-        <QuestionMediaSpotlight
+        <VideoQuestionSpotlight
+          mode={gameMode === "sync" ? "host_gated" : "self_paced"}
           prompt={question.prompt}
           videoUrl={question.videoUrl}
           videoEmbedUrl={question.videoEmbedUrl}
           videoProvider={question.videoProvider}
           videoMimeType={question.videoMimeType}
           videoPosterUrl={question.videoPosterUrl}
-          videoDurationSeconds={question.videoDurationSeconds}
           mediaLeadSeconds={question.mediaLeadSeconds}
-          onSettle={handleMediaSettled}
+          onConfirm={gameMode === "sync" ? undefined : handleMediaSettled}
         />
       ) : null}
     </main>

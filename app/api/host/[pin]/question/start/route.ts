@@ -20,9 +20,9 @@ interface HostQuestionStartSuccessBody {
   sessionId: string;
   questionId: string;
   questionIndex: number;
-  status: "answering";
+  status: "answering" | "presenting";
   startedAt: string;
-  deadlineAt: string;
+  deadlineAt: string | null;
 }
 
 interface HostQuestionStartErrorBody {
@@ -91,7 +91,9 @@ export async function POST(
 
   const { data: question } = await serviceSupabase
     .from("questions")
-    .select("id, ordinal, time_seconds, media_lead_seconds, quiz_id")
+    .select(
+      "id, ordinal, time_seconds, media_lead_seconds, quiz_id, video_url, video_embed_url",
+    )
     .eq("id", parsed.data.questionId)
     .maybeSingle();
 
@@ -123,20 +125,25 @@ export async function POST(
   }
 
   const startedAt = new Date();
-  const deadlineAt = computeMediaPaddedDeadline(
-    startedAt,
-    question.time_seconds,
-    question.media_lead_seconds,
-  );
+  const hasVideo = Boolean(question.video_url || question.video_embed_url);
+  const status: "answering" | "presenting" = hasVideo ? "presenting" : "answering";
+  const deadlineAt = hasVideo
+    ? null
+    : computeMediaPaddedDeadline(
+        startedAt,
+        question.time_seconds,
+        question.media_lead_seconds,
+      );
   const startedAtIso = startedAt.toISOString();
-  const deadlineAtIso = deadlineAt.toISOString();
+  const deadlineAtIso = deadlineAt?.toISOString() ?? null;
 
   if (existingState) {
     const { error: updateError } = await serviceSupabase
       .from("question_session_state")
       .update({
-        status: "answering",
-        started_at: startedAtIso,
+        status,
+        presenting_at: hasVideo ? startedAtIso : null,
+        started_at: hasVideo ? null : startedAtIso,
         deadline_at: deadlineAtIso,
         revealed_at: null,
       })
@@ -161,8 +168,9 @@ export async function POST(
         session_id: session.id,
         question_id: question.id,
         question_index: question.ordinal,
-        status: "answering",
-        started_at: startedAtIso,
+        status,
+        presenting_at: hasVideo ? startedAtIso : null,
+        started_at: hasVideo ? null : startedAtIso,
         deadline_at: deadlineAtIso,
       });
 
@@ -197,7 +205,7 @@ export async function POST(
       sessionId: session.id,
       questionId: question.id,
       questionIndex: question.ordinal,
-      status: "answering",
+      status,
       startedAt: startedAtIso,
       deadlineAt: deadlineAtIso,
     },

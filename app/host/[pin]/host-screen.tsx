@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { HostAnswerBars } from "@/src/components/host/HostAnswerBars";
 import { HostAsyncProgressList } from "@/src/components/host/HostAsyncProgressList";
@@ -10,8 +10,9 @@ import { HostMapSummary } from "@/src/components/host/HostMapSummary";
 import { HostPlayerList, type HostPlayer } from "@/src/components/host/HostPlayerList";
 import { HostQuestionCard } from "@/src/components/host/HostQuestionCard";
 import { HostTimerPanel } from "@/src/components/host/HostTimerPanel";
-import { QuestionMediaSpotlight } from "@/src/components/participant/QuestionMediaSpotlight";
+import { VideoQuestionSpotlight } from "@/src/components/participant/VideoQuestionSpotlight";
 import {
+  beginAnsweringHostQuestion,
   endHostSession,
   isHostApiError,
   nextHostQuestion,
@@ -51,22 +52,10 @@ export function HostScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("live");
-  // Local state — a page reload re-engages the spotlight (v1 simplification).
-  const [mediaSettled, setMediaSettled] = useState(false);
-  const handleMediaSettled = useCallback(() => setMediaSettled(true), []);
 
   const { state, status: loadStatus, error: loadError, refetch } = useHostState({ pin });
 
   const question = state?.question ?? null;
-
-  const previousQuestionIdRef = useRef<string>("");
-  const currentQuestionId = question?.id ?? "";
-  useEffect(() => {
-    if (previousQuestionIdRef.current !== currentQuestionId) {
-      setMediaSettled(false);
-      previousQuestionIdRef.current = currentQuestionId;
-    }
-  }, [currentQuestionId]);
 
   // Keep the deadline live during answering AND once locked/revealed so the
   // timer naturally settles at 0:00 instead of resetting to the question's
@@ -146,6 +135,15 @@ export function HostScreen({
           setError("אין תחנה פעילה.");
         } else {
           const response = await revealHostQuestion(pin, question.id);
+          if (isHostApiError(response)) {
+            setError(translateHostError(response.error));
+          }
+        }
+      } else if (primary.action === "begin_answering") {
+        if (!question) {
+          setError("אין תחנה פעילה.");
+        } else {
+          const response = await beginAnsweringHostQuestion(pin, question.id);
           if (isHostApiError(response)) {
             setError(translateHostError(response.error));
           }
@@ -283,7 +281,7 @@ export function HostScreen({
   const isVideoQuestion = question?.type === "video";
   const needsSpotlight =
     isVideoQuestion &&
-    !mediaSettled &&
+    question?.status === "presenting" &&
     (question?.videoUrl != null || question?.videoEmbedUrl != null);
 
   const banner = lifecycleBanner({
@@ -515,16 +513,17 @@ export function HostScreen({
           The host control bar (inside <footer>) remains interactive because the
           footer sits outside the dimmed overlay region and above it via z-index. */}
       {needsSpotlight && question ? (
-        <QuestionMediaSpotlight
+        <VideoQuestionSpotlight
+          mode="host_gated"
           prompt={question.prompt}
           videoUrl={question.videoUrl}
           videoEmbedUrl={question.videoEmbedUrl}
           videoProvider={question.videoProvider}
           videoMimeType={question.videoMimeType}
           videoPosterUrl={question.videoPosterUrl}
-          videoDurationSeconds={question.videoDurationSeconds}
           mediaLeadSeconds={question.mediaLeadSeconds}
-          onSettle={handleMediaSettled}
+          onConfirm={handlePrimary}
+          hintText="סיימו את הצפייה, ואז התחילו מענה לכל המשתתפים יחד"
         />
       ) : null}
     </main>

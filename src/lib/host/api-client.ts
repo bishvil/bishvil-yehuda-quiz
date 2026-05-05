@@ -1,9 +1,3 @@
-/**
- * Typed fetchers for the host-facing API endpoints. Every host route requires
- * a host session cookie set during /api/auth/host/signin (post-fix-batch
- * tightening). All requests include credentials so the Supabase SSR cookie
- * rides along.
- */
 import type { HostLiveSuccessBody } from "@/app/api/host/[pin]/live/route";
 
 const JSON_HEADERS: HeadersInit = {
@@ -43,6 +37,15 @@ export interface HostQuestionStartResponse {
   sessionId: string;
   questionId: string;
   questionIndex: number;
+  status: "answering" | "presenting";
+  startedAt: string;
+  deadlineAt: string | null;
+}
+
+export interface HostBeginAnsweringResponse {
+  sessionId: string;
+  questionId: string;
+  questionIndex: number;
   status: "answering";
   startedAt: string;
   deadlineAt: string;
@@ -78,7 +81,10 @@ function isError<T>(body: HostApiResult<T>): body is HostApiErrorBody {
   );
 }
 
-async function postHostJson<T>(path: string, body?: unknown): Promise<HostApiResult<T>> {
+async function postHostJson<T>(
+  path: string,
+  body?: unknown,
+): Promise<HostApiResult<T>> {
   const init: RequestInit = body
     ? { ...FETCH_INIT, method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) }
     : { ...FETCH_INIT, method: "POST" };
@@ -134,9 +140,10 @@ export function revealHostQuestion(pin: string, questionId: string) {
 }
 
 export function nextHostQuestion(pin: string) {
-  return postHostJson<HostNextResponse>(
-    `/api/host/${encodeURIComponent(pin)}/question/next`,
-  );
+  return postHostJson<HostNextResponse>(`/api/host/${encodeURIComponent(pin)}/question/next`);
 }
 
+export function beginAnsweringHostQuestion(pin: string, questionId: string) {
+  return postHostJson<HostBeginAnsweringResponse>(`/api/host/${encodeURIComponent(pin)}/question/begin-answering`, { questionId });
+}
 export const isHostApiError = isError;

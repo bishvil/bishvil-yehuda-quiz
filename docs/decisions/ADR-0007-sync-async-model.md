@@ -76,6 +76,23 @@ If the host disconnects:
 
 **Sync always depends on a live host for reveal.** This is intentional — it's a classroom tool.
 
+#### 1.5 Video Gate in Sync
+
+Video questions use the existing `presenting` question status as a
+host-controlled media gate:
+
+1. When the host starts a video question, the server writes
+   `question_session_state.status = 'presenting'`, sets `presenting_at = now()`,
+   and leaves `started_at` / `deadline_at` null.
+2. Participants see the video spotlight, but cannot dismiss it themselves.
+3. When the host confirms that viewing is complete, the server transitions
+   `presenting -> answering`, sets `started_at = now()`, and sets
+   `deadline_at = now() + questions.time_seconds`.
+
+This keeps sync-mode fairness intact: all participants begin the answer timer
+at the same wall-clock instant. `media_lead_seconds` is not added to the sync
+answer deadline because the media gate already happened before `answering`.
+
 ---
 
 ### 2. Async Mode

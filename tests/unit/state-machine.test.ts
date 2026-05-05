@@ -34,6 +34,11 @@ describe("question state transitions (ADR-0005 §1)", () => {
     expect(canTransitionQuestion("idle", "answering")).toBe(true);
   });
 
+  it("allows idle → presenting → answering for host-gated media", () => {
+    expect(canTransitionQuestion("idle", "presenting")).toBe(true);
+    expect(canTransitionQuestion("presenting", "answering")).toBe(true);
+  });
+
   it("allows answering → locked → revealed", () => {
     expect(canTransitionQuestion("answering", "locked")).toBe(true);
     expect(canTransitionQuestion("locked", "revealed")).toBe(true);
