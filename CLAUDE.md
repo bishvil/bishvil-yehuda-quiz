@@ -97,3 +97,25 @@ The design system lives in `_design-system/bishvil-yehuda-design-system/project/
 - QA defect notes land in `docs/qa/` and are referenced from commits as `[QA-NN]` (see recent git log).
 - Supabase MCP and the `supabase` skill are gated behind a plugin flag — enable only once a project ref exists. Otherwise prefer the `supabase` CLI via `pnpm supabase ...`.
 - Use `context7` MCP for live library docs (Next.js 16, Supabase, Drizzle, Playwright, Tailwind v4) instead of relying on memory.
+
+## Deployment & infra
+
+The client (`bishvil.go@gmail.com`) owns the production accounts; `NehoraiHadad` keeps a code mirror.
+
+### Git remotes
+- `origin` → `https://github.com/bishvil/bishvil-yehuda-quiz` — canonical; Vercel + Supabase deploy actions watch this.
+- `personal` → `https://github.com/NehoraiHadad/bishvil-yehuda-quiz` — manual mirror. Push with `git push personal main` only when you want a backup snapshot.
+- `git push` (no args) goes to `origin` (the client repo).
+
+### Supabase
+- Project ref: `dcinzawjietdpbmvksqx` (region `eu-central-1` / Frankfurt).
+- Dashboard: https://supabase.com/dashboard/project/dcinzawjietdpbmvksqx
+- Auth redirect URLs are in `supabase/config.toml` (`[auth].additional_redirect_urls`). After editing, push with `pnpm supabase config push --project-ref dcinzawjietdpbmvksqx --yes`.
+- Production domain (planned): `https://bishvil-yehuda-quiz.vercel.app`.
+
+### Migrations baseline (post-squash)
+The previous 25 incremental migrations were squashed via `pnpm supabase migration squash --linked` into a single baseline at `supabase/migrations/20260505140000_initial_baseline.sql`. The remote `schema_migrations` table was baselined at version `20260505140000`. Future migrations layer on top of this baseline normally — no special handling.
+
+Drizzle's snapshot directory `supabase/migrations/meta/` is unaffected by the squash, so `pnpm drizzle-kit generate` continues producing diff migrations as before.
+
+**Do not squash again post-launch** — squashing rewrites migration history and is only safe before the project serves real users.
