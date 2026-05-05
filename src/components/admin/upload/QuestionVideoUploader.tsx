@@ -71,7 +71,6 @@ export function QuestionVideoUploader({
       <AdminVideoUploadControl
         value={currentValue}
         onChange={handleChange}
-        endpoint="/api/admin/uploads/question-video"
         title="סרטון שאלה"
         help="גררו קובץ וידאו לכאן או לחצו לבחירה מהמחשב."
         buttonText="בחירת סרטון"

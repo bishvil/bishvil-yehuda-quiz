@@ -3,19 +3,13 @@
 import Image from "next/image";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
+import {
+  uploadViaSignedUrl,
+  type AdminUploadKind,
+} from "@/src/lib/admin/upload-via-signed-url";
+
 import { optimizeForUpload, type OptimizeResult } from "./client-image-optimizer";
 import { OptimizerStatusLine } from "./OptimizerStatusLine";
-
-interface UploadResult {
-  url: string;
-  path: string;
-  width?: number;
-  height?: number;
-}
-
-interface UploadError {
-  message?: string;
-}
 
 interface UploadMeta {
   path?: string;
@@ -31,7 +25,8 @@ interface OptimizerConfig {
 interface AdminImageUploadControlProps {
   value: string | null;
   onChange: (url: string | null, meta?: UploadMeta) => void;
-  endpoint: string;
+  /** Upload bucket category — drives validation, rate-limit key, and bucket. */
+  kind: Extract<AdminUploadKind, "logo" | "question-image">;
   title: string;
   help: string;
   buttonText: string;
@@ -53,7 +48,7 @@ type UploadStatus = "idle" | "dragging" | "uploading" | "error";
 export function AdminImageUploadControl({
   value,
   onChange,
-  endpoint,
+  kind,
   title,
   help,
   buttonText,
@@ -148,52 +143,25 @@ export function AdminImageUploadControl({
       setLocalPreviewUrl(objectUrl);
       setStatus("uploading");
 
-      // Wrap the blob in a File so the server receives the correct `name` and `type`.
-      const uploadFile =
-        uploadBlob instanceof File
-          ? uploadBlob
-          : new File([uploadBlob], "upload.webp", { type: "image/webp" });
+      // The browser uploads directly to Supabase Storage via a server-issued
+      // signed URL. This bypasses Vercel's 4.5 MB function body limit.
+      const result = await uploadViaSignedUrl({ kind, blob: uploadBlob });
 
-      const formData = new FormData();
-      formData.set("file", uploadFile);
-      if (uploadWidth !== undefined) formData.set("width", String(uploadWidth));
-      if (uploadHeight !== undefined) formData.set("height", String(uploadHeight));
-
-      let response: Response;
-      try {
-        response = await fetch(endpoint, { method: "POST", body: formData });
-      } catch {
+      if (!result.ok) {
         setStatus("error");
-        setErrorMessage("ההעלאה נכשלה. בדקו את החיבור ונסו שוב.");
+        setErrorMessage(result.message);
         return;
       }
 
-      let body: UploadResult | UploadError | null = null;
-      try {
-        body = (await response.json()) as UploadResult | UploadError;
-      } catch {
-        body = null;
-      }
-
-      if (!response.ok || !body || !("url" in body)) {
-        setStatus("error");
-        setErrorMessage(
-          body && "message" in body && body.message
-            ? body.message
-            : "שמירת הקובץ נכשלה.",
-        );
-        return;
-      }
-
-      onChange(body.url, {
-        path: body.path,
-        width: body.width,
-        height: body.height,
+      onChange(result.url, {
+        path: result.path,
+        width: uploadWidth,
+        height: uploadHeight,
       });
       setStatus("idle");
       clearLocalPreview();
     },
-    [allowedLabel, allowedSet, clearLocalPreview, endpoint, keepOriginalQuality, maxBytes, onChange, optimizer],
+    [allowedLabel, allowedSet, clearLocalPreview, keepOriginalQuality, kind, maxBytes, onChange, optimizer],
   );
 
   const handleFiles = useCallback(

@@ -34,7 +34,7 @@ export function QuestionImageUploader({
     <AdminImageUploadControl
       value={value}
       onChange={onChange}
-      endpoint="/api/admin/uploads/question-image"
+      kind="question-image"
       title="תמונת שאלה"
       help="גררו תמונה לכאן או לחצו לבחירה מהמחשב."
       buttonText="בחירת תמונה"

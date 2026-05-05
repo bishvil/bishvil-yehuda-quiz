@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { parseVideoEmbed } from "@/src/lib/admin/video-embed";
 import type { VideoEmbedProvider } from "@/src/lib/admin/video-embed";
+import { uploadViaSignedUrl } from "@/src/lib/admin/upload-via-signed-url";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,7 +50,6 @@ interface PendingUpload {
 interface AdminVideoUploadControlProps {
   value: string | null;
   onChange: (url: string | null, meta: VideoUploadMeta) => void;
-  endpoint: string;
   title: string;
   help: string;
   buttonText: string;
@@ -174,7 +174,6 @@ export async function extractPosterFrame(
 export function AdminVideoUploadControl({
   value,
   onChange,
-  endpoint,
   title,
   help,
   buttonText,
@@ -242,33 +241,13 @@ export function AdminVideoUploadControl({
           let posterPath: string | undefined;
 
           if (posterResult) {
-            try {
-              const posterFile = new File(
-                [posterResult.blob],
-                "poster.webp",
-                { type: "image/webp" },
-              );
-              const posterForm = new FormData();
-              posterForm.set("file", posterFile);
-              if (posterResult.width !== undefined)
-                posterForm.set("width", String(posterResult.width));
-              if (posterResult.height !== undefined)
-                posterForm.set("height", String(posterResult.height));
-
-              const posterRes = await fetch("/api/admin/uploads/question-image", {
-                method: "POST",
-                body: posterForm,
-              });
-              if (posterRes.ok) {
-                const posterBody = (await posterRes.json()) as {
-                  url?: string;
-                  path?: string;
-                };
-                posterUrl = posterBody.url;
-                posterPath = posterBody.path;
-              }
-            } catch {
-              // Poster extraction failed — not blocking
+            const posterRes = await uploadViaSignedUrl({
+              kind: "question-image",
+              blob: posterResult.blob,
+            });
+            if (posterRes.ok) {
+              posterUrl = posterRes.url;
+              posterPath = posterRes.path;
             }
           }
 
@@ -334,59 +313,28 @@ export function AdminVideoUploadControl({
       setLocalPreviewUrl(objectUrl);
       setStatus("uploading");
 
-      const formData = new FormData();
-      formData.set("file", file);
+      const result = await uploadViaSignedUrl({
+        kind: "question-video",
+        blob: file,
+      });
 
-      let response: Response;
-      try {
-        response = await fetch(endpoint, { method: "POST", body: formData });
-      } catch {
+      if (!result.ok) {
         setStatus("error");
-        setErrorMessage("ההעלאה נכשלה. בדקו את החיבור ונסו שוב.");
+        setErrorMessage(result.message);
         clearLocalPreview();
         return;
       }
 
-      interface UploadResult {
-        url: string;
-        path: string;
-        width?: number;
-        height?: number;
-      }
-      interface UploadError {
-        message?: string;
-      }
-
-      let body: UploadResult | UploadError | null = null;
-      try {
-        body = (await response.json()) as UploadResult | UploadError;
-      } catch {
-        body = null;
-      }
-
-      if (!response.ok || !body || !("url" in body)) {
-        setStatus("error");
-        setErrorMessage(
-          body && "message" in body && body.message
-            ? body.message
-            : "שמירת הקובץ נכשלה.",
-        );
-        clearLocalPreview();
-        return;
-      }
-
-      const uploadedUrl = body.url;
-      const uploadedPath = body.path;
+      const uploadedUrl = result.url;
+      const uploadedPath = result.path;
 
       setStatus("idle");
 
-      // Emit initial onChange with what the server returned
+      // Emit initial onChange with the upload result
       onChange(uploadedUrl, {
         kind: "self",
         path: uploadedPath,
         mimeType: file.type,
-        width: body.width,
-        height: body.height,
       });
 
       // Schedule the richer loadedmetadata pass (runs in useEffect once video
@@ -398,7 +346,7 @@ export function AdminVideoUploadControl({
         file,
       });
     },
-    [clearLocalPreview, endpoint, onChange],
+    [clearLocalPreview, onChange],
   );
 
   const handleFiles = useCallback(

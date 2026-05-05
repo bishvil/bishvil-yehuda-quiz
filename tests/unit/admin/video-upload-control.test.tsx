@@ -1,6 +1,10 @@
 /**
  * Tests for AdminVideoUploadControl.
  *
+ * The direct-to-Supabase upload helper (`uploadViaSignedUrl`) is fully mocked
+ * — these tests cover only the component's UI behavior, callback contract,
+ * and metadata enrichment via the `loadedmetadata` event.
+ *
  * jsdom does not fire loadedmetadata automatically; we simulate it by
  * setting duration/videoWidth/videoHeight on the video element and
  * dispatching the event manually.
@@ -17,13 +21,16 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const uploadViaSignedUrlMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/src/lib/admin/upload-via-signed-url", () => ({
+  uploadViaSignedUrl: uploadViaSignedUrlMock,
+}));
+
 import { AdminVideoUploadControl } from "@/src/components/admin/upload/video-upload-control";
 
-const fetchMock = vi.fn();
-
 beforeEach(() => {
-  fetchMock.mockReset();
-  vi.stubGlobal("fetch", fetchMock);
+  uploadViaSignedUrlMock.mockReset();
   (URL as unknown as { createObjectURL: (b: Blob) => string }).createObjectURL =
     vi.fn(() => "blob:video-preview");
   (
@@ -45,7 +52,6 @@ function makeDefaultProps(
   return {
     value: null,
     onChange: vi.fn(),
-    endpoint: "/api/admin/uploads/question-video",
     title: "סרטון שאלה",
     help: "גררו קובץ",
     buttonText: "בחירת סרטון",
@@ -58,7 +64,7 @@ function makeDefaultProps(
 }
 
 describe("AdminVideoUploadControl — file upload", () => {
-  it("rejects files with an unsupported MIME type without calling fetch", async () => {
+  it("rejects files with an unsupported MIME type without calling the upload helper", async () => {
     render(<AdminVideoUploadControl {...makeDefaultProps()} />);
 
     fireEvent.change(screen.getByTestId("admin-video-upload-input"), {
@@ -70,10 +76,10 @@ describe("AdminVideoUploadControl — file upload", () => {
     expect(await screen.findByTestId("admin-video-upload-error")).toHaveTextContent(
       "סוג הקובץ אינו נתמך",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(uploadViaSignedUrlMock).not.toHaveBeenCalled();
   });
 
-  it("rejects files exceeding 25 MB without calling fetch", async () => {
+  it("rejects files exceeding 25 MB without calling the upload helper", async () => {
     render(<AdminVideoUploadControl {...makeDefaultProps()} />);
 
     fireEvent.change(screen.getByTestId("admin-video-upload-input"), {
@@ -89,20 +95,16 @@ describe("AdminVideoUploadControl — file upload", () => {
     expect(await screen.findByTestId("admin-video-upload-error")).toHaveTextContent(
       "הקובץ גדול מדי",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(uploadViaSignedUrlMock).not.toHaveBeenCalled();
   });
 
-  it("calls fetch and fires onChange with url+path on a successful upload", async () => {
+  it("uploads via signed URL and fires onChange with url+path on success", async () => {
     const onChange = vi.fn();
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          url: "https://cdn.example.com/question-videos/admin/clip.mp4",
-          path: "admin/clip.mp4",
-        }),
-        { status: 201 },
-      ),
-    );
+    uploadViaSignedUrlMock.mockResolvedValue({
+      ok: true,
+      url: "https://cdn.example.com/question-videos/admin/clip.mp4",
+      path: "admin/clip.mp4",
+    });
 
     render(<AdminVideoUploadControl {...makeDefaultProps({ onChange })} />);
 
@@ -113,9 +115,11 @@ describe("AdminVideoUploadControl — file upload", () => {
     });
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/admin/uploads/question-video",
-        expect.objectContaining({ method: "POST" }),
+      expect(uploadViaSignedUrlMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "question-video",
+          blob: expect.objectContaining({ type: "video/mp4" }),
+        }),
       ),
     );
     await waitFor(() =>
@@ -130,13 +134,12 @@ describe("AdminVideoUploadControl — file upload", () => {
     );
   });
 
-  it("surfaces a server error message on a failed upload", async () => {
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({ error: "FILE_TOO_LARGE", message: "קובץ גדול מדי." }),
-        { status: 413 },
-      ),
-    );
+  it("surfaces an error message when the upload helper fails", async () => {
+    uploadViaSignedUrlMock.mockResolvedValue({
+      ok: false,
+      stage: "sign",
+      message: "קובץ גדול מדי.",
+    });
 
     render(<AdminVideoUploadControl {...makeDefaultProps()} />);
 
@@ -155,15 +158,11 @@ describe("AdminVideoUploadControl — file upload", () => {
 describe("AdminVideoUploadControl — loadedmetadata simulation", () => {
   it("populates duration, width and height via onChange after loadedmetadata fires", async () => {
     const onChange = vi.fn();
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          url: "https://cdn.example.com/question-videos/admin/clip.mp4",
-          path: "admin/clip.mp4",
-        }),
-        { status: 201 },
-      ),
-    );
+    uploadViaSignedUrlMock.mockResolvedValue({
+      ok: true,
+      url: "https://cdn.example.com/question-videos/admin/clip.mp4",
+      path: "admin/clip.mp4",
+    });
 
     render(<AdminVideoUploadControl {...makeDefaultProps({ onChange })} />);
 
@@ -173,15 +172,10 @@ describe("AdminVideoUploadControl — loadedmetadata simulation", () => {
       },
     });
 
-    // Wait until the initial onChange has been called (after the fetch resolves
-    // and setPendingUpload is also called, which schedules the useEffect listener).
     await waitFor(() => expect(onChange).toHaveBeenCalled());
 
-    // At this point setPendingUpload has been called and the re-render+useEffect
-    // that registers the loadedmetadata listener has run. Find the video element.
     const videoEl = await screen.findByTestId("admin-video-preview") as HTMLVideoElement;
 
-    // jsdom doesn't fire loadedmetadata naturally; set properties and fire the event
     Object.defineProperty(videoEl, "duration", { value: 22.7, configurable: true });
     Object.defineProperty(videoEl, "videoWidth", { value: 1920, configurable: true });
     Object.defineProperty(videoEl, "videoHeight", { value: 1080, configurable: true });
@@ -189,8 +183,6 @@ describe("AdminVideoUploadControl — loadedmetadata simulation", () => {
 
     fireEvent(videoEl, new Event("loadedmetadata"));
 
-    // The second onChange call (from the loadedmetadata path) includes duration/dims.
-    // ceil(22.7) = 23
     await waitFor(() => {
       const calls = onChange.mock.calls;
       const metaCall = calls.find(

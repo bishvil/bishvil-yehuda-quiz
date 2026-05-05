@@ -6,12 +6,12 @@ import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { writeLog } from "@/src/lib/logging";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 import { consumeUploadToken } from "../rate-limit";
-import { extensionForMime } from "../upload-handler";
+import { extensionForMime, QUESTION_IMAGE_UPLOAD_CONFIG } from "../_shared";
 
-const QUESTION_IMAGES_BUCKET = "question-images";
-const MAX_BYTES = 2 * 1024 * 1024;
+const QUESTION_IMAGES_BUCKET = QUESTION_IMAGE_UPLOAD_CONFIG.bucket;
+const MAX_BYTES = QUESTION_IMAGE_UPLOAD_CONFIG.maxBytes;
 const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
-const ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const ALLOWED_MIME_TYPES = QUESTION_IMAGE_UPLOAD_CONFIG.allowedMimeTypes;
 
 /** Hostname of the project's own Supabase instance — blocked to prevent SSRF. */
 function getSupabaseHostname(): string {
@@ -329,8 +329,7 @@ export async function handleImportUrl(body: unknown) {
     );
   }
 
-  // MIME check — parity with upload-handler.ts which trusts Content-Type
-  // header (no magic-bytes sniffing). Deliberate: matches in-house upload behaviour.
+  // No magic-bytes sniffing — deliberate, matches the bucket's own MIME allowlist.
   if (!ALLOWED_MIME_TYPES.has(contentType)) {
     return privateNoStoreJson<ImportUrlErrorBody>(
       {

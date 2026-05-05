@@ -20,7 +20,7 @@ export function LogoUploader({ value, onChange, disabled }: LogoUploaderProps) {
     <AdminImageUploadControl
       value={value}
       onChange={onChange}
-      endpoint="/api/admin/uploads/logo"
+      kind="logo"
       title="לוגו ייעודי"
       help="גררו קובץ לכאן או לחצו לבחירה מהמחשב."
       buttonText="בחירת לוגו"

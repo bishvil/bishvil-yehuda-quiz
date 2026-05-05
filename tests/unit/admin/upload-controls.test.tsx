@@ -7,6 +7,12 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const uploadViaSignedUrlMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/src/lib/admin/upload-via-signed-url", () => ({
+  uploadViaSignedUrl: uploadViaSignedUrlMock,
+}));
+
 import { LogoUploader } from "@/src/components/admin/upload/LogoUploader";
 import { QuestionImageUploader } from "@/src/components/admin/upload/QuestionImageUploader";
 
@@ -28,20 +34,16 @@ function makeImageBitmapStub(width = 100, height = 100) {
 describe("admin upload controls", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+    uploadViaSignedUrlMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
     // jsdom does not implement URL.createObjectURL / revokeObjectURL.
-    // Attach them as own properties on the real URL constructor so the
-    // constructor itself stays callable for next/image's internal
-    // `new URL(...)` under jsdom.
     (URL as unknown as { createObjectURL: () => string }).createObjectURL =
       vi.fn(() => "blob:preview");
     (URL as unknown as { revokeObjectURL: (u: string) => void }).revokeObjectURL =
       vi.fn();
 
-    // Stub createImageBitmap so the optimizer can run in jsdom.
     vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(makeImageBitmapStub()));
 
-    // Stub OffscreenCanvas with a convertToBlob that returns a tiny webp blob.
     const tinyBlob = new Blob(["fake-webp"], { type: "image/webp" });
     vi.stubGlobal(
       "OffscreenCanvas",
@@ -57,17 +59,13 @@ describe("admin upload controls", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uploads a logo and renders the returned preview URL", async () => {
+  it("uploads a logo via signed URL and fires onChange with the public URL", async () => {
     const onChange = vi.fn();
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          url: "http://storage.local/brand-logos/admin/logo.png",
-          path: "admin/logo.png",
-        }),
-        { status: 201 },
-      ),
-    );
+    uploadViaSignedUrlMock.mockResolvedValue({
+      ok: true,
+      url: "http://storage.local/brand-logos/admin/logo.png",
+      path: "admin/logo.png",
+    });
 
     render(
       <LogoUploader
@@ -83,9 +81,11 @@ describe("admin upload controls", () => {
     });
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/admin/uploads/logo",
-        expect.objectContaining({ method: "POST" }),
+      expect(uploadViaSignedUrlMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "logo",
+          blob: expect.objectContaining({ type: "image/png" }),
+        }),
       ),
     );
     await waitFor(() =>
@@ -102,18 +102,12 @@ describe("admin upload controls", () => {
     );
   });
 
-  it("shows an error when the upload route rejects a question image", async () => {
-    // The optimizer runs but the server rejects — the error message from the
-    // server should surface in the UI.
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          error: "UNSUPPORTED_MEDIA_TYPE",
-          message: "סוג הקובץ אינו נתמך.",
-        }),
-        { status: 415 },
-      ),
-    );
+  it("surfaces a server-side error message on a question image rejection", async () => {
+    uploadViaSignedUrlMock.mockResolvedValue({
+      ok: false,
+      stage: "sign",
+      message: "סוג הקובץ אינו נתמך.",
+    });
 
     render(<QuestionImageUploader value={null} onChange={vi.fn()} />);
 
@@ -128,7 +122,7 @@ describe("admin upload controls", () => {
     );
   });
 
-  it("validates client-side size before uploading", async () => {
+  it("validates client-side size before requesting a signed URL", async () => {
     render(<LogoUploader value={null} onChange={vi.fn()} />);
 
     fireEvent.change(screen.getByTestId("admin-upload-input"), {
@@ -144,7 +138,7 @@ describe("admin upload controls", () => {
     expect(await screen.findByTestId("admin-upload-error")).toHaveTextContent(
       "הקובץ גדול מדי",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(uploadViaSignedUrlMock).not.toHaveBeenCalled();
   });
 
   it("imports an external URL via the import endpoint and calls onChange with the mirrored URL", async () => {
@@ -195,21 +189,11 @@ describe("admin upload controls", () => {
 
   it("passes optimized dimensions to onChange after a successful question image upload", async () => {
     const onChange = vi.fn();
-
-    // Return a large file so the optimizer actually re-encodes (100×100 < 2400 but
-    // file.size > maxBytes triggers compression in the stub).
-    // The bitmap stub returns 100×100, OffscreenCanvas returns a tiny webp blob.
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          url: "http://storage.local/question-images/admin/upload.webp",
-          path: "admin/upload.webp",
-          width: 100,
-          height: 100,
-        }),
-        { status: 201 },
-      ),
-    );
+    uploadViaSignedUrlMock.mockResolvedValue({
+      ok: true,
+      url: "http://storage.local/question-images/admin/upload.webp",
+      path: "admin/upload.webp",
+    });
 
     render(<QuestionImageUploader value={null} onChange={onChange} />);
 
@@ -226,11 +210,15 @@ describe("admin upload controls", () => {
       },
     });
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(uploadViaSignedUrlMock).toHaveBeenCalled());
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith(
         "http://storage.local/question-images/admin/upload.webp",
-        expect.objectContaining({ path: "admin/upload.webp", width: 100, height: 100 }),
+        expect.objectContaining({
+          path: "admin/upload.webp",
+          width: 100,
+          height: 100,
+        }),
       ),
     );
   });
