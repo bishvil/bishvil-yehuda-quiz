@@ -171,7 +171,14 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
   });
 
   describe("round-trip exhaustiveness", () => {
-    const types: QuestionType[] = ["single", "multi", "truefalse", "image", "map"];
+    const types: QuestionType[] = [
+      "single",
+      "multi",
+      "truefalse",
+      "image",
+      "video",
+      "map",
+    ];
     const sources: Record<QuestionType, EditableQuestion> = {
       single: withOverrides({ type: "single", correctIds: ["a"] }),
       multi: withOverrides({ type: "multi", correctIds: ["a", "b"] }),
@@ -184,6 +191,15 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
         type: "image",
         correctIds: ["a"],
         imageUrl: "https://example.com/p.jpg",
+      }),
+      video: withOverrides({
+        type: "video",
+        correctIds: ["a"],
+        videoUrl: "https://example.com/p.mp4",
+        videoProvider: "self",
+        videoMimeType: "video/mp4",
+        videoDurationSeconds: 20,
+        mediaLeadSeconds: 20,
       }),
       map: withOverrides({
         type: "map",
@@ -200,6 +216,19 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
           const next = normalizeQuestionForType(sources[from], to);
           expect(next.type).toBe(to);
           if (to !== "image") expect(next.imageUrl).toBeNull();
+          if (to !== "video") {
+            expect(next.videoUrl).toBeNull();
+            expect(next.videoEmbedUrl).toBeNull();
+            expect(next.videoProvider).toBeNull();
+            expect(next.videoMimeType).toBeNull();
+            expect(next.videoDurationSeconds).toBeNull();
+            expect(next.videoPosterUrl).toBeNull();
+            expect(next.videoPosterPath).toBeNull();
+            expect(next.videoWidth).toBeNull();
+            expect(next.videoHeight).toBeNull();
+            expect(next.videoPath).toBeNull();
+            expect(next.mediaLeadSeconds).toBe(0);
+          }
           if (to !== "map") {
             expect(next.map).toBeNull();
           }
@@ -222,5 +251,43 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
         });
       }
     }
+  });
+
+  describe("→ video", () => {
+    it("scaffolds options + carries video fields verbatim from a non-video source", () => {
+      const single = withOverrides({
+        type: "single",
+        correctIds: ["a"],
+        // Stale-leftover video fields shouldn't survive a non-video source —
+        // but if they did somehow leak in, they'd carry forward into video.
+        videoUrl: "https://example.com/clip.mp4",
+        videoProvider: "self",
+        videoMimeType: "video/mp4",
+        mediaLeadSeconds: 18,
+      });
+      const next = normalizeQuestionForType(single, "video");
+      expect(next.type).toBe("video");
+      expect(next.options?.length ?? 0).toBeGreaterThan(0);
+      expect(next.imageUrl).toBeNull();
+      expect(next.map).toBeNull();
+      expect(next.videoUrl).toBe("https://example.com/clip.mp4");
+      expect(next.videoProvider).toBe("self");
+      expect(next.videoMimeType).toBe("video/mp4");
+      expect(next.mediaLeadSeconds).toBe(18);
+    });
+
+    it("from image → video: imageUrl wiped, options carried", () => {
+      const image = withOverrides({
+        type: "image",
+        correctIds: ["b"],
+        imageUrl: "https://example.com/p.jpg",
+        imageAlt: "תיאור",
+      });
+      const next = normalizeQuestionForType(image, "video");
+      expect(next.type).toBe("video");
+      expect(next.imageUrl).toBeNull();
+      expect(next.imageAlt).toBeNull();
+      expect(next.correctIds).toEqual(["b"]);
+    });
   });
 });

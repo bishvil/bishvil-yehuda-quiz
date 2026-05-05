@@ -9,6 +9,7 @@ import { FeedbackCard } from "@/src/components/participant/FeedbackCard";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import { ProgressBar } from "@/src/components/participant/ProgressBar";
 import { QuestionCard } from "@/src/components/participant/QuestionCard";
+import { QuestionMediaSpotlight } from "@/src/components/participant/QuestionMediaSpotlight";
 import { TimerBar } from "@/src/components/participant/TimerBar";
 import type { GameMode } from "@/src/lib/constants";
 import { useParticipantState } from "@/src/lib/hooks/useParticipantState";
@@ -56,6 +57,9 @@ export function PlayScreen({
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Local state — a page reload re-engages the spotlight (v1 simplification).
+  const [mediaSettled, setMediaSettled] = useState(false);
+  const handleMediaSettled = useCallback(() => setMediaSettled(true), []);
   const [pendingReveal, setPendingReveal] = useState<{
     isCorrect: boolean;
     correctIds: string[] | null;
@@ -72,9 +76,11 @@ export function PlayScreen({
   const previousQuestionKeyRef = useRef<string>("");
   const currentQuestionKey = buildQuestionKey(question);
 
-  // Reset transient state on question change. The ref is mutated only
-  // inside the effect (post-commit), satisfying the no-mutate-during-render
-  // lint rule.
+  // Separate ref so mediaSettled survives status transitions
+  // (answering→locked→revealed) but resets on a new question UUID.
+  const previousQuestionIdRef = useRef<string>("");
+  const currentQuestionId = question?.id ?? "";
+
   useEffect(() => {
     if (previousQuestionKeyRef.current !== currentQuestionKey) {
       setSelectedIds([]);
@@ -83,7 +89,11 @@ export function PlayScreen({
       setSubmitError(null);
       previousQuestionKeyRef.current = currentQuestionKey;
     }
-  }, [currentQuestionKey]);
+    if (previousQuestionIdRef.current !== currentQuestionId) {
+      setMediaSettled(false);
+      previousQuestionIdRef.current = currentQuestionId;
+    }
+  }, [currentQuestionKey, currentQuestionId]);
 
   // End-state route.
   useEffect(() => {
@@ -276,6 +286,14 @@ export function PlayScreen({
   const showSyncWaitingReveal =
     gameMode === "sync" && hasSubmitted && !isRevealed;
 
+  const isVideoQuestion = question.type === "video";
+  const needsSpotlight =
+    isVideoQuestion &&
+    !mediaSettled &&
+    !hasSubmitted &&
+    !isRevealed &&
+    (question.videoUrl !== null || question.videoEmbedUrl !== null);
+
   const submitDisabled =
     submitting ||
     hasSubmitted ||
@@ -294,7 +312,9 @@ export function PlayScreen({
           <span className="font-[var(--font-display)] text-[15px] text-bsy-brown">
             תחנה <b className="text-bsy-forest">{question.index}</b> מתוך {question.total}
           </span>
-          <TimerLane question={question} hasSubmitted={hasSubmitted} isRevealed={isRevealed} />
+          {needsSpotlight ? null : (
+            <TimerLane question={question} hasSubmitted={hasSubmitted} isRevealed={isRevealed} />
+          )}
         </div>
         <ProgressBar
           current={question.index}
@@ -303,12 +323,21 @@ export function PlayScreen({
         />
       </header>
 
-      <section className="flex flex-1 flex-col gap-4 px-5 py-5">
+      <section
+        className="flex flex-1 flex-col gap-4 px-5 py-5"
+        aria-hidden={needsSpotlight}
+        style={needsSpotlight ? { pointerEvents: "none" } : undefined}
+      >
         <QuestionCard
           type={question.type}
           prompt={question.prompt}
           imageUrl={question.imageUrl}
           imageAlt={question.imageAlt}
+          videoUrl={question.videoUrl}
+          videoEmbedUrl={question.videoEmbedUrl}
+          videoProvider={question.videoProvider}
+          videoMimeType={question.videoMimeType}
+          videoPosterUrl={question.videoPosterUrl}
         />
 
         {question.type === "map" ? (
@@ -409,6 +438,19 @@ export function PlayScreen({
         customLogo={customLogo}
         customLogoLabel={customLogoLabel}
       />
+      {needsSpotlight ? (
+        <QuestionMediaSpotlight
+          prompt={question.prompt}
+          videoUrl={question.videoUrl}
+          videoEmbedUrl={question.videoEmbedUrl}
+          videoProvider={question.videoProvider}
+          videoMimeType={question.videoMimeType}
+          videoPosterUrl={question.videoPosterUrl}
+          videoDurationSeconds={question.videoDurationSeconds}
+          mediaLeadSeconds={question.mediaLeadSeconds}
+          onSettle={handleMediaSettled}
+        />
+      ) : null}
     </main>
   );
 }

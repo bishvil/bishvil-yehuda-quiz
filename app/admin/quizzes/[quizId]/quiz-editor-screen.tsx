@@ -60,6 +60,17 @@ function rowToEditable(row: AdminQuestionListItem): EditableQuestion {
     explanation: row.explanation ?? null,
     timeSeconds: row.timeSeconds,
     points: row.points,
+    videoUrl: row.videoUrl ?? null,
+    videoPath: row.videoPath ?? null,
+    videoEmbedUrl: row.videoEmbedUrl ?? null,
+    videoProvider: row.videoProvider ?? null,
+    videoMimeType: row.videoMimeType ?? null,
+    videoDurationSeconds: row.videoDurationSeconds ?? null,
+    videoPosterUrl: row.videoPosterUrl ?? null,
+    videoPosterPath: row.videoPosterPath ?? null,
+    videoWidth: row.videoWidth ?? null,
+    videoHeight: row.videoHeight ?? null,
+    mediaLeadSeconds: row.mediaLeadSeconds ?? 0,
   };
 }
 

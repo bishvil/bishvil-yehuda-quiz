@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { noStoreJson } from "@/src/lib/http/responses";
+import { computeMediaPaddedDeadline } from "@/src/lib/sessions/deadline";
 import { lazyExpireAsyncProgress } from "@/src/lib/sessions/expiry";
 import { findActiveSessionByPin } from "@/src/lib/sessions/lookup";
 import { writeLog } from "@/src/lib/logging";
@@ -138,7 +139,7 @@ export async function POST(
   // Find the next question by ordinal.
   const { data: nextQuestion } = await serviceSupabase
     .from("questions")
-    .select("id, ordinal, time_seconds")
+    .select("id, ordinal, time_seconds, media_lead_seconds")
     .eq("quiz_id", session.quiz_id)
     .gt("ordinal", latestProgress.question_index)
     .order("ordinal", { ascending: true })
@@ -180,8 +181,10 @@ export async function POST(
   }
 
   const startedAt = new Date();
-  const deadlineAt = new Date(
-    startedAt.getTime() + nextQuestion.time_seconds * 1000,
+  const deadlineAt = computeMediaPaddedDeadline(
+    startedAt,
+    nextQuestion.time_seconds,
+    nextQuestion.media_lead_seconds,
   );
 
   const { data: created, error: createError } = await serviceSupabase

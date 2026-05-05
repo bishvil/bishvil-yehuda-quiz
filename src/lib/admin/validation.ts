@@ -112,6 +112,21 @@ export const adminQuestionCreateSchema = z.object({
   explanation: z.string().min(1).nullable().optional(),
   timeSeconds: z.number().int().min(1).default(DEFAULT_QUESTION_TIME_SECONDS),
   points: z.number().int().min(1).default(DEFAULT_QUESTION_POINTS),
+  // Video fields — all optional/nullable so auto-save partial patches work.
+  // The route handlers apply additional validation: videoEmbedUrl is passed
+  // through parseVideoEmbed (normalised URL + provider); videoUrl and
+  // videoEmbedUrl cannot both be non-null.
+  videoUrl: httpsUrlSchema.nullable().optional(),
+  videoPath: z.string().min(1).nullable().optional(),
+  videoEmbedUrl: z.string().url().max(2048).nullable().optional(),
+  videoProvider: z.enum(["self", "youtube", "vimeo"]).nullable().optional(),
+  videoMimeType: z.string().min(1).nullable().optional(),
+  videoDurationSeconds: z.number().int().min(1).nullable().optional(),
+  videoPosterUrl: httpsUrlSchema.nullable().optional(),
+  videoPosterPath: z.string().min(1).nullable().optional(),
+  videoWidth: z.number().int().positive().nullable().optional(),
+  videoHeight: z.number().int().positive().nullable().optional(),
+  mediaLeadSeconds: z.number().int().min(0).max(600).optional(),
 });
 
 export const adminQuestionUpdateSchema = adminQuestionCreateSchema.partial();

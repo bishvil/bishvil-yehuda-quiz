@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuestionCreateSchema } from "@/src/lib/admin/validation";
+import { resolveVideoEmbedFields } from "@/src/lib/admin/video-embed";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 import type { Database, Json } from "@/src/lib/supabase/database.types";
@@ -27,6 +28,17 @@ interface AdminQuestionListItem {
   timeSeconds: number;
   points: number;
   createdAt: string;
+  videoUrl: string | null;
+  videoPath: string | null;
+  videoEmbedUrl: string | null;
+  videoProvider: string | null;
+  videoMimeType: string | null;
+  videoDurationSeconds: number | null;
+  videoPosterUrl: string | null;
+  videoPosterPath: string | null;
+  videoWidth: number | null;
+  videoHeight: number | null;
+  mediaLeadSeconds: number;
 }
 
 interface AdminQuestionListBody {
@@ -62,6 +74,17 @@ function toListItem(
     timeSeconds: row.time_seconds,
     points: row.points,
     createdAt: row.created_at,
+    videoUrl: row.video_url ?? null,
+    videoPath: row.video_path ?? null,
+    videoEmbedUrl: row.video_embed_url ?? null,
+    videoProvider: row.video_provider ?? null,
+    videoMimeType: row.video_mime_type ?? null,
+    videoDurationSeconds: row.video_duration_seconds ?? null,
+    videoPosterUrl: row.video_poster_url ?? null,
+    videoPosterPath: null, // video_poster_path column not in DB schema — UI-only for session lifetime
+    videoWidth: row.video_width ?? null,
+    videoHeight: row.video_height ?? null,
+    mediaLeadSeconds: row.media_lead_seconds ?? 0,
   };
 }
 
@@ -108,6 +131,22 @@ export async function POST(
     );
   }
 
+  const videoFields = resolveVideoEmbedFields(parsed.data);
+  if (!videoFields.ok) {
+    return privateNoStoreJson<AdminQuestionErrorBody>(
+      {
+        error: "INVALID_REQUEST",
+        message:
+          videoFields.reason === "BOTH_URLS"
+            ? "לא ניתן לספק גם כתובת וידאו וגם כתובת הטמעה באותה שאלה."
+            : "כתובת ההטמעה אינה חוקית.",
+      },
+      { status: 400 },
+    );
+  }
+  const normalizedEmbedUrl = videoFields.embedUrl;
+  const resolvedVideoProvider = videoFields.provider;
+
   const serviceSupabase = await createServiceRoleSupabaseClient();
   const { data: quizExists } = await serviceSupabase
     .from("quizzes")
@@ -138,6 +177,16 @@ export async function POST(
     explanation: parsed.data.explanation ?? null,
     time_seconds: parsed.data.timeSeconds,
     points: parsed.data.points,
+    video_url: parsed.data.videoUrl ?? null,
+    video_path: parsed.data.videoPath ?? null,
+    video_embed_url: normalizedEmbedUrl,
+    video_provider: resolvedVideoProvider,
+    video_mime_type: parsed.data.videoMimeType ?? null,
+    video_duration_seconds: parsed.data.videoDurationSeconds ?? null,
+    video_poster_url: parsed.data.videoPosterUrl ?? null,
+    video_width: parsed.data.videoWidth ?? null,
+    video_height: parsed.data.videoHeight ?? null,
+    media_lead_seconds: parsed.data.mediaLeadSeconds ?? 0,
   };
 
   const { data, error } = await serviceSupabase

@@ -51,6 +51,34 @@ export interface EditableQuestion {
   explanation: string | null;
   timeSeconds: number;
   points: number;
+  // --- Video fields — populated only for type === "video" (mirrors the image
+  // type's relationship to imageUrl). normalizeQuestionForType strips them on
+  // every transition into a non-video type. ---
+  /** Public URL of a self-hosted MP4/WebM clip in the question-videos bucket. */
+  videoUrl: string | null;
+  /** Supabase Storage object path — admin-only, never sent to participants. */
+  videoPath: string | null;
+  /** Normalized YouTube/Vimeo embed URL. Mutually exclusive with videoUrl. */
+  videoEmbedUrl: string | null;
+  /** Provider discriminator: 'self' for self-hosted, 'youtube'|'vimeo' for embeds. */
+  videoProvider: "self" | "youtube" | "vimeo" | null;
+  /** MIME type captured at upload time (self-hosted only). */
+  videoMimeType: string | null;
+  /** Duration in seconds (auto-populated for self-hosted, manual for embeds). */
+  videoDurationSeconds: number | null;
+  /** Optional poster image URL (auto-extracted from self-hosted clip). */
+  videoPosterUrl: string | null;
+  /** Supabase Storage path of the auto-extracted poster — admin-only. */
+  videoPosterPath: string | null;
+  /** Natural video width in pixels (self-hosted only). */
+  videoWidth: number | null;
+  /** Natural video height in pixels (self-hosted only). */
+  videoHeight: number | null;
+  /**
+   * Seconds added to deadline_at at question-start so participants watch the
+   * video before the answer timer starts. NOT NULL DEFAULT 0.
+   */
+  mediaLeadSeconds: number;
 }
 
 export interface EditableQuiz {
@@ -94,12 +122,24 @@ export function makeBlankQuestion(ordinal: number): EditableQuestion {
     explanation: null,
     timeSeconds: 25,
     points: 1500,
+    // Video fields — all null/0 by default (video is orthogonal to question type)
+    videoUrl: null,
+    videoPath: null,
+    videoEmbedUrl: null,
+    videoProvider: null,
+    videoMimeType: null,
+    videoDurationSeconds: null,
+    videoPosterUrl: null,
+    videoPosterPath: null,
+    videoWidth: null,
+    videoHeight: null,
+    mediaLeadSeconds: 0,
   };
 }
 
 export interface ValidationFinding {
   questionClientId: string;
-  field: "prompt" | "options" | "correct" | "map" | "image";
+  field: "prompt" | "options" | "correct" | "map" | "image" | "video";
   message: string;
 }
 
@@ -123,6 +163,7 @@ export function validateQuestions(
       q.type === "single" ||
       q.type === "multi" ||
       q.type === "image" ||
+      q.type === "video" ||
       q.type === "truefalse"
     ) {
       if (!q.options || q.options.length < 2) {
@@ -152,6 +193,29 @@ export function validateQuestions(
         questionClientId: q.clientId,
         field: "image",
         message: "חסרה כתובת תמונה",
+      });
+    }
+    if (q.type === "video" && !q.videoUrl && !q.videoEmbedUrl) {
+      findings.push({
+        questionClientId: q.clientId,
+        field: "video",
+        message: "חסר סרטון לשאלה",
+      });
+    }
+    // Soft warning: embed video without a manually-entered duration means the
+    // system cannot enforce viewing before showing answers. Self-hosted clips
+    // auto-populate mediaLeadSeconds so they don't trigger this.
+    if (
+      q.type === "video" &&
+      q.videoEmbedUrl &&
+      !q.videoUrl &&
+      q.mediaLeadSeconds === 0
+    ) {
+      findings.push({
+        questionClientId: q.clientId,
+        field: "video",
+        message:
+          "יש להזין את משך הסרטון בשניות כדי שהמערכת תוכל לאכוף את הצפייה לפני הצגת התשובות.",
       });
     }
     if (q.type === "map" && !q.map?.geo) {
@@ -189,27 +253,68 @@ export interface QuizSavePayload {
 }
 
 /**
- * Wave-2 review M3 — normalize a question to the next type, stripping
- * any field that does not belong to that type so the auto-save never
- * persists stale `map`, `imageUrl`, or `correctIds` rows that
- * contradict the chosen `type`. Returns the same instance when
- * `nextType === question.type` so React identity stays stable.
+ * Normalize a question to the next type, stripping any field that does
+ * not belong to that type so the auto-save never persists stale `map`,
+ * `imageUrl`, `videoUrl`, or `correctIds` rows that contradict the chosen
+ * `type`. Returns the same instance when `nextType === question.type` so
+ * React identity stays stable.
  *
- * Rules (matched to the question schema in ADR-0004 §"Required Table:
- * questions" and the `supportsOptions` predicate in QuestionEditor):
+ * Rules (mirroring `image` for `video` — both are option-bound visual
+ * prompts):
  *
- * | nextType   | options                | correctIds                          | map           | imageUrl    |
- * | ---------- | ---------------------- | ----------------------------------- | ------------- | ----------- |
- * | single     | scaffold if absent     | first id only                       | null          | null        |
- * | multi      | scaffold if absent     | carry over                          | null          | null        |
- * | image      | scaffold if absent     | carry over                          | null          | carry over  |
- * | truefalse  | replace with [yes,no]  | filter to {yes,no}; default ["yes"] | null          | null        |
- * | map        | null                   | []                                  | default geo   | null        |
+ * | nextType   | options                | correctIds                          | map         | imageUrl    | videoUrl    |
+ * | ---------- | ---------------------- | ----------------------------------- | ----------- | ----------- | ----------- |
+ * | single     | scaffold if absent     | first id only                       | null        | null        | null        |
+ * | multi      | scaffold if absent     | carry over                          | null        | null        | null        |
+ * | image      | scaffold if absent     | carry over                          | null        | carry over  | null        |
+ * | video      | scaffold if absent     | carry over                          | null        | null        | carry over  |
+ * | truefalse  | replace with [yes,no]  | filter to {yes,no}; default ["yes"] | null        | null        | null        |
+ * | map        | null                   | []                                  | default geo | null        | null        |
  *
- * Image questions keep `options` + `correctIds` because the renderer
- * (`QuestionEditor.supportsOptions`) treats `image` as a choice question
- * with an illustration above the options.
+ * Video fields (videoUrl/videoPath/videoEmbedUrl/videoProvider/
+ * videoMimeType/videoDurationSeconds/videoPosterUrl/videoPosterPath/
+ * videoWidth/videoHeight/mediaLeadSeconds) are stripped on every
+ * transition INTO a non-video type and preserved verbatim on a transition
+ * INTO `video`.
  */
+export const VIDEO_WIPE = {
+  videoUrl: null,
+  videoPath: null,
+  videoEmbedUrl: null,
+  videoProvider: null,
+  videoMimeType: null,
+  videoDurationSeconds: null,
+  videoPosterUrl: null,
+  videoPosterPath: null,
+  videoWidth: null,
+  videoHeight: null,
+  mediaLeadSeconds: 0,
+} as const satisfies Pick<
+  EditableQuestion,
+  | "videoUrl"
+  | "videoPath"
+  | "videoEmbedUrl"
+  | "videoProvider"
+  | "videoMimeType"
+  | "videoDurationSeconds"
+  | "videoPosterUrl"
+  | "videoPosterPath"
+  | "videoWidth"
+  | "videoHeight"
+  | "mediaLeadSeconds"
+>;
+
+const IMAGE_WIPE = {
+  imageUrl: null,
+  imageAlt: null,
+  imageWidth: null,
+  imageHeight: null,
+  imagePath: null,
+} as const satisfies Pick<
+  EditableQuestion,
+  "imageUrl" | "imageAlt" | "imageWidth" | "imageHeight" | "imagePath"
+>;
+
 export function normalizeQuestionForType(
   question: EditableQuestion,
   nextType: QuestionType,
@@ -230,11 +335,8 @@ export function normalizeQuestionForType(
         options: carryOptions,
         correctIds,
         map: null,
-        imageUrl: null,
-        imageAlt: null,
-        imageWidth: null,
-        imageHeight: null,
-        imagePath: null,
+        ...IMAGE_WIPE,
+        ...VIDEO_WIPE,
       };
     }
     case "multi":
@@ -244,11 +346,8 @@ export function normalizeQuestionForType(
         options: carryOptions,
         correctIds: question.correctIds ?? [],
         map: null,
-        imageUrl: null,
-        imageAlt: null,
-        imageWidth: null,
-        imageHeight: null,
-        imagePath: null,
+        ...IMAGE_WIPE,
+        ...VIDEO_WIPE,
       };
     case "image":
       return {
@@ -257,7 +356,21 @@ export function normalizeQuestionForType(
         options: carryOptions,
         correctIds: question.correctIds ?? [],
         map: null,
-        // imageUrl / imageAlt / imageWidth / imageHeight / imagePath carry over verbatim
+        // imageUrl / imageAlt / imageWidth / imageHeight / imagePath carry over verbatim.
+        ...VIDEO_WIPE,
+      };
+    case "video":
+      return {
+        ...question,
+        type: nextType,
+        options: carryOptions,
+        correctIds: question.correctIds ?? [],
+        map: null,
+        ...IMAGE_WIPE,
+        // videoUrl / videoEmbedUrl / videoProvider / videoMimeType /
+        // videoDurationSeconds / videoPosterUrl / videoPosterPath /
+        // videoWidth / videoHeight / videoPath / mediaLeadSeconds carry
+        // over verbatim. (Mirrors the image case.)
       };
     case "truefalse": {
       const allowed = new Set(TRUE_FALSE_OPTIONS.map((o) => o.id));
@@ -269,11 +382,8 @@ export function normalizeQuestionForType(
         options: TRUE_FALSE_OPTIONS.map((option) => ({ ...option })),
         correctIds,
         map: null,
-        imageUrl: null,
-        imageAlt: null,
-        imageWidth: null,
-        imageHeight: null,
-        imagePath: null,
+        ...IMAGE_WIPE,
+        ...VIDEO_WIPE,
       };
     }
     case "map":
@@ -288,11 +398,8 @@ export function normalizeQuestionForType(
             toleranceKm: 5,
           },
         },
-        imageUrl: null,
-        imageAlt: null,
-        imageWidth: null,
-        imageHeight: null,
-        imagePath: null,
+        ...IMAGE_WIPE,
+        ...VIDEO_WIPE,
       };
     default: {
       // Exhaustiveness check — unreachable for the current QUESTION_TYPES.

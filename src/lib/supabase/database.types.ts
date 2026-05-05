@@ -9,7 +9,13 @@ export type Json =
 export type GameModeEnum = "sync" | "async";
 export type SessionStatusEnum = "draft" | "scheduled" | "live" | "paused" | "ended";
 export type ParticipantStatusEnum = "joined" | "in_progress" | "completed";
-export type QuestionTypeEnum = "single" | "multi" | "truefalse" | "image" | "map";
+export type QuestionTypeEnum =
+  | "single"
+  | "multi"
+  | "truefalse"
+  | "image"
+  | "video"
+  | "map";
 export type QuestionStatusEnum =
   | "idle"
   | "presenting"
@@ -151,6 +157,26 @@ export interface Database {
            * orphaned objects (ADR-0010 §7).
            */
           image_path: string | null;
+          /**
+           * Video media — ADR-0013. Mutually exclusive with `video_embed_url`
+           * (DB CHECK constraint). `video_path` is admin-private; never
+           * surface it to participant or host payloads (ADR-0008).
+           */
+          video_url: string | null;
+          video_path: string | null;
+          video_embed_url: string | null;
+          video_provider: string | null;
+          video_mime_type: string | null;
+          video_duration_seconds: number | null;
+          video_poster_url: string | null;
+          video_width: number | null;
+          video_height: number | null;
+          /**
+           * Server-stored offset added to `deadline_at` at question start.
+           * The submit_answer RPC caps the time-bonus remaining at
+           * `time_seconds`, so this offset never inflates scores.
+           */
+          media_lead_seconds: number;
           explanation: string | null;
           time_seconds: number;
           points: number;
@@ -170,6 +196,16 @@ export interface Database {
           image_width?: number | null;
           image_height?: number | null;
           image_path?: string | null;
+          video_url?: string | null;
+          video_path?: string | null;
+          video_embed_url?: string | null;
+          video_provider?: string | null;
+          video_mime_type?: string | null;
+          video_duration_seconds?: number | null;
+          video_poster_url?: string | null;
+          video_width?: number | null;
+          video_height?: number | null;
+          media_lead_seconds?: number;
           explanation?: string | null;
           time_seconds?: number;
           points?: number;

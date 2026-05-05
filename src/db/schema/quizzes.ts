@@ -75,6 +75,16 @@ export const questions = pgTable(
     imageWidth: integer("image_width"),
     imageHeight: integer("image_height"),
     imagePath: text("image_path"),
+    videoUrl: text("video_url"),
+    videoPath: text("video_path"),
+    videoEmbedUrl: text("video_embed_url"),
+    videoProvider: text("video_provider").$type<"self" | "youtube" | "vimeo">(),
+    videoMimeType: text("video_mime_type"),
+    videoDurationSeconds: integer("video_duration_seconds"),
+    videoPosterUrl: text("video_poster_url"),
+    videoWidth: integer("video_width"),
+    videoHeight: integer("video_height"),
+    mediaLeadSeconds: integer("media_lead_seconds").notNull().default(0),
     explanation: text("explanation"),
     timeSeconds: integer("time_seconds")
       .notNull()

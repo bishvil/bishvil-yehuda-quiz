@@ -127,6 +127,17 @@ const SERVER_QUESTION_FIXTURE = {
     timeSeconds: 25,
     points: 1500,
     createdAt: "2026-01-01T00:00:00Z",
+    videoUrl: null,
+    videoPath: null,
+    videoEmbedUrl: null,
+    videoProvider: null,
+    videoMimeType: null,
+    videoDurationSeconds: null,
+    videoPosterUrl: null,
+    videoPosterPath: null,
+    videoWidth: null,
+    videoHeight: null,
+    mediaLeadSeconds: 0,
   },
 };
 

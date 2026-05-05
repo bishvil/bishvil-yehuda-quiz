@@ -128,6 +128,18 @@ export interface AdminQuestionListItem {
   timeSeconds: number;
   points: number;
   createdAt?: string;
+  // Video fields (orthogonal to question type)
+  videoUrl: string | null;
+  videoPath: string | null;
+  videoEmbedUrl: string | null;
+  videoProvider: "self" | "youtube" | "vimeo" | null;
+  videoMimeType: string | null;
+  videoDurationSeconds: number | null;
+  videoPosterUrl: string | null;
+  videoPosterPath: string | null;
+  videoWidth: number | null;
+  videoHeight: number | null;
+  mediaLeadSeconds: number;
 }
 
 export interface AdminQuestionListResponse {
@@ -149,6 +161,18 @@ export interface AdminQuestionCreateRequest {
   explanation?: string;
   timeSeconds?: number;
   points?: number;
+  // Video fields (nullable for clearing)
+  videoUrl?: string | null;
+  videoPath?: string | null;
+  videoEmbedUrl?: string | null;
+  videoProvider?: "self" | "youtube" | "vimeo" | null;
+  videoMimeType?: string | null;
+  videoDurationSeconds?: number | null;
+  videoPosterUrl?: string | null;
+  videoPosterPath?: string | null;
+  videoWidth?: number | null;
+  videoHeight?: number | null;
+  mediaLeadSeconds?: number;
 }
 
 export type AdminQuestionUpdateRequest = Partial<AdminQuestionCreateRequest>;

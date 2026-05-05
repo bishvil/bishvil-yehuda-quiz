@@ -22,6 +22,7 @@ export const QUESTION_TYPES = [
   "multi",
   "truefalse",
   "image",
+  "video",
   "map",
 ] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
@@ -54,13 +55,14 @@ export const HOST_SESSION_TIMEOUT_MINUTES = 30;
 export const PARTICIPANT_TIMER_WARNING_THRESHOLD_SECONDS = 5;
 export const PARTICIPANT_LEADERBOARD_LIMIT = 6;
 export const QUESTION_TYPE_LABELS: Record<
-  "single" | "multi" | "truefalse" | "image" | "map",
+  "single" | "multi" | "truefalse" | "image" | "video" | "map",
   string
 > = {
   single: "רב־ברירה",
   multi: "בחירה מרובה",
   truefalse: "נכון / לא נכון",
   image: "זיהוי תמונה",
+  video: "זיהוי סרטון",
   map: "דקירה על מפה",
 };
 export const QUESTION_OPTION_LETTERS = ["א", "ב", "ג", "ד", "ה", "ו"] as const;

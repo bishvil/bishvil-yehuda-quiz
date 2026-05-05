@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { HostAnswerBars } from "@/src/components/host/HostAnswerBars";
 import { HostAsyncProgressList } from "@/src/components/host/HostAsyncProgressList";
@@ -10,6 +10,7 @@ import { HostMapSummary } from "@/src/components/host/HostMapSummary";
 import { HostPlayerList, type HostPlayer } from "@/src/components/host/HostPlayerList";
 import { HostQuestionCard } from "@/src/components/host/HostQuestionCard";
 import { HostTimerPanel } from "@/src/components/host/HostTimerPanel";
+import { QuestionMediaSpotlight } from "@/src/components/participant/QuestionMediaSpotlight";
 import {
   endHostSession,
   isHostApiError,
@@ -50,10 +51,22 @@ export function HostScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("live");
+  // Local state — a page reload re-engages the spotlight (v1 simplification).
+  const [mediaSettled, setMediaSettled] = useState(false);
+  const handleMediaSettled = useCallback(() => setMediaSettled(true), []);
 
   const { state, status: loadStatus, error: loadError, refetch } = useHostState({ pin });
 
   const question = state?.question ?? null;
+
+  const previousQuestionIdRef = useRef<string>("");
+  const currentQuestionId = question?.id ?? "";
+  useEffect(() => {
+    if (previousQuestionIdRef.current !== currentQuestionId) {
+      setMediaSettled(false);
+      previousQuestionIdRef.current = currentQuestionId;
+    }
+  }, [currentQuestionId]);
 
   // Keep the deadline live during answering AND once locked/revealed so the
   // timer naturally settles at 0:00 instead of resetting to the question's
@@ -267,6 +280,12 @@ export function HostScreen({
   const hasOptions = !isMapQuestion && Array.isArray(question?.options);
   const participantPins = state.mapAnswers ?? null;
 
+  const isVideoQuestion = question?.type === "video";
+  const needsSpotlight =
+    isVideoQuestion &&
+    !mediaSettled &&
+    (question?.videoUrl != null || question?.videoEmbedUrl != null);
+
   const banner = lifecycleBanner({
     sessionStatus,
     questionStatus,
@@ -303,6 +322,11 @@ export function HostScreen({
                 totalQuestions={state.totalQuestions}
                 imageUrl={question.imageUrl}
                 imageAlt={question.imageAlt}
+                videoUrl={question.videoUrl}
+                videoEmbedUrl={question.videoEmbedUrl}
+                videoProvider={question.videoProvider}
+                videoMimeType={question.videoMimeType}
+                videoPosterUrl={question.videoPosterUrl}
               />
               {hasOptions ? (
                 <HostAnswerBars
@@ -325,7 +349,7 @@ export function HostScreen({
               ) : null}
             </div>
             <aside className="flex min-h-0 flex-col gap-4">
-              {canControl ? (
+              {canControl && !needsSpotlight ? (
                 <HostTimerPanel
                   remainingSeconds={countdown.remainingSeconds}
                   fraction={countdown.fraction}
@@ -406,8 +430,13 @@ export function HostScreen({
                   totalQuestions={state.totalQuestions}
                   imageUrl={question.imageUrl}
                   imageAlt={question.imageAlt}
+                  videoUrl={question.videoUrl}
+                  videoEmbedUrl={question.videoEmbedUrl}
+                  videoProvider={question.videoProvider}
+                  videoMimeType={question.videoMimeType}
+                  videoPosterUrl={question.videoPosterUrl}
                 />
-                {canControl ? (
+                {canControl && !needsSpotlight ? (
                   <HostTimerPanel
                     variant="compact"
                     remainingSeconds={countdown.remainingSeconds}
@@ -482,6 +511,22 @@ export function HostScreen({
           />
         </footer>
       </div>
+      {/* Video spotlight — rendered once outside both layouts, z-50 overlays both.
+          The host control bar (inside <footer>) remains interactive because the
+          footer sits outside the dimmed overlay region and above it via z-index. */}
+      {needsSpotlight && question ? (
+        <QuestionMediaSpotlight
+          prompt={question.prompt}
+          videoUrl={question.videoUrl}
+          videoEmbedUrl={question.videoEmbedUrl}
+          videoProvider={question.videoProvider}
+          videoMimeType={question.videoMimeType}
+          videoPosterUrl={question.videoPosterUrl}
+          videoDurationSeconds={question.videoDurationSeconds}
+          mediaLeadSeconds={question.mediaLeadSeconds}
+          onSettle={handleMediaSettled}
+        />
+      ) : null}
     </main>
   );
 }

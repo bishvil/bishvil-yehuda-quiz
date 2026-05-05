@@ -344,7 +344,9 @@ export async function handleImportUrl(body: unknown) {
   let ext: "png" | "jpg" | "webp";
   try {
     const derived = extensionForMime(contentType);
-    if (derived === "svg") throw new Error("SVG not allowed for question images");
+    if (derived !== "png" && derived !== "jpg" && derived !== "webp") {
+      throw new Error(`Disallowed extension for question image import: ${derived}`);
+    }
     ext = derived;
   } catch {
     return privateNoStoreJson<ImportUrlErrorBody>(

@@ -32,6 +32,19 @@ export interface HostLiveQuestion {
   imageWidth: number | null;
   imageHeight: number | null;
   /**
+   * Video media fields — mirrors participant payload shape (ADR-0013).
+   * `video_path` is intentionally excluded (admin-private per ADR-0008).
+   */
+  videoUrl: string | null;
+  videoEmbedUrl: string | null;
+  videoProvider: "self" | "youtube" | "vimeo" | null;
+  videoMimeType: string | null;
+  videoDurationSeconds: number | null;
+  videoPosterUrl: string | null;
+  videoWidth: number | null;
+  videoHeight: number | null;
+  mediaLeadSeconds: number;
+  /**
    * Map content — geo block only. `geo.target` (lat/lng) is reveal-gated
    * and never ships here.
    */
@@ -184,7 +197,7 @@ export async function GET(
     const { data: question } = await serviceSupabase
       .from("questions")
       .select(
-        "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, time_seconds, correct_ids, explanation",
+        "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, time_seconds, correct_ids, explanation",
       )
       .eq("id", session.current_question_id)
       .maybeSingle();
@@ -215,6 +228,12 @@ export async function GET(
             }
           : null;
 
+      const rawVideoProvider = question.video_provider;
+      const videoProvider: "self" | "youtube" | "vimeo" | null =
+        rawVideoProvider === "self" || rawVideoProvider === "youtube" || rawVideoProvider === "vimeo"
+          ? rawVideoProvider
+          : null;
+
       questionPayload = {
         id: question.id,
         ordinal: question.ordinal,
@@ -225,6 +244,16 @@ export async function GET(
         imageAlt: question.image_alt,
         imageWidth: question.image_width,
         imageHeight: question.image_height,
+        // Video fields: video_path is intentionally excluded (admin-private per ADR-0008).
+        videoUrl: question.video_url,
+        videoEmbedUrl: question.video_embed_url,
+        videoProvider,
+        videoMimeType: question.video_mime_type,
+        videoDurationSeconds: question.video_duration_seconds,
+        videoPosterUrl: question.video_poster_url,
+        videoWidth: question.video_width,
+        videoHeight: question.video_height,
+        mediaLeadSeconds: question.media_lead_seconds ?? 0,
         // Always strip target — it lives inside reveal only.
         map: mapPayload,
         timeSeconds: question.time_seconds,

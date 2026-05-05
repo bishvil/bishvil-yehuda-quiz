@@ -40,6 +40,27 @@ export interface ParticipantQuestionPayload {
   imageWidth: number | null;
   imageHeight: number | null;
   /**
+   * Video media (ADR-0013). Either `videoUrl` (self-hosted MP4/WebM) OR
+   * `videoEmbedUrl` (YouTube/Vimeo) — never both, enforced by a CHECK on
+   * `questions`. `videoPath` is admin-private and intentionally absent.
+   */
+  videoUrl: string | null;
+  videoEmbedUrl: string | null;
+  videoProvider: "self" | "youtube" | "vimeo" | null;
+  videoMimeType: string | null;
+  videoDurationSeconds: number | null;
+  videoPosterUrl: string | null;
+  videoWidth: number | null;
+  videoHeight: number | null;
+  /**
+   * Server-stored offset added to `deadline_at` so the answer timer doesn't
+   * tick during the video gate. Client uses it only as metadata; the
+   * countdown runs against `serverNow` and `deadlineAt` directly. The
+   * scoring RPC caps remaining seconds at `timeSeconds`, so this offset
+   * never inflates the time bonus.
+   */
+  mediaLeadSeconds: number;
+  /**
    * Map metadata — only the public-safe slice. The correct target lives
    * in the reveal payload (ADR-0008 §2). For map questions the `geo`
    * key is set with `center`, `zoom`, `toleranceKm`, and `styleHint` only —
@@ -110,6 +131,16 @@ export interface ParticipantStateResponse {
   reveal: ParticipantQuestionRevealPayload | null;
 }
 
+function narrowVideoProvider(
+  raw: string | null,
+): "self" | "youtube" | "vimeo" | null {
+  // The DB CHECK constraint already restricts the column to this set, but
+  // the generated `string | null` Database type doesn't carry that. Guard at
+  // the boundary so the participant payload exposes a literal union.
+  if (raw === "self" || raw === "youtube" || raw === "vimeo") return raw;
+  return null;
+}
+
 export function extractMapGeoTarget(
   map: QuestionRow["map"] | null,
 ): { lat: number; lng: number } | null {
@@ -135,6 +166,15 @@ export function buildParticipantQuestionPayload(args: {
     | "image_alt"
     | "image_width"
     | "image_height"
+    | "video_url"
+    | "video_embed_url"
+    | "video_provider"
+    | "video_mime_type"
+    | "video_duration_seconds"
+    | "video_poster_url"
+    | "video_width"
+    | "video_height"
+    | "media_lead_seconds"
     | "time_seconds"
     | "points"
   >;
@@ -184,6 +224,15 @@ export function buildParticipantQuestionPayload(args: {
     imageAlt: args.question.image_alt,
     imageWidth: args.question.image_width,
     imageHeight: args.question.image_height,
+    videoUrl: args.question.video_url,
+    videoEmbedUrl: args.question.video_embed_url,
+    videoProvider: narrowVideoProvider(args.question.video_provider),
+    videoMimeType: args.question.video_mime_type,
+    videoDurationSeconds: args.question.video_duration_seconds,
+    videoPosterUrl: args.question.video_poster_url,
+    videoWidth: args.question.video_width,
+    videoHeight: args.question.video_height,
+    mediaLeadSeconds: args.question.media_lead_seconds ?? 0,
     map: mapPayload,
     timeSeconds: args.question.time_seconds,
     points: args.question.points,

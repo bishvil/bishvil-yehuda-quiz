@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
+import { computeMediaPaddedDeadline } from "@/src/lib/sessions/deadline";
 import { loadHostContext } from "@/src/lib/sessions/host-context";
 import { canTransitionQuestion } from "@/src/lib/sessions/state-machine";
 import {
@@ -90,7 +91,7 @@ export async function POST(
 
   const { data: question } = await serviceSupabase
     .from("questions")
-    .select("id, ordinal, time_seconds, quiz_id")
+    .select("id, ordinal, time_seconds, media_lead_seconds, quiz_id")
     .eq("id", parsed.data.questionId)
     .maybeSingle();
 
@@ -122,7 +123,11 @@ export async function POST(
   }
 
   const startedAt = new Date();
-  const deadlineAt = new Date(startedAt.getTime() + question.time_seconds * 1000);
+  const deadlineAt = computeMediaPaddedDeadline(
+    startedAt,
+    question.time_seconds,
+    question.media_lead_seconds,
+  );
   const startedAtIso = startedAt.toISOString();
   const deadlineAtIso = deadlineAt.toISOString();
 

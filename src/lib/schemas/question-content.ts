@@ -52,6 +52,7 @@ const optionQuestionTypes = new Set<QuestionTypeEnum>([
   "multi",
   "truefalse",
   "image",
+  "video",
 ]);
 
 export function parseStoredQuestionOptions(value: unknown):

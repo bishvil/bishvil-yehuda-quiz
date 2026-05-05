@@ -9,11 +9,11 @@ import { consumeUploadToken, resetRateLimitsForTests } from "./rate-limit";
 
 export { resetRateLimitsForTests as resetUploadRateLimitsForTests };
 
-type UploadKind = "logo" | "question-image";
+type UploadKind = "logo" | "question-image" | "question-video";
 
 interface UploadConfig {
   kind: UploadKind;
-  bucket: "brand-logos" | "question-images";
+  bucket: "brand-logos" | "question-images" | "question-videos";
   maxBytes: number;
   allowedMimeTypes: ReadonlySet<string>;
 }
@@ -55,6 +55,16 @@ const QUESTION_IMAGE_UPLOAD_CONFIG: UploadConfig = {
   allowedMimeTypes: new Set(["image/png", "image/jpeg", "image/webp"]),
 };
 
+// 25 MB cap is intentional. The whole file is buffered via
+// `await file.arrayBuffer()` below; if this cap is raised, switch the upload
+// path to streaming (Supabase storage SDK accepts a ReadableStream too).
+const QUESTION_VIDEO_UPLOAD_CONFIG: UploadConfig = {
+  kind: "question-video",
+  bucket: "question-videos",
+  maxBytes: 25 * 1024 * 1024,
+  allowedMimeTypes: new Set(["video/mp4", "video/webm"]),
+};
+
 const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
 
 export function POST_LOGO_UPLOAD(request: NextRequest) {
@@ -63,6 +73,10 @@ export function POST_LOGO_UPLOAD(request: NextRequest) {
 
 export function POST_QUESTION_IMAGE_UPLOAD(request: NextRequest) {
   return handleAdminUpload(request, QUESTION_IMAGE_UPLOAD_CONFIG);
+}
+
+export function POST_QUESTION_VIDEO_UPLOAD(request: NextRequest) {
+  return handleAdminUpload(request, QUESTION_VIDEO_UPLOAD_CONFIG);
 }
 
 async function handleAdminUpload(request: NextRequest, config: UploadConfig) {
@@ -125,7 +139,9 @@ async function handleAdminUpload(request: NextRequest, config: UploadConfig) {
         message:
           config.kind === "logo"
             ? "סוג הקובץ אינו נתמך. ניתן להעלות PNG, JPG, WEBP או SVG."
-            : "סוג הקובץ אינו נתמך. ניתן להעלות PNG, JPG או WEBP.",
+            : config.kind === "question-video"
+              ? "סוג הקובץ אינו נתמך. ניתן להעלות MP4 או WEBM."
+              : "סוג הקובץ אינו נתמך. ניתן להעלות PNG, JPG או WEBP.",
       },
       { status: 415 },
     );
@@ -207,7 +223,9 @@ function parseDimensions(
   return { width: w, height: h };
 }
 
-export function extensionForMime(mime: string): "png" | "jpg" | "webp" | "svg" {
+export function extensionForMime(
+  mime: string,
+): "png" | "jpg" | "webp" | "svg" | "mp4" | "webm" {
   switch (mime) {
     case "image/png":
       return "png";
@@ -217,6 +235,10 @@ export function extensionForMime(mime: string): "png" | "jpg" | "webp" | "svg" {
       return "webp";
     case "image/svg+xml":
       return "svg";
+    case "video/mp4":
+      return "mp4";
+    case "video/webm":
+      return "webm";
     default:
       throw new Error(`Unsupported MIME type: ${mime}`);
   }

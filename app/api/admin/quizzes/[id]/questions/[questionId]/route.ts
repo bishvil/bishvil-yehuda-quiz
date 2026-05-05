@@ -3,6 +3,7 @@ import { type NextRequest } from "next/server";
 import { ADMIN_QUESTION_SCORES_LOCKED_MESSAGE } from "@/src/lib/admin/lifecycle-copy";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuestionUpdateSchema } from "@/src/lib/admin/validation";
+import { resolveVideoEmbedFields } from "@/src/lib/admin/video-embed";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 import type { Database, Json } from "@/src/lib/supabase/database.types";
@@ -28,6 +29,17 @@ interface AdminQuestionDetailBody {
     explanation: string | null;
     timeSeconds: number;
     points: number;
+    videoUrl: string | null;
+    videoPath: string | null;
+    videoEmbedUrl: string | null;
+    videoProvider: string | null;
+    videoMimeType: string | null;
+    videoDurationSeconds: number | null;
+    videoPosterUrl: string | null;
+    videoPosterPath: string | null;
+    videoWidth: number | null;
+    videoHeight: number | null;
+    mediaLeadSeconds: number;
   };
   /**
    * When the admin uses ?force=1 to mutate a score-affecting field on a
@@ -123,6 +135,17 @@ function toDetail(
     explanation: row.explanation,
     timeSeconds: row.time_seconds,
     points: row.points,
+    videoUrl: row.video_url ?? null,
+    videoPath: row.video_path ?? null,
+    videoEmbedUrl: row.video_embed_url ?? null,
+    videoProvider: row.video_provider ?? null,
+    videoMimeType: row.video_mime_type ?? null,
+    videoDurationSeconds: row.video_duration_seconds ?? null,
+    videoPosterUrl: row.video_poster_url ?? null,
+    videoPosterPath: null, // video_poster_path column not in DB schema
+    videoWidth: row.video_width ?? null,
+    videoHeight: row.video_height ?? null,
+    mediaLeadSeconds: row.media_lead_seconds ?? 0,
   };
 }
 
@@ -140,6 +163,34 @@ export async function PUT(
       { error: "INVALID_REQUEST", message: "Question body invalid." },
       { status: 400 },
     );
+  }
+
+  // For PATCH semantics: only run the embed validator when the field is
+  // actually being mutated. `undefined` ⇒ leave the column alone.
+  let normalizedEmbedUrl: string | undefined | null = parsed.data.videoEmbedUrl;
+  let resolvedVideoProvider: "self" | "youtube" | "vimeo" | undefined | null =
+    parsed.data.videoProvider;
+  if (
+    parsed.data.videoEmbedUrl !== undefined ||
+    parsed.data.videoUrl !== undefined
+  ) {
+    const videoFields = resolveVideoEmbedFields(parsed.data);
+    if (!videoFields.ok) {
+      return privateNoStoreJson<AdminQuestionErrorBody>(
+        {
+          error: "INVALID_REQUEST",
+          message:
+            videoFields.reason === "BOTH_URLS"
+              ? "לא ניתן לספק גם כתובת וידאו וגם כתובת הטמעה באותה שאלה."
+              : "כתובת ההטמעה אינה חוקית.",
+        },
+        { status: 400 },
+      );
+    }
+    if (parsed.data.videoEmbedUrl !== undefined) {
+      normalizedEmbedUrl = videoFields.embedUrl;
+      resolvedVideoProvider = videoFields.provider;
+    }
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
@@ -241,6 +292,24 @@ export async function PUT(
     update.time_seconds = parsed.data.timeSeconds;
   }
   if (parsed.data.points !== undefined) update.points = parsed.data.points;
+  if (parsed.data.videoUrl !== undefined) update.video_url = parsed.data.videoUrl;
+  if (parsed.data.videoPath !== undefined) update.video_path = parsed.data.videoPath;
+  if (normalizedEmbedUrl !== undefined) update.video_embed_url = normalizedEmbedUrl;
+  if (resolvedVideoProvider !== undefined) update.video_provider = resolvedVideoProvider;
+  if (parsed.data.videoMimeType !== undefined) {
+    update.video_mime_type = parsed.data.videoMimeType;
+  }
+  if (parsed.data.videoDurationSeconds !== undefined) {
+    update.video_duration_seconds = parsed.data.videoDurationSeconds;
+  }
+  if (parsed.data.videoPosterUrl !== undefined) {
+    update.video_poster_url = parsed.data.videoPosterUrl;
+  }
+  if (parsed.data.videoWidth !== undefined) update.video_width = parsed.data.videoWidth;
+  if (parsed.data.videoHeight !== undefined) update.video_height = parsed.data.videoHeight;
+  if (parsed.data.mediaLeadSeconds !== undefined) {
+    update.media_lead_seconds = parsed.data.mediaLeadSeconds;
+  }
 
   const { data, error } = await serviceSupabase
     .from("questions")

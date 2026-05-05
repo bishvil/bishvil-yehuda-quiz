@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { requireRole } from "@/src/lib/auth/server-auth";
+import { computeMediaPaddedDeadline } from "@/src/lib/sessions/deadline";
 import { findPublicSessionByPin } from "@/src/lib/sessions/lookup";
 import {
   lazyExpireAsyncProgress,
@@ -129,7 +130,7 @@ export async function GET(
     const { data: currentQuestion } = await serviceSupabase
       .from("questions")
       .select(
-        "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, time_seconds, points, correct_ids, explanation",
+        "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, time_seconds, points, correct_ids, explanation",
       )
       .eq("id", currentQuestionId)
       .maybeSingle();
@@ -241,7 +242,7 @@ export async function GET(
   if (!currentProgress) {
     const { data: firstQuestion } = await serviceSupabase
       .from("questions")
-      .select("id, ordinal, time_seconds")
+      .select("id, ordinal, time_seconds, media_lead_seconds")
       .eq("quiz_id", session.quiz_id)
       .order("ordinal", { ascending: true })
       .limit(1)
@@ -261,8 +262,10 @@ export async function GET(
     }
 
     const startedAt = new Date();
-    const deadlineAt = new Date(
-      startedAt.getTime() + firstQuestion.time_seconds * 1000,
+    const deadlineAt = computeMediaPaddedDeadline(
+      startedAt,
+      firstQuestion.time_seconds,
+      firstQuestion.media_lead_seconds,
     );
 
     const { data: created } = await serviceSupabase
@@ -314,7 +317,7 @@ export async function GET(
   const { data: question } = await serviceSupabase
     .from("questions")
     .select(
-      "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, time_seconds, points, correct_ids, explanation",
+      "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, time_seconds, points, correct_ids, explanation",
     )
     .eq("id", currentProgress.question_id)
     .maybeSingle();

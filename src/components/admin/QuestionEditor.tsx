@@ -4,6 +4,7 @@ import { useCallback } from "react";
 
 import { TypePill } from "./TypePill";
 import { QuestionImageUploader } from "./upload/QuestionImageUploader";
+import { QuestionVideoUploader } from "./upload/QuestionVideoUploader";
 import {
   MapQuestionEditor,
   type MapQuestionGeoDraft,
@@ -70,7 +71,8 @@ export function QuestionEditor({
     question.type === "single" ||
     question.type === "multi" ||
     question.type === "truefalse" ||
-    question.type === "image";
+    question.type === "image" ||
+    question.type === "video";
 
   return (
     <div className="flex flex-col gap-4">
@@ -97,6 +99,18 @@ export function QuestionEditor({
           data-testid="question-prompt"
         />
       </Field>
+
+      {question.type === "video" ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
+            סרטון השאלה
+          </span>
+          <QuestionVideoUploader
+            question={question}
+            onPatch={(patch) => update(patch)}
+          />
+        </div>
+      ) : null}
 
       {question.type === "image" ? (
         <div className="flex flex-col gap-1.5">
