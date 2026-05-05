@@ -192,6 +192,16 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
         prevRow.points !== row.points ||
         prevRow.imageUrl !== row.imageUrl ||
         prevRow.explanation !== row.explanation ||
+        prevRow.videoUrl !== row.videoUrl ||
+        prevRow.videoPath !== row.videoPath ||
+        prevRow.videoEmbedUrl !== row.videoEmbedUrl ||
+        prevRow.videoProvider !== row.videoProvider ||
+        prevRow.videoMimeType !== row.videoMimeType ||
+        prevRow.videoDurationSeconds !== row.videoDurationSeconds ||
+        prevRow.videoPosterUrl !== row.videoPosterUrl ||
+        prevRow.videoWidth !== row.videoWidth ||
+        prevRow.videoHeight !== row.videoHeight ||
+        prevRow.mediaLeadSeconds !== row.mediaLeadSeconds ||
         JSON.stringify(prevRow.options) !== JSON.stringify(row.options) ||
         JSON.stringify(prevRow.correctIds) !== JSON.stringify(row.correctIds) ||
         JSON.stringify(prevRow.map) !== JSON.stringify(row.map)
@@ -223,6 +233,18 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
             ...(q.imageHeight != null ? { imageHeight: q.imageHeight } : {}),
             ...(q.imagePath ? { imagePath: q.imagePath } : {}),
             ...(q.explanation ? { explanation: q.explanation } : {}),
+            ...(q.videoUrl ? { videoUrl: q.videoUrl } : {}),
+            ...(q.videoPath ? { videoPath: q.videoPath } : {}),
+            ...(q.videoEmbedUrl ? { videoEmbedUrl: q.videoEmbedUrl } : {}),
+            ...(q.videoProvider ? { videoProvider: q.videoProvider } : {}),
+            ...(q.videoMimeType ? { videoMimeType: q.videoMimeType } : {}),
+            ...(q.videoDurationSeconds != null
+              ? { videoDurationSeconds: q.videoDurationSeconds }
+              : {}),
+            ...(q.videoPosterUrl ? { videoPosterUrl: q.videoPosterUrl } : {}),
+            ...(q.videoWidth != null ? { videoWidth: q.videoWidth } : {}),
+            ...(q.videoHeight != null ? { videoHeight: q.videoHeight } : {}),
+            mediaLeadSeconds: q.mediaLeadSeconds,
             timeSeconds: q.timeSeconds,
             points: q.points,
           });
@@ -255,6 +277,21 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
             imageHeight: q.imageHeight ?? undefined,
             imagePath: q.imagePath ?? undefined,
             explanation: q.explanation ?? undefined,
+            // Video fields are sent as raw values (including null) so that
+            // clearing a video — e.g. via the "remove video" button or a
+            // type switch — actually nulls the columns server-side. The
+            // PUT route only writes a column when its key is !== undefined,
+            // and the validation schema treats each as nullable+optional.
+            videoUrl: q.videoUrl,
+            videoPath: q.videoPath,
+            videoEmbedUrl: q.videoEmbedUrl,
+            videoProvider: q.videoProvider,
+            videoMimeType: q.videoMimeType,
+            videoDurationSeconds: q.videoDurationSeconds,
+            videoPosterUrl: q.videoPosterUrl,
+            videoWidth: q.videoWidth,
+            videoHeight: q.videoHeight,
+            mediaLeadSeconds: q.mediaLeadSeconds,
             timeSeconds: q.timeSeconds,
             points: q.points,
           });
