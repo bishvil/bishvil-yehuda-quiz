@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import PinEntryForm from "@/src/components/landing/PinEntryForm";
+import LogoCarousel from "@/src/components/landing/LogoCarousel";
 
 /**
  * Landing page — Hebrew/RTL public face of "בשביל יהודה — חידון מורשת"
@@ -37,10 +38,8 @@ export default function HomePage() {
             fontSize: "0.9375rem",
             textDecoration: "none",
             display: "inline-block",
-            transition:
-              "background var(--dur-fast) var(--ease-out)",
+            transition: "background var(--dur-fast) var(--ease-out)",
           }}
-          onMouseOver={undefined}
         >
           התחברות
         </Link>
@@ -49,48 +48,44 @@ export default function HomePage() {
       <main>
         {/* ── Hero section ──────────────────────────────────────────── */}
         <section
-          className="relative overflow-hidden"
-          style={{ background: "var(--bsy-paper-warm)" }}
+          className="relative flex flex-col overflow-hidden"
+          style={{
+            background: "var(--bsy-paper)",
+            minHeight: "calc(100svh - 73px)",
+          }}
         >
-          {/* SVG landscape background — adapted from brand ui_kits/website/Hero.jsx */}
+          {/* SVG landscape — fills the bottom half of the hero exactly */}
           <div
-            className="absolute inset-0 w-full h-full"
+            className="absolute inset-x-0 bottom-0 pointer-events-none"
             aria-hidden="true"
-            style={{ pointerEvents: "none" }}
+            style={{ height: "50%" }}
           >
             <svg
-              viewBox="0 0 400 300"
+              viewBox="0 0 1000 200"
               preserveAspectRatio="xMidYMax slice"
-              className="absolute bottom-0 left-0 w-full h-full"
+              className="absolute inset-0 w-full h-full"
             >
-              <defs>
-                <linearGradient id="bsy-sky" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#FAF7F0" />
-                  <stop offset="100%" stopColor="#F4ECDC" />
-                </linearGradient>
-              </defs>
-              <rect width="400" height="300" fill="url(#bsy-sky)" />
               {/* far ridge — sage */}
               <path
-                d="M0 200 L60 165 L130 188 L210 155 L290 178 L360 162 L400 172 L400 300 L0 300 Z"
+                d="M0 100 L150 65 L325 88 L525 55 L725 78 L900 62 L1000 72 L1000 200 L0 200 Z"
                 fill="#90B090"
                 opacity="0.7"
               />
               {/* mid ridge — tan/earth */}
               <path
-                d="M0 230 L70 205 L140 225 L210 195 L285 220 L350 208 L400 215 L400 300 L0 300 Z"
+                d="M0 130 L175 105 L350 125 L525 95 L715 120 L875 108 L1000 115 L1000 200 L0 200 Z"
                 fill="#C8A078"
                 opacity="0.8"
               />
               {/* near ridge — bright green */}
               <path
-                d="M0 260 L80 235 L165 258 L250 228 L330 252 L400 242 L400 300 L0 300 Z"
+                d="M0 160 L200 135 L410 158 L625 128 L825 152 L1000 142 L1000 200 L0 200 Z"
                 fill="#8CC83C"
                 opacity="0.9"
               />
               {/* walking-path swoosh */}
               <path
-                d="M-10 285 Q 100 268, 200 278 T 410 275"
+                d="M-25 185 Q 250 168, 500 178 T 1025 175"
                 stroke="#FAF7F0"
                 strokeWidth="6"
                 fill="none"
@@ -100,157 +95,83 @@ export default function HomePage() {
             </svg>
           </div>
 
-          {/* Hero content */}
-          <div
-            className="relative z-10 flex flex-col items-center text-center px-6 pt-16 pb-36"
-            style={{ maxWidth: "680px", margin: "0 auto" }}
-          >
-            <span
-              className="inline-block mb-4 text-xs font-bold tracking-widest uppercase"
-              style={{ color: "var(--bsy-green-forest)" }}
-            >
-              חידון מורשת אינטראקטיבי
-            </span>
+          {/* Top half — titles centered vertically + horizontally */}
+          <div className="relative z-10 flex flex-1 items-center justify-center px-6 pt-6 text-center">
+            <div className="flex flex-col items-center">
+              <h1 className="m-0 leading-[1]">
+                <span
+                  className="block"
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontWeight: 400,
+                    fontSize: "clamp(3rem, 11vw, 6.25rem)",
+                    color: "var(--bsy-brown-deep)",
+                    letterSpacing: "-0.005em",
+                  }}
+                >
+                  בשביל יהודה
+                </span>
+                <span
+                  className="mt-2 block md:mt-3"
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontWeight: 400,
+                    fontSize: "clamp(2.1rem, 7.6vw, 4.4rem)",
+                    color: "var(--bsy-green-forest)",
+                    letterSpacing: "-0.005em",
+                  }}
+                >
+                  חידון מורשת
+                </span>
+              </h1>
 
-            {/* Main headline — Heebo body font at black weight for quiz-platform feel */}
-            <h1
-              className="mb-4"
-              style={{
-                fontFamily: "var(--font-body)",
-                fontWeight: 900,
-                fontSize: "clamp(2rem, 8vw, 3.5rem)",
-                lineHeight: 1.1,
-                color: "var(--bsy-brown)",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              בשביל יהודה
-              <br />
-              <span style={{ color: "var(--bsy-green-forest)" }}>
-                חידון מורשת
-              </span>
-            </h1>
-
-            {/* Tagline — BA Hamossad / hand-style accent font */}
-            <p
-              className="mb-8"
-              style={{
-                fontFamily: "var(--font-hand)",
-                fontSize: "clamp(1.1rem, 4vw, 1.5rem)",
-                color: "var(--bsy-green-forest)",
-                letterSpacing: "0.01em",
-              }}
-            >
-              ״מורשת בדרך ערך״
-            </p>
-
-            <p
-              className="mb-10"
-              style={{
-                fontSize: "1.0625rem",
-                color: "var(--bsy-stone-700)",
-                lineHeight: 1.7,
-                maxWidth: "480px",
-              }}
-            >
-              פלטפורמת חידונים חיה למדריכים ולמשתתפים — כל שאלה היא תחנה במסלול
-              המורשת של ארץ ישראל
-            </p>
-
-            {/* Primary CTA */}
-            <div className="flex flex-col items-center gap-4 w-full mb-10">
-              <Link
-                href="/login"
-                style={{
-                  borderRadius: "var(--radius-pill)",
-                  background: "var(--bsy-green-forest)",
-                  color: "var(--bsy-paper)",
-                  fontWeight: 700,
-                  padding: "0.75rem 2.5rem",
-                  fontSize: "1.0625rem",
-                  textDecoration: "none",
-                  display: "inline-block",
-                  boxShadow: "var(--shadow-md)",
-                  transition:
-                    "background var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out)",
-                }}
-              >
-                התחברות — מארח / מנהל
-              </Link>
-            </div>
-
-            {/* PIN entry divider */}
-            <div
-              className="w-full flex items-center gap-4 mb-6"
-              style={{ maxWidth: "340px" }}
-            >
               <div
-                className="flex-1"
-                style={{
-                  height: "1px",
-                  background: "var(--bsy-stone-200)",
-                }}
-              />
-              <span
-                style={{
-                  fontSize: "0.8125rem",
-                  color: "var(--bsy-stone-400)",
-                  whiteSpace: "nowrap",
-                }}
+                className="mt-6 flex items-center gap-3 md:mt-8"
+                aria-hidden="true"
               >
-                או הצטרפו כמשתתפים
-              </span>
-              <div
-                className="flex-1"
-                style={{
-                  height: "1px",
-                  background: "var(--bsy-stone-200)",
-                }}
-              />
+                <span
+                  style={{
+                    width: "clamp(32px, 6vw, 64px)",
+                    height: "1px",
+                    background: "var(--bsy-stone-200)",
+                  }}
+                />
+                <p
+                  className="m-0"
+                  style={{
+                    fontFamily: "var(--font-body)",
+                    fontSize: "clamp(0.875rem, 2.6vw, 1.1rem)",
+                    fontWeight: 500,
+                    color: "var(--bsy-stone-700)",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  מורשת בדרך ערך
+                </p>
+                <span
+                  style={{
+                    width: "clamp(32px, 6vw, 64px)",
+                    height: "1px",
+                    background: "var(--bsy-stone-200)",
+                  }}
+                />
+              </div>
             </div>
+          </div>
 
-            {/* Inline PIN form — client island */}
+          {/* Bottom half — PIN centered over the mountains, biased down */}
+          <div className="relative z-10 flex flex-1 items-center justify-center px-6 pt-[15%] pb-6">
             <PinEntryForm />
           </div>
         </section>
 
         {/* ── Regional logos / brand row ────────────────────────────── */}
-        <section
-          className="py-12 px-6"
-          style={{ background: "var(--bsy-paper)" }}
-          aria-label="מסלולי בשביל"
-        >
-          <ul
-            className="flex flex-wrap justify-center items-center gap-8 list-none p-0 m-0"
-            role="list"
-          >
-            {[
-              { src: "/logos/logo_main.png", alt: "בשביל — מסלול ראשי" },
-              { src: "/logos/logo_yehuda.png", alt: "בשביל יהודה" },
-              { src: "/logos/logo_haari.png", alt: "בשביל הארי" },
-              { src: "/logos/logo_tzafon.png", alt: "בשביל הצפון" },
-              { src: "/logos/logo_etzion.png", alt: "בשביל עציון" },
-              { src: "/logos/logo_shomeron.png", alt: "בשביל השומרון" },
-              { src: "/logos/logo_haganat.png", alt: "בשביל הגנת היישוב" },
-            ].map((logo) => (
-              <li key={logo.src}>
-                <Image
-                  src={logo.src}
-                  alt={logo.alt}
-                  width={80}
-                  height={80}
-                  className="h-16 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity"
-                  style={{ transition: "opacity var(--dur-base) var(--ease-out)" }}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
+        <LogoCarousel />
 
         {/* ── Feature callouts ──────────────────────────────────────── */}
         <section
-          className="py-12 px-6"
-          style={{ background: "var(--bsy-paper-warm)" }}
+          className="py-16 px-6 md:py-20"
+          style={{ background: "var(--color-bg-elevated)" }}
         >
           <div
             className="grid gap-6"
@@ -279,15 +200,14 @@ export default function HomePage() {
                 className="p-6"
                 style={{
                   borderRadius: "var(--radius-lg)",
-                  background: "var(--color-bg-elevated)",
-                  boxShadow: "var(--shadow-sm)",
+                  background: "var(--bsy-paper)",
                   border: "1px solid var(--bsy-stone-100)",
                 }}
               >
                 <h3
                   className="font-display mb-2"
                   style={{
-                    fontSize: "1.25rem",
+                    fontSize: "1.4rem",
                     color: "var(--bsy-brown)",
                   }}
                 >

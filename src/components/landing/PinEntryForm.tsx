@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+const inputFocusShadow = "0 0 0 3px rgba(48, 96, 48, 0.15)";
+
 /**
  * Inline PIN entry form for the landing page.
  * Participants type their 6-digit session code and are routed to /{pin}
@@ -33,18 +35,18 @@ export default function PinEntryForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col items-center gap-3 w-full"
+      className="flex w-full max-w-sm flex-col items-center gap-3"
       aria-label="הצטרפות לחידון"
+      aria-busy={loading}
       noValidate
     >
-      <label
-        htmlFor="pin-input"
-        className="text-sm font-medium"
-        style={{ color: "var(--bsy-stone-700)" }}
-      >
-        הצטרפות לחידון — הכנס קוד משתתף
+      <label htmlFor="pin-input" className="sr-only">
+        קוד PIN בן 6 ספרות
       </label>
-      <div className="flex items-center gap-2 flex-wrap justify-center">
+      <p id="pin-help" className="sr-only">
+        הקלדת 6 ספרות תכניס אותך לחידון
+      </p>
+      <div className="flex w-full items-center justify-center gap-2">
         <input
           id="pin-input"
           type="text"
@@ -56,38 +58,57 @@ export default function PinEntryForm() {
           disabled={loading}
           placeholder="000000"
           dir="ltr"
-          autoComplete="off"
-          className="w-36 text-center text-xl tracking-[0.35em] font-mono px-4 py-2 focus:outline-none disabled:opacity-50"
+          autoComplete="one-time-code"
+          enterKeyHint="go"
+          className="min-w-0 flex-1 text-center font-mono text-2xl tracking-[0.38em] focus:outline-none disabled:opacity-50 md:text-3xl"
           style={{
+            maxWidth: "clamp(11rem, 18vw, 14rem)",
             borderRadius: "var(--radius-pill)",
-            border: "2px solid var(--bsy-stone-200)",
-            background: "var(--color-bg-elevated)",
+            border: "1px solid var(--color-border)",
+            background: "rgba(255, 255, 255, 0.88)",
             color: "var(--bsy-ink)",
             caretColor: "var(--bsy-green-forest)",
-            transition: "border-color var(--dur-fast) var(--ease-out)",
+            boxShadow:
+              "var(--shadow-sm), inset 0 1px 2px rgba(74, 63, 38, 0.06)",
+            padding: "0.78rem 1.1rem",
+            transition:
+              "background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out)",
           }}
-          onFocus={(e) =>
-            (e.currentTarget.style.borderColor = "var(--bsy-green-forest)")
-          }
-          onBlur={(e) =>
-            (e.currentTarget.style.borderColor = "var(--bsy-stone-200)")
-          }
+          onFocus={(e) => {
+            e.currentTarget.style.background = "var(--color-bg-elevated)";
+            e.currentTarget.style.borderColor = "var(--bsy-green-forest)";
+            e.currentTarget.style.boxShadow = inputFocusShadow;
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.88)";
+            e.currentTarget.style.borderColor = "var(--color-border)";
+            e.currentTarget.style.boxShadow =
+              "var(--shadow-sm), inset 0 1px 2px rgba(74, 63, 38, 0.06)";
+          }}
           aria-label="קוד PIN בן 6 ספרות"
+          aria-describedby="pin-help"
         />
         <button
           type="submit"
           disabled={pin.length !== 6 || loading}
           style={{
             borderRadius: "var(--radius-pill)",
-            background: "var(--bsy-green-bright)",
-            color: "var(--bsy-green-forest)",
+            background:
+              pin.length === 6 && !loading
+                ? "var(--bsy-green-forest)"
+                : "var(--bsy-green-sage)",
+            color: "var(--bsy-paper)",
             fontWeight: 700,
-            padding: "0.5rem 1.25rem",
-            fontSize: "0.9375rem",
+            padding: "0.78rem clamp(1.35rem, 2vw, 1.8rem)",
+            fontSize: "clamp(0.95rem, 1.2vw, 1.0625rem)",
             border: "none",
+            boxShadow:
+              pin.length === 6 && !loading
+                ? "var(--shadow-md)"
+                : "var(--shadow-sm)",
             cursor: pin.length === 6 && !loading ? "pointer" : "not-allowed",
-            opacity: pin.length !== 6 || loading ? 0.45 : 1,
-            transition: "opacity var(--dur-fast) var(--ease-out)",
+            transition:
+              "background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out)",
           }}
         >
           {loading ? "נכנס..." : "כניסה"}
