@@ -10,157 +10,103 @@ import LogoCarousel from "@/src/components/landing/LogoCarousel";
 export default function HomePage() {
   return (
     <>
-      {/* ── Site header ──────────────────────────────────────────────── */}
-      <header
-        className="flex items-center justify-between px-5 py-3 sticky top-0 z-10"
-        style={{
-          background: "rgba(250, 247, 240, 0.92)",
-          backdropFilter: "blur(8px)",
-          borderBottom: "1px solid var(--bsy-stone-100)",
-        }}
-      >
-        <Image
-          src="/logos/logo_yehuda.png"
-          alt="בשביל יהודה"
-          width={120}
-          height={56}
-          className="h-12 w-auto object-contain"
-          priority
-        />
-        <Link
-          href="/login"
-          style={{
-            borderRadius: "var(--radius-pill)",
-            background: "var(--bsy-green-forest)",
-            color: "var(--bsy-paper)",
-            fontWeight: 600,
-            padding: "0.45rem 1.25rem",
-            fontSize: "0.9375rem",
-            textDecoration: "none",
-            display: "inline-block",
-            transition: "background var(--dur-fast) var(--ease-out)",
-          }}
-        >
-          התחברות
-        </Link>
-      </header>
-
       <main>
         {/* ── Hero section ──────────────────────────────────────────── */}
         <section
-          className="relative flex flex-col overflow-hidden"
+          className="relative flex h-[100svh] overflow-hidden"
           style={{
             background: "var(--bsy-paper)",
-            minHeight: "calc(100svh - 73px)",
           }}
         >
-          {/* SVG landscape — fills the bottom half of the hero exactly */}
-          <div
-            className="absolute inset-x-0 bottom-0 pointer-events-none"
+          <Image
+            src="/images/home-hero-bg.webp"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-[82%_center] opacity-85 saturate-[0.82] contrast-[0.92] md:object-[70%_center] md:opacity-80"
             aria-hidden="true"
-            style={{ height: "50%" }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(250, 247, 240, 0.88) 0%, rgba(250, 247, 240, 0.58) 38%, rgba(250, 247, 240, 0.92) 100%)",
+            }}
+          />
+          <Link
+            href="/login"
+            aria-label="כניסה"
+            title="כניסה"
+            className="absolute left-4 top-4 z-20 inline-flex size-10 items-center justify-center md:left-6 md:top-6 md:size-11"
+            style={{
+              borderRadius: "var(--radius-pill)",
+              background: "rgba(250, 247, 240, 0.88)",
+              color: "var(--bsy-green-forest)",
+              textDecoration: "none",
+              border: "1px solid rgba(48, 96, 48, 0.22)",
+              boxShadow: "var(--shadow-xs)",
+            }}
           >
             <svg
-              viewBox="0 0 1000 200"
-              preserveAspectRatio="xMidYMax slice"
-              className="absolute inset-0 w-full h-full"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
             >
-              {/* far ridge — sage */}
-              <path
-                d="M0 100 L150 65 L325 88 L525 55 L725 78 L900 62 L1000 72 L1000 200 L0 200 Z"
-                fill="#90B090"
-                opacity="0.7"
-              />
-              {/* mid ridge — tan/earth */}
-              <path
-                d="M0 130 L175 105 L350 125 L525 95 L715 120 L875 108 L1000 115 L1000 200 L0 200 Z"
-                fill="#C8A078"
-                opacity="0.8"
-              />
-              {/* near ridge — bright green */}
-              <path
-                d="M0 160 L200 135 L410 158 L625 128 L825 152 L1000 142 L1000 200 L0 200 Z"
-                fill="#8CC83C"
-                opacity="0.9"
-              />
-              {/* walking-path swoosh */}
-              <path
-                d="M-25 185 Q 250 168, 500 178 T 1025 175"
-                stroke="#FAF7F0"
-                strokeWidth="6"
-                fill="none"
-                strokeLinecap="round"
-                opacity="0.7"
-              />
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <path d="M10 17l5-5-5-5" />
+              <path d="M15 12H3" />
             </svg>
-          </div>
+          </Link>
 
-          {/* Top half — titles centered vertically + horizontally */}
-          <div className="relative z-10 flex flex-1 items-center justify-center px-6 pt-6 text-center">
-            <div className="flex flex-col items-center">
+          <div
+            className="relative z-10 mx-auto flex w-full flex-col items-center justify-between gap-12 px-5 py-12 text-center md:py-20"
+            style={{ maxWidth: "1120px" }}
+          >
+            <div className="mt-10 flex flex-col items-center md:mt-16">
+              <Image
+                src="/logos/logo_main.png"
+                alt="בשביל יהודה"
+                width={164}
+                height={140}
+                className="mb-6 h-[4.7rem] w-auto object-contain md:mb-8 md:h-[6.5rem]"
+                style={{ width: "auto" }}
+                priority
+              />
               <h1 className="m-0 leading-[1]">
                 <span
-                  className="block"
+                  className="block text-[3.1rem] sm:text-[4.5rem] md:text-[5.75rem]"
                   style={{
                     fontFamily: "var(--font-display)",
                     fontWeight: 400,
-                    fontSize: "clamp(3rem, 11vw, 6.25rem)",
                     color: "var(--bsy-brown-deep)",
-                    letterSpacing: "-0.005em",
+                    letterSpacing: 0,
+                    textShadow: "0 2px 16px rgba(250, 247, 240, 0.72)",
                   }}
                 >
                   בשביל יהודה
                 </span>
                 <span
-                  className="mt-2 block md:mt-3"
+                  className="mt-1 block text-[2.15rem] sm:text-[3.2rem] md:mt-3 md:text-[4rem]"
                   style={{
                     fontFamily: "var(--font-display)",
                     fontWeight: 400,
-                    fontSize: "clamp(2.1rem, 7.6vw, 4.4rem)",
                     color: "var(--bsy-green-forest)",
-                    letterSpacing: "-0.005em",
+                    letterSpacing: 0,
+                    textShadow: "0 2px 16px rgba(250, 247, 240, 0.72)",
                   }}
                 >
                   חידון מורשת
                 </span>
               </h1>
-
-              <div
-                className="mt-6 flex items-center gap-3 md:mt-8"
-                aria-hidden="true"
-              >
-                <span
-                  style={{
-                    width: "clamp(32px, 6vw, 64px)",
-                    height: "1px",
-                    background: "var(--bsy-stone-200)",
-                  }}
-                />
-                <p
-                  className="m-0"
-                  style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize: "clamp(0.875rem, 2.6vw, 1.1rem)",
-                    fontWeight: 500,
-                    color: "var(--bsy-stone-700)",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  מורשת בדרך ערך
-                </p>
-                <span
-                  style={{
-                    width: "clamp(32px, 6vw, 64px)",
-                    height: "1px",
-                    background: "var(--bsy-stone-200)",
-                  }}
-                />
-              </div>
             </div>
-          </div>
-
-          {/* Bottom half — PIN centered over the mountains, biased down */}
-          <div className="relative z-10 flex flex-1 items-center justify-center px-6 pt-[15%] pb-6">
             <PinEntryForm />
           </div>
         </section>
@@ -183,14 +129,17 @@ export default function HomePage() {
           >
             {[
               {
+                step: "01",
                 title: "חידון חי",
                 body: "שאלות מוקרנות בזמן אמת — כל תחנה במסלול הופכת לחוויית למידה",
               },
               {
+                step: "02",
                 title: "מפה אינטראקטיבית",
                 body: "שאלות מיקום על גבי מפת ארץ ישראל — המשתתפים מדייקים את התשובה בעזרת אצבע",
               },
               {
+                step: "03",
                 title: "תוצאות מיידיות",
                 body: "ניקוד, דירוג, ותובנות למדריך — בסיום כל שאלה ובסוף המסלול",
               },
@@ -202,10 +151,21 @@ export default function HomePage() {
                   borderRadius: "var(--radius-lg)",
                   background: "var(--bsy-paper)",
                   border: "1px solid var(--bsy-stone-100)",
+                  boxShadow: "var(--shadow-xs)",
                 }}
               >
+                <span
+                  style={{
+                    color: "var(--bsy-green-forest)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  {card.step}
+                </span>
                 <h3
-                  className="font-display mb-2"
+                  className="font-display mb-2 mt-2"
                   style={{
                     fontSize: "1.4rem",
                     color: "var(--bsy-brown)",
