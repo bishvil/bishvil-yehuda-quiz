@@ -63,27 +63,6 @@ export default function LoginPage() {
             border: "1px solid var(--bsy-stone-100)",
           }}
         >
-          {/* Card heading */}
-          <div className="text-center mb-8">
-            <h1
-              className="font-display mb-2"
-              style={{
-                fontSize: "clamp(1.5rem, 5vw, 2rem)",
-                color: "var(--bsy-brown)",
-              }}
-            >
-              כניסה לפלטפורמה
-            </h1>
-            <p
-              style={{
-                fontSize: "0.9375rem",
-                color: "var(--bsy-stone-700)",
-                margin: 0,
-              }}
-            >
-              בשביל יהודה — חידון מורשת אינטראקטיבי
-            </p>
-          </div>
 
           {/* The client form island */}
           <LoginForm />
