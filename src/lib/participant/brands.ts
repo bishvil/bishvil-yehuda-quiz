@@ -6,7 +6,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export const SYSTEM_DEFAULT_BRAND_SLUG = "yehuda";
+export const SYSTEM_DEFAULT_BRAND_SLUG = "main";
 
 export interface ParticipantBrand {
   id: string;
@@ -150,20 +150,20 @@ export async function resolveParticipantBrand(
     }
   }
 
-  // Fallback: system yehuda brand.
-  const { data: yehuda } = await client
+  // Fallback: neutral system brand.
+  const { data: systemBrand } = await client
     .from("brands")
     .select("id, slug, name, tagline, logo_url, primary_color, accent_color")
     .eq("slug", SYSTEM_DEFAULT_BRAND_SLUG)
     .maybeSingle();
 
-  if (!yehuda) {
+  if (!systemBrand) {
     throw new Error(
       `System brand '${SYSTEM_DEFAULT_BRAND_SLUG}' is missing from the brands table. Check seed data.`,
     );
   }
 
-  return rowToBrand(yehuda as BrandRow);
+  return rowToBrand(systemBrand as BrandRow);
 }
 
 /**

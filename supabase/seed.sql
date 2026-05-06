@@ -1,5 +1,12 @@
 create extension if not exists pgcrypto;
 
+insert into public.brands (slug, name, tagline, logo_url, is_system)
+values ('main', 'בשביל', 'מסלולים בארץ ישראל', '/logos/logo_main.png', true)
+on conflict (slug) do update
+set
+  is_system = true,
+  archived_at = null;
+
 with local_users(id, email, user_role) as (
   values
     (
