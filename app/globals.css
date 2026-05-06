@@ -198,3 +198,72 @@ h6 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* === Landing: rotating region word in hero title ========================== */
+.rotating-region {
+  display: inline-grid;
+  justify-items: center;
+  vertical-align: baseline;
+  color: var(--bsy-brown-deep);
+}
+.rotating-region > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(0.05em);
+  transition:
+    opacity 1100ms ease,
+    transform 1100ms ease;
+  will-change: opacity, transform;
+  color: inherit;
+}
+.rotating-region > span[data-active] {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rotating-region > span { transition: none; }
+}
+
+/* === Landing: manifesto band ============================================== */
+.manifesto {
+  padding: clamp(3rem, 6vw, 5rem) 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.manifesto::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(rgba(74, 63, 38, 0.06) 1px, transparent 1px);
+  background-size: 14px 14px;
+  background-position: 0 0;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.manifesto__inner {
+  position: relative;
+  max-width: 720px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 1.4rem;
+  color: var(--bsy-green-forest);
+}
+.manifesto__text {
+  margin: 0;
+  text-align: center;
+  color: var(--bsy-brown-deep);
+  font-size: clamp(1.35rem, 2.6vw, 1.85rem);
+  line-height: 1.55;
+  letter-spacing: 0;
+  max-width: 36ch;
+}
+.manifesto__line {
+  display: block;
+}
+.manifesto__line + .manifesto__line {
+  margin-top: 0.45em;
+}

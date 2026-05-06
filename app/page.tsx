@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import PinEntryForm from "@/src/components/landing/PinEntryForm";
 import LogoCarousel from "@/src/components/landing/LogoCarousel";
+import RotatingRegion from "@/src/components/landing/RotatingRegion";
 
 /**
  * Landing page — Hebrew/RTL public face of "בשביל יהודה — חידון מורשת"
@@ -32,7 +33,7 @@ export default function HomePage() {
             aria-hidden="true"
             style={{
               background:
-                "linear-gradient(180deg, rgba(250, 247, 240, 0.88) 0%, rgba(250, 247, 240, 0.58) 38%, rgba(250, 247, 240, 0.92) 100%)",
+                "linear-gradient(180deg, rgba(250, 247, 240, 0.6) 0%, rgba(250, 247, 240, 0.3) 45%, rgba(244, 236, 220, 0.45) 88%, rgba(244, 236, 220, 1) 100%)",
             }}
           />
           <Link
@@ -91,7 +92,19 @@ export default function HomePage() {
                     textShadow: "0 2px 16px rgba(250, 247, 240, 0.72)",
                   }}
                 >
-                  בשביל יהודה
+                  בשביל
+                </span>
+                <span
+                  className="block text-[3.1rem] sm:text-[4.5rem] md:text-[5.75rem] leading-[1.05]"
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontWeight: 400,
+                    color: "var(--bsy-brown-deep)",
+                    letterSpacing: 0,
+                    textShadow: "0 2px 16px rgba(250, 247, 240, 0.72)",
+                  }}
+                >
+                  <RotatingRegion />
                 </span>
                 <span
                   className="mt-1 block text-[2.15rem] sm:text-[3.2rem] md:mt-3 md:text-[4rem]"
@@ -114,77 +127,17 @@ export default function HomePage() {
         {/* ── Regional logos / brand row ────────────────────────────── */}
         <LogoCarousel />
 
-        {/* ── Feature callouts ──────────────────────────────────────── */}
+        {/* ── Manifesto band ────────────────────────────────────────── */}
         <section
-          className="py-16 px-6 md:py-20"
-          style={{ background: "var(--color-bg-elevated)" }}
+          className="manifesto"
+          aria-label="על בשביל יהודה"
+          style={{ background: "var(--bsy-paper)" }}
         >
-          <div
-            className="grid gap-6"
-            style={{
-              maxWidth: "800px",
-              margin: "0 auto",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            }}
-          >
-            {[
-              {
-                step: "01",
-                title: "חידון חי",
-                body: "שאלות מוקרנות בזמן אמת — כל תחנה במסלול הופכת לחוויית למידה",
-              },
-              {
-                step: "02",
-                title: "מפה אינטראקטיבית",
-                body: "שאלות מיקום על גבי מפת ארץ ישראל — המשתתפים מדייקים את התשובה בעזרת אצבע",
-              },
-              {
-                step: "03",
-                title: "תוצאות מיידיות",
-                body: "ניקוד, דירוג, ותובנות למדריך — בסיום כל שאלה ובסוף המסלול",
-              },
-            ].map((card) => (
-              <div
-                key={card.title}
-                className="p-6"
-                style={{
-                  borderRadius: "var(--radius-lg)",
-                  background: "var(--bsy-paper)",
-                  border: "1px solid var(--bsy-stone-100)",
-                  boxShadow: "var(--shadow-xs)",
-                }}
-              >
-                <span
-                  style={{
-                    color: "var(--bsy-green-forest)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.78rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  {card.step}
-                </span>
-                <h3
-                  className="font-display mb-2 mt-2"
-                  style={{
-                    fontSize: "1.4rem",
-                    color: "var(--bsy-brown)",
-                  }}
-                >
-                  {card.title}
-                </h3>
-                <p
-                  className="m-0"
-                  style={{
-                    fontSize: "0.9375rem",
-                    color: "var(--bsy-stone-700)",
-                    lineHeight: 1.65,
-                  }}
-                >
-                  {card.body}
-                </p>
-              </div>
-            ))}
+          <div className="manifesto__inner">
+            <p className="manifesto__text font-hand">
+              <span className="manifesto__line">כל מקום הוא שאלה</span>
+              <span className="manifesto__line">כל שאלה היא שביל אל סיפור.</span>
+            </p>
           </div>
         </section>
       </main>
