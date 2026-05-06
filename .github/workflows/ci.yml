@@ -44,8 +44,15 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Start Supabase (local)
+        run: pnpm supabase start --exclude=studio,inbucket,imgproxy,edge-runtime,vector,realtime
+
       - name: Unit tests
         run: pnpm test
+
+      - name: Stop Supabase
+        if: always()
+        run: pnpm supabase stop --no-backup
 
       - name: Build
         env:
