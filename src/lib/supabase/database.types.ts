@@ -369,16 +369,6 @@ export interface Database {
           explanation: string | null;
         }>;
       };
-      rescore_session: {
-        Args: {
-          p_session_id: string;
-        };
-        Returns: Array<{
-          answers_rescored: number | null;
-          total_score_delta: number | null;
-          participants_touched: number | null;
-        }>;
-      };
     };
     Enums: {
       game_mode: GameModeEnum;

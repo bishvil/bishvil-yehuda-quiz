@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 
+import { assertQuizEditable } from "@/src/lib/admin/quiz-lock";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuestionReorderSchema } from "@/src/lib/admin/validation";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
@@ -46,26 +47,10 @@ export async function POST(
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
 
-  // Verify quiz exists
-  const { data: quizExists, error: quizError } = await serviceSupabase
-    .from("quizzes")
-    .select("id")
-    .eq("id", quizId)
-    .maybeSingle();
-
-  if (quizError) {
-    return privateNoStoreJson<AdminQuestionReorderErrorBody>(
-      { error: "WRITE_FAILED", message: "Failed to verify quiz." },
-      { status: 500 },
-    );
-  }
-
-  if (!quizExists) {
-    return privateNoStoreJson<AdminQuestionReorderErrorBody>(
-      { error: "QUIZ_NOT_FOUND", message: "Quiz not found." },
-      { status: 404 },
-    );
-  }
+  // ADR-0013 — reorder mutates ordinal columns; locked once a session
+  // exists. assertQuizEditable handles missing-quiz 404s too.
+  const lock = await assertQuizEditable(serviceSupabase, quizId);
+  if (!lock.ok) return lock.response;
 
   // Fetch all current questions to validate the update is complete
   const { data: currentQuestions, error: fetchError } = await serviceSupabase

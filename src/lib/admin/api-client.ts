@@ -72,6 +72,19 @@ export interface AdminQuizDetail {
   joinFields: string[];
   archivedAt: string | null;
   createdAt: string;
+  /**
+   * True iff at least one session row points at this quiz (any status,
+   * including archived). Source of truth for the editor's read-only mode
+   * — see ADR-0013. The server enforces the same rule via `assertQuizEditable`.
+   */
+  hasAnySession: boolean;
+}
+
+export interface AdminQuizDuplicateResponse {
+  quiz: {
+    id: string;
+    title: string;
+  };
 }
 
 export interface AdminQuizDetailResponse {
@@ -179,12 +192,6 @@ export type AdminQuestionUpdateRequest = Partial<AdminQuestionCreateRequest>;
 
 export interface AdminQuestionUpsertResponse {
   question: AdminQuestionListItem;
-  /**
-   * Populated when the admin used `?force=1` to mutate a score-affecting
-   * field on a quiz with existing submissions. The editor should prompt
-   * the user to rescore each affected session via `rescoreAdminSession`.
-   */
-  requiresRescore?: string[];
 }
 
 export interface AdminQuestionDeleteResponse {
@@ -257,12 +264,6 @@ export interface AdminSessionPatchHostRequest {
 
 export interface AdminSessionPatchHostResponse {
   session: AdminSessionListRow;
-}
-
-export interface AdminSessionRescoreResponse {
-  rescoredCount: number;
-  totalScoreDelta: number;
-  participantsTouched: number;
 }
 
 // ---------- Team ---------------------------------------------------------
@@ -414,6 +415,13 @@ export function unarchiveAdminQuiz(quizId: string) {
   );
 }
 
+export function duplicateAdminQuiz(quizId: string) {
+  return bodyJson<AdminQuizDuplicateResponse>(
+    `/api/admin/quizzes/${encodeURIComponent(quizId)}/duplicate`,
+    "POST",
+  );
+}
+
 // ---------- Questions ----------------------------------------------------
 
 export function listAdminQuestions(quizId: string) {
@@ -437,11 +445,9 @@ export function updateAdminQuestion(
   quizId: string,
   questionId: string,
   body: AdminQuestionUpdateRequest,
-  options: { force?: boolean } = {},
 ) {
-  const qs = options.force ? "?force=1" : "";
   return bodyJson<AdminQuestionUpsertResponse>(
-    `/api/admin/quizzes/${encodeURIComponent(quizId)}/questions/${encodeURIComponent(questionId)}${qs}`,
+    `/api/admin/quizzes/${encodeURIComponent(quizId)}/questions/${encodeURIComponent(questionId)}`,
     "PUT",
     body as unknown as Json,
   );
@@ -512,13 +518,6 @@ export function updateAdminSessionHost(
     `/api/admin/sessions/${encodeURIComponent(sessionId)}`,
     "PATCH",
     body as unknown as Json,
-  );
-}
-
-export function rescoreAdminSession(sessionId: string) {
-  return bodyJson<AdminSessionRescoreResponse>(
-    `/api/admin/sessions/${encodeURIComponent(sessionId)}/rescore`,
-    "POST",
   );
 }
 

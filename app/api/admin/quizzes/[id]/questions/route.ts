@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 
+import { assertQuizEditable } from "@/src/lib/admin/quiz-lock";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuestionCreateSchema } from "@/src/lib/admin/validation";
 import { resolveVideoEmbedFields } from "@/src/lib/admin/video-embed";
@@ -148,18 +149,11 @@ export async function POST(
   const resolvedVideoProvider = videoFields.provider;
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
-  const { data: quizExists } = await serviceSupabase
-    .from("quizzes")
-    .select("id")
-    .eq("id", quizId)
-    .maybeSingle();
 
-  if (!quizExists) {
-    return privateNoStoreJson<AdminQuestionErrorBody>(
-      { error: "QUIZ_NOT_FOUND", message: "Quiz not found." },
-      { status: 404 },
-    );
-  }
+  // ADR-0013 — adding a question is a content edit; locked once the quiz
+  // has any session. assertQuizEditable also returns 404 for missing quiz.
+  const lock = await assertQuizEditable(serviceSupabase, quizId);
+  if (!lock.ok) return lock.response;
 
   const insert: Database["public"]["Tables"]["questions"]["Insert"] = {
     quiz_id: quizId,

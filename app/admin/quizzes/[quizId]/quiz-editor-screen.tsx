@@ -18,6 +18,7 @@ import {
   createAdminQuestion,
   createAdminSession,
   deleteAdminQuestion,
+  duplicateAdminQuiz,
   getAdminQuiz,
   isAdminApiError,
   listAdminQuestions,
@@ -84,6 +85,13 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
   /** Mobile two-pane: list | edit. */
   const [mobileView, setMobileView] = useState<"list" | "edit">("list");
   const [launching, setLaunching] = useState(false);
+  /**
+   * ADR-0013 — true once a session row points at this quiz. Disables every
+   * mutating control and gates the autosave loops so the only outbound
+   * traffic is a duplicate request.
+   */
+  const [locked, setLocked] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   const initialQuestionsLoadedRef = useRef(false);
   const [questionsAutosaveEnabled, setQuestionsAutosaveEnabled] =
@@ -130,9 +138,10 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
         joinFields: quizBody.quiz.joinFields,
         archivedAt: quizBody.quiz.archivedAt,
       });
+      setLocked(quizBody.quiz.hasAnySession);
       setQuestions(questionsBody.questions.map(rowToEditable));
       initialQuestionsLoadedRef.current = true;
-      setQuestionsAutosaveEnabled(true);
+      setQuestionsAutosaveEnabled(!quizBody.quiz.hasAnySession);
       setStatus("ready");
     })();
     return () => {
@@ -155,7 +164,7 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
   const quizSave = useDebouncedAutoSave({
     value: quiz,
     save: saveQuiz,
-    enabled: status === "ready" && quiz !== null,
+    enabled: status === "ready" && quiz !== null && !locked,
   });
 
   // Detects reorder-only changes: same set of question IDs (no add/remove,
@@ -360,7 +369,7 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
   const questionsSave = useDebouncedAutoSave({
     value: questions,
     save: saveQuestions,
-    enabled: status === "ready" && questionsAutosaveEnabled,
+    enabled: status === "ready" && questionsAutosaveEnabled && !locked,
   });
 
   // Combined indicator status — if either is saving/error/saved, surface it.
@@ -449,6 +458,20 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
     onActiveIndexChange: setActiveIndex,
   });
 
+  // ---- Duplicate (ADR-0013) ------------------------------------------
+  const handleDuplicate = useCallback(async () => {
+    if (!quiz || duplicating) return;
+    setDuplicating(true);
+    setErrorMessage(null);
+    const body = await duplicateAdminQuiz(quiz.id);
+    if (isAdminApiError(body)) {
+      setDuplicating(false);
+      setErrorMessage(body.message);
+      return;
+    }
+    router.push(`/admin/quizzes/${body.quiz.id}`);
+  }, [quiz, duplicating, router]);
+
   // ---- Launch session -------------------------------------------------
   const handleLaunch = useCallback(async () => {
     if (!quiz) return;
@@ -526,7 +549,7 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
             <PrimaryButton
               onClick={handleLaunch}
               withArrow
-              disabled={launching}
+              disabled={launching || locked}
               data-testid="admin-launch-session"
             >
               {launching ? "מפעיל…" : "הפעלת חידון"}
@@ -534,6 +557,27 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
           </>
         }
       />
+
+      {locked ? (
+        <div
+          className="mx-4 mt-3 flex flex-wrap items-center gap-3 rounded-md border border-bsy-warn/40 bg-bsy-warn/10 px-4 py-3 text-[13px] text-bsy-ink md:mx-6"
+          data-testid="admin-quiz-locked-banner"
+          role="status"
+        >
+          <span>
+            החידון נעול לעריכה כי כבר התקיימו ממנו משחקים. כדי לערוך — שכפלו אותו.
+          </span>
+          <button
+            type="button"
+            onClick={handleDuplicate}
+            disabled={duplicating}
+            className="ms-auto rounded-full border border-bsy-forest bg-bsy-forest px-4 py-1.5 text-[12px] font-bold text-bsy-paper hover:opacity-90 disabled:opacity-60"
+            data-testid="admin-quiz-duplicate-cta"
+          >
+            {duplicating ? "משכפל…" : "שכפל לעריכה"}
+          </button>
+        </div>
+      ) : null}
 
       {errorMessage ? (
         <div className="mx-4 mt-3 rounded-md border border-bsy-error/30 bg-bsy-error/10 px-4 py-2 text-[13px] text-bsy-error md:mx-6">
@@ -550,7 +594,7 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
             mobileView === "edit" ? "hidden md:block" : "block",
           ].join(" ")}
         >
-          <QuizMetaCard quiz={quiz} onChange={setQuiz} disabled={launching} brands={brands} />
+          <QuizMetaCard quiz={quiz} onChange={setQuiz} disabled={locked || launching} brands={brands} />
           <h3 className="mt-6 mb-3 text-[12px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400">
             {questions.length} תחנות
           </h3>
@@ -558,6 +602,7 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
             items={questions.map((q) => q.clientId)}
             onReorder={reorderQuestion}
             className="flex flex-col gap-2"
+            disabled={locked}
           >
             {questions.map((q, i) => (
               <SortableQuestionCard key={q.clientId} id={q.clientId}>
@@ -576,7 +621,8 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
           <button
             type="button"
             onClick={addQuestion}
-            className="mt-3 w-full rounded-md border border-dashed border-bsy-stone-200 bg-white px-4 py-3 text-[13px] font-bold text-bsy-forest hover:border-bsy-forest"
+            disabled={locked}
+            className="mt-3 w-full rounded-md border border-dashed border-bsy-stone-200 bg-white px-4 py-3 text-[13px] font-bold text-bsy-forest hover:border-bsy-forest disabled:cursor-not-allowed disabled:text-bsy-stone-400 disabled:hover:border-bsy-stone-200"
             data-testid="admin-add-question"
           >
             + הוספת תחנה
@@ -615,9 +661,13 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
               key={activeQuestion.clientId}
               question={activeQuestion}
               onChange={updateQuestion}
-              onDelete={() =>
-                removeQuestion(activeQuestion.clientId, activeQuestion.id)
+              onDelete={
+                locked
+                  ? undefined
+                  : () =>
+                      removeQuestion(activeQuestion.clientId, activeQuestion.id)
               }
+              readOnly={locked}
             />
           ) : (
             <p className="text-[13px] text-bsy-stone-700">

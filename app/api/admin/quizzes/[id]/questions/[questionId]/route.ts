@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 
-import { ADMIN_QUESTION_SCORES_LOCKED_MESSAGE } from "@/src/lib/admin/lifecycle-copy";
+import { assertQuizEditable } from "@/src/lib/admin/quiz-lock";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuestionUpdateSchema } from "@/src/lib/admin/validation";
 import { resolveVideoEmbedFields } from "@/src/lib/admin/video-embed";
@@ -41,13 +41,6 @@ interface AdminQuestionDetailBody {
     videoHeight: number | null;
     mediaLeadSeconds: number;
   };
-  /**
-   * When the admin uses ?force=1 to mutate a score-affecting field on a
-   * quiz that already has submissions, the API surfaces the affected
-   * session IDs so the editor UI can prompt for follow-up rescores.
-   * Empty array when no rescore is required.
-   */
-  requiresRescore?: string[];
 }
 
 interface AdminQuestionDeleteBody {
@@ -57,63 +50,6 @@ interface AdminQuestionDeleteBody {
 interface AdminQuestionErrorBody {
   error: "INVALID_REQUEST" | "QUESTION_NOT_FOUND" | "WRITE_FAILED";
   message: string;
-}
-
-interface AdminQuestionScoresLockedBody {
-  error: "SCORES_LOCKED";
-  message: string;
-  /** Sessions that already have at least one answer for this quiz. */
-  affectedSessionIds: string[];
-}
-
-/**
- * Fields that affect ADR-0006 scoring. Mutating any of these once an
- * answer row exists makes the stored answer.score and
- * participant_scores.total_score stale — admin must rescore (POST
- * /api/admin/sessions/[id]/rescore) after a forced edit.
- */
-type ScoreAffectingField = "points" | "timeSeconds" | "correctIds" | "map";
-
-/**
- * Compares parsed update values against the existing question row and
- * returns the subset of score-affecting fields whose value would change.
- * Equality is intentionally loose: arrays and JSON objects are compared
- * via JSON.stringify so the auto-save loop's no-op patches do not trip
- * the guard.
- */
-function detectScoreAffectingChanges(
-  parsed: {
-    points?: number;
-    timeSeconds?: number;
-    correctIds?: string[] | null;
-    map?: unknown;
-  },
-  existing: Database["public"]["Tables"]["questions"]["Row"],
-): ScoreAffectingField[] {
-  const changes: ScoreAffectingField[] = [];
-  if (parsed.points !== undefined && parsed.points !== existing.points) {
-    changes.push("points");
-  }
-  if (
-    parsed.timeSeconds !== undefined &&
-    parsed.timeSeconds !== existing.time_seconds
-  ) {
-    changes.push("timeSeconds");
-  }
-  if (
-    parsed.correctIds !== undefined &&
-    JSON.stringify(parsed.correctIds ?? null) !==
-      JSON.stringify(existing.correct_ids ?? null)
-  ) {
-    changes.push("correctIds");
-  }
-  if (
-    parsed.map !== undefined &&
-    JSON.stringify(parsed.map ?? null) !== JSON.stringify(existing.map ?? null)
-  ) {
-    changes.push("map");
-  }
-  return changes;
 }
 
 function toDetail(
@@ -195,73 +131,9 @@ export async function PUT(
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
 
-  // Score-edit guard (ADR-0006) runs only when the patch mentions a
-  // score-affecting key. Autosave PUTs that only touch prompt / options /
-  // ordinal stay on the single-statement fast path.
-  const mentionsScoreField =
-    parsed.data.points !== undefined ||
-    parsed.data.timeSeconds !== undefined ||
-    parsed.data.correctIds !== undefined ||
-    parsed.data.map !== undefined;
-
-  const url = new URL(request.url);
-  const force = url.searchParams.get("force") === "1";
-  let affectedSessionIds: string[] = [];
-  let scoreChanges: ScoreAffectingField[] = [];
-
-  if (mentionsScoreField) {
-    const { data: existingRow, error: existingError } = await serviceSupabase
-      .from("questions")
-      .select("*")
-      .eq("id", questionId)
-      .eq("quiz_id", quizId)
-      .maybeSingle();
-
-    if (existingError) {
-      return privateNoStoreJson<AdminQuestionErrorBody>(
-        { error: "WRITE_FAILED", message: "Update failed." },
-        { status: 500 },
-      );
-    }
-
-    if (!existingRow) {
-      return privateNoStoreJson<AdminQuestionErrorBody>(
-        { error: "QUESTION_NOT_FOUND", message: "Question not found." },
-        { status: 404 },
-      );
-    }
-
-    scoreChanges = detectScoreAffectingChanges(parsed.data, existingRow);
-
-    if (scoreChanges.length > 0) {
-      const { data: affectedRows, error: affectedError } = await serviceSupabase
-        .from("answers")
-        .select("session_id, sessions!inner(quiz_id)")
-        .eq("sessions.quiz_id", quizId);
-
-      if (affectedError) {
-        return privateNoStoreJson<AdminQuestionErrorBody>(
-          { error: "WRITE_FAILED", message: "Update failed." },
-          { status: 500 },
-        );
-      }
-
-      affectedSessionIds = Array.from(
-        new Set((affectedRows ?? []).map((row) => row.session_id as string)),
-      );
-
-      if (affectedSessionIds.length > 0 && !force) {
-        return privateNoStoreJson<AdminQuestionScoresLockedBody>(
-          {
-            error: "SCORES_LOCKED",
-            message: ADMIN_QUESTION_SCORES_LOCKED_MESSAGE,
-            affectedSessionIds,
-          },
-          { status: 409 },
-        );
-      }
-    }
-  }
+  // ADR-0013: a quiz with any session is immutable. Iterate via duplicate.
+  const lock = await assertQuizEditable(serviceSupabase, quizId);
+  if (!lock.ok) return lock.response;
 
   const update: Database["public"]["Tables"]["questions"]["Update"] = {};
   if (parsed.data.ordinal !== undefined) update.ordinal = parsed.data.ordinal;
@@ -335,9 +207,6 @@ export async function PUT(
 
   return privateNoStoreJson<AdminQuestionDetailBody>({
     question: toDetail(data),
-    ...(scoreChanges.length > 0 && affectedSessionIds.length > 0
-      ? { requiresRescore: affectedSessionIds }
-      : {}),
   });
 }
 
@@ -350,6 +219,10 @@ export async function DELETE(
 
   const { id: quizId, questionId } = await context.params;
   const serviceSupabase = await createServiceRoleSupabaseClient();
+
+  const lock = await assertQuizEditable(serviceSupabase, quizId);
+  if (!lock.ok) return lock.response;
+
   const { data, error } = await serviceSupabase
     .from("questions")
     .delete()

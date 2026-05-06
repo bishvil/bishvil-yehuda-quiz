@@ -276,3 +276,12 @@ This is the critical behavioral difference. Implement it as a mode flag in the q
 > rescores via `POST /api/admin/sessions/[id]/rescore`. Live/paused/ended
 > sessions are all eligible for rescore.
 
+---
+
+> **Update 2026-05-06 — superseded by ADR-0013.** The `SCORES_LOCKED` /
+> `?force=1` / `requiresRescore` / `rescore_session` machinery described
+> in the 2026-05-04 update has been removed. Quizzes are now immutable
+> the moment any session points at them; admins iterate by duplicating
+> the quiz. See ADR-0013 for the rule, the duplicate endpoint, and the
+> code that was deleted.
+

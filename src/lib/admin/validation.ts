@@ -129,7 +129,16 @@ export const adminQuestionCreateSchema = z.object({
   mediaLeadSeconds: z.number().int().min(0).max(600).optional(),
 });
 
-export const adminQuestionUpdateSchema = adminQuestionCreateSchema.partial();
+// PATCH semantics: missing keys mean "no change", so we strip the
+// `.default(...)` from `timeSeconds` and `points` before partial-ing.
+// Otherwise zod would inject the create-time defaults on every partial
+// PUT and silently overwrite stored values.
+export const adminQuestionUpdateSchema = adminQuestionCreateSchema
+  .extend({
+    timeSeconds: z.number().int().min(1),
+    points: z.number().int().min(1),
+  })
+  .partial();
 
 export const adminQuestionReorderSchema = z.object({
   ordinals: z.array(

@@ -8,6 +8,7 @@ import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import {
   archiveAdminQuiz,
   createAdminQuiz,
+  duplicateAdminQuiz,
   hardDeleteAdminQuiz,
   isAdminApiError,
   listAdminQuizzes,
@@ -109,6 +110,18 @@ export function QuizListScreen({ brands, defaultBrandId }: QuizListScreenProps) 
     setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
   }, []);
 
+  const handleDuplicate = useCallback(async (quizId: string) => {
+    setErrorMessage(null);
+    const body = await duplicateAdminQuiz(quizId);
+    if (isAdminApiError(body)) {
+      setErrorMessage(body.message);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      window.location.href = `/admin/quizzes/${body.quiz.id}`;
+    }
+  }, []);
+
   const handleUnarchive = useCallback(async (quizId: string) => {
     const body = await unarchiveAdminQuiz(quizId);
     if (isAdminApiError(body)) {
@@ -175,6 +188,7 @@ export function QuizListScreen({ brands, defaultBrandId }: QuizListScreenProps) 
                   onArchive={() => handleArchive(quiz.id)}
                   onUnarchive={() => handleUnarchive(quiz.id)}
                   onHardDelete={() => handleHardDelete(quiz.id)}
+                  onDuplicate={() => handleDuplicate(quiz.id)}
                 />
               </li>
             ))}
@@ -228,16 +242,19 @@ function QuizCard({
   onArchive,
   onUnarchive,
   onHardDelete,
+  onDuplicate,
 }: {
   quiz: AdminQuizListItem;
   brands: ParticipantBrand[];
   onArchive: () => void;
   onUnarchive: () => void;
   onHardDelete: () => void;
+  onDuplicate: () => void;
 }) {
   const archived = quiz.archivedAt !== null;
   const sessionCount = quiz.sessionCount ?? 0;
   const canHardDelete = archived && sessionCount === 0;
+  const locked = sessionCount > 0;
   return (
     <article
       className={[
@@ -273,7 +290,7 @@ function QuizCard({
           href={`/admin/quizzes/${quiz.id}`}
           className="text-[13px] font-bold text-bsy-forest hover:underline"
         >
-          עריכה ←
+          {locked ? "צפייה ←" : "עריכה ←"}
         </Link>
         <div className="flex items-center gap-2">
           <Link
@@ -282,6 +299,15 @@ function QuizCard({
           >
             משחקים
           </Link>
+          <button
+            type="button"
+            onClick={onDuplicate}
+            className="text-[12px] text-bsy-stone-700 hover:text-bsy-forest"
+            data-testid="admin-duplicate-quiz"
+            title="צור עותק זמין לעריכה"
+          >
+            שכפל
+          </button>
           {archived ? (
             <>
               <button

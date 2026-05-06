@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 
+import { assertQuizEditable } from "@/src/lib/admin/quiz-lock";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuizUpdateSchema } from "@/src/lib/admin/validation";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
@@ -22,6 +23,7 @@ interface AdminQuizDetailBody {
     joinFields: string[];
     archivedAt: string | null;
     createdAt: string;
+    hasAnySession: boolean;
   };
 }
 
@@ -58,7 +60,7 @@ export async function GET(
   const { data, error } = await serviceSupabase
     .from("quizzes")
     .select(
-      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, custom_logo_active, join_fields, archived_at, created_at",
+      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, custom_logo_active, join_fields, archived_at, created_at, sessions(count)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -77,6 +79,10 @@ export async function GET(
     );
   }
 
+  const sessionCount = Array.isArray(data.sessions)
+    ? (data.sessions[0]?.count ?? 0)
+    : 0;
+
   return privateNoStoreJson<AdminQuizDetailBody>({
     quiz: {
       id: data.id,
@@ -89,6 +95,7 @@ export async function GET(
       joinFields: normalizeJoinFields(data.join_fields),
       archivedAt: data.archived_at,
       createdAt: data.created_at,
+      hasAnySession: sessionCount > 0,
     },
   });
 }
@@ -132,6 +139,13 @@ export async function PUT(
   }
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
+
+  // ADR-0013 — content edits are blocked once any session exists. The
+  // archive/unarchive flows have dedicated endpoints (DELETE here without
+  // ?hard, and POST /unarchive), so PUT is treated as a pure content edit.
+  const lock = await assertQuizEditable(serviceSupabase, id);
+  if (!lock.ok) return lock.response;
+
   const { data, error } = await serviceSupabase
     .from("quizzes")
     .update(update)
@@ -167,6 +181,8 @@ export async function PUT(
       joinFields: normalizeJoinFields(data.join_fields),
       archivedAt: data.archived_at,
       createdAt: data.created_at,
+      // The lock guard above guarantees a writable quiz reaches this point.
+      hasAnySession: false,
     },
   });
 }

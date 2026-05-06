@@ -45,6 +45,7 @@ const QUIZ_DETAIL = {
     joinFields: ["name", "phone"],
     archivedAt: null,
     createdAt: "2026-04-30T20:00:00Z",
+    hasAnySession: false,
   },
 };
 

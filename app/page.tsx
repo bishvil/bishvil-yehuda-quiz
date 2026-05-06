@@ -68,10 +68,10 @@ export default function HomePage() {
           </Link>
 
           <div
-            className="relative z-10 mx-auto flex w-full flex-col items-center justify-between gap-12 px-5 py-12 text-center md:py-20"
+            className="relative z-10 mx-auto flex w-full flex-col items-center justify-between gap-12 px-5 py-12 text-center md:py-12"
             style={{ maxWidth: "1120px" }}
           >
-            <div className="mt-10 flex flex-col items-center md:mt-16">
+            <div className="mt-10 flex flex-col items-center md:mt-0">
               <Image
                 src="/logos/logo_main.png"
                 alt="בשביל יהודה"
@@ -136,11 +136,13 @@ export default function HomePage() {
           <div className="manifesto__inner">
             <p className="manifesto__text font-hand">
               <span className="manifesto__line">כל מקום הוא שאלה</span>
-              <span className="manifesto__line">כל שאלה היא שביל אל סיפור.</span>
+              <span className="manifesto__line">כל שאלה היא שביל</span>
+              <span className="manifesto__line">שביל אל סיפור מורשת</span>
             </p>
           </div>
         </section>
       </main>
+      
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer

@@ -22,26 +22,9 @@ export const SESSION_START_CONFIRM =
 export const SESSION_END_CONFIRM =
   "סיום החידון יחתום את התוצאות. לא ניתן לפתוח אותו מחדש.";
 
-/** Confirm copy when an admin clicks "חשב מחדש" on a session. */
-export const SESSION_RESCORE_CONFIRM =
-  "לחשב מחדש את הציונים של המשחק לפי הגדרות החידון העדכניות?";
-
-/** 409 SCORES_LOCKED message — admin tried to edit a score field with answers present. */
-export const ADMIN_QUESTION_SCORES_LOCKED_MESSAGE =
-  "השדות שמשפיעים על הציון נעולים — קיימות תשובות שמורות. ניתן לאלץ עריכה ולחשב מחדש את הציונים.";
-
-export function formatRescoreSummary(stats: {
-  rescoredCount: number;
-  participantsTouched: number;
-  totalScoreDelta: number;
-}): string {
-  return `חישוב מחדש בוצע: ${stats.rescoredCount} תשובות, ${stats.participantsTouched} משתתפים, שינוי כולל ${stats.totalScoreDelta}.`;
-}
-
 export const LIFECYCLE_COPY = {
   createHelper: SESSION_CREATE_HELPER,
   publishConfirm: SESSION_PUBLISH_CONFIRM,
   startConfirm: SESSION_START_CONFIRM,
   endConfirm: SESSION_END_CONFIRM,
-  rescoreConfirm: SESSION_RESCORE_CONFIRM,
 } as const;

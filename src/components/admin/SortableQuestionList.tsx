@@ -26,6 +26,8 @@ interface SortableQuestionListProps {
     overId: UniqueIdentifier | null | undefined,
   ) => void;
   className?: string;
+  /** When true, drag-and-drop is suppressed (read-only quiz, ADR-0013). */
+  disabled?: boolean;
 }
 
 export function SortableQuestionList({
@@ -33,6 +35,7 @@ export function SortableQuestionList({
   children,
   onReorder,
   className = "",
+  disabled = false,
 }: SortableQuestionListProps) {
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -47,12 +50,13 @@ export function SortableQuestionList({
   );
 
   function handleDragEnd(event: DragEndEvent) {
+    if (disabled) return;
     onReorder(event.active.id, event.over?.id);
   }
 
   return (
     <DndContext
-      sensors={sensors}
+      sensors={disabled ? [] : sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >

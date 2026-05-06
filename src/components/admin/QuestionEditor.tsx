@@ -25,6 +25,12 @@ interface QuestionEditorProps {
   question: EditableQuestion;
   onChange: (next: EditableQuestion) => void;
   onDelete?: () => void;
+  /**
+   * ADR-0013 — when true the editor is rendered in read-only mode. All
+   * inputs/buttons are disabled and onChange is never invoked. Used by
+   * the quiz editor when the underlying quiz already has sessions.
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -36,6 +42,7 @@ export function QuestionEditor({
   question,
   onChange,
   onDelete,
+  readOnly = false,
 }: QuestionEditorProps) {
   const update = useCallback(
     (patch: Partial<EditableQuestion>) => onChange({ ...question, ...patch }),
@@ -83,7 +90,8 @@ export function QuestionEditor({
               key={t}
               label={QUESTION_TYPE_LABELS[t]}
               active={question.type === t}
-              onClick={() => handleTypeChange(t)}
+              onClick={readOnly ? undefined : () => handleTypeChange(t)}
+              disabled={readOnly}
               data-testid={`type-pill-${t}`}
             />
           ))}
@@ -93,15 +101,22 @@ export function QuestionEditor({
       <Field label="ניסוח השאלה">
         <textarea
           rows={3}
-          className="w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px] text-bsy-ink focus:border-bsy-forest focus:outline-none"
+          className="w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px] text-bsy-ink focus:border-bsy-forest focus:outline-none disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
           value={question.prompt}
           onChange={(event) => update({ prompt: event.target.value })}
+          disabled={readOnly}
           data-testid="question-prompt"
         />
       </Field>
 
       {question.type === "video" ? (
-        <div className="flex flex-col gap-1.5">
+        <div
+          className={[
+            "flex flex-col gap-1.5",
+            readOnly ? "pointer-events-none opacity-60" : "",
+          ].join(" ")}
+          aria-disabled={readOnly}
+        >
           <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
             סרטון השאלה
           </span>
@@ -113,7 +128,13 @@ export function QuestionEditor({
       ) : null}
 
       {question.type === "image" ? (
-        <div className="flex flex-col gap-1.5">
+        <div
+          className={[
+            "flex flex-col gap-1.5",
+            readOnly ? "pointer-events-none opacity-60" : "",
+          ].join(" ")}
+          aria-disabled={readOnly}
+        >
           <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
             תמונת השאלה
           </span>
@@ -142,7 +163,7 @@ export function QuestionEditor({
               onChange={(event) =>
                 update({ imageAlt: event.target.value || null })
               }
-              disabled={!question.imageUrl}
+              disabled={readOnly || !question.imageUrl}
               className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[13px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50 disabled:text-bsy-stone-400"
               dir="rtl"
               data-testid="question-image-alt"
@@ -153,10 +174,15 @@ export function QuestionEditor({
 
       {question.type === "map" ? (
         <Field label="מפה ויעד">
-          <MapQuestionEditor
-            value={readMapGeoDraft(question)}
-            onChange={(next) => update(writeMapGeoDraft(next))}
-          />
+          <div
+            className={readOnly ? "pointer-events-none opacity-60" : undefined}
+            aria-disabled={readOnly}
+          >
+            <MapQuestionEditor
+              value={readMapGeoDraft(question)}
+              onChange={(next) => update(writeMapGeoDraft(next))}
+            />
+          </div>
         </Field>
       ) : null}
 
@@ -171,19 +197,22 @@ export function QuestionEditor({
                     type="button"
                     onClick={() => toggleCorrect(option.id)}
                     aria-pressed={checked}
+                    disabled={readOnly}
                     className={[
                       "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-[14px] transition-colors",
                       checked
                         ? "border-bsy-forest bg-bsy-forest text-bsy-paper"
                         : "border-bsy-stone-200 bg-white text-transparent hover:border-bsy-forest",
+                      "disabled:cursor-not-allowed",
                     ].join(" ")}
                     data-testid={`correct-toggle-${option.id}`}
                   >
                     ✓
                   </button>
                   <input
-                    className="flex-1 rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px]"
+                    className="flex-1 rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
                     value={option.text}
+                    disabled={readOnly}
                     onChange={(event) =>
                       update({
                         options: (question.options ?? []).map((o) =>
@@ -198,7 +227,8 @@ export function QuestionEditor({
                     <button
                       type="button"
                       title="מחיקה"
-                      className="px-2 text-[14px] text-bsy-stone-400 hover:text-bsy-error"
+                      disabled={readOnly}
+                      className="px-2 text-[14px] text-bsy-stone-400 hover:text-bsy-error disabled:cursor-not-allowed disabled:text-bsy-stone-300"
                       onClick={() =>
                         update({
                           options: (question.options ?? []).filter(
@@ -219,7 +249,8 @@ export function QuestionEditor({
             {question.type !== "truefalse" ? (
               <button
                 type="button"
-                className="self-start text-[12px] font-bold text-bsy-forest hover:underline"
+                disabled={readOnly}
+                className="self-start text-[12px] font-bold text-bsy-forest hover:underline disabled:cursor-not-allowed disabled:text-bsy-stone-400"
                 onClick={() => {
                   const next = [...(question.options ?? [])];
                   const id = nextOptionId(next);
@@ -241,6 +272,7 @@ export function QuestionEditor({
           min={5}
           max={600}
           onChange={(timeSeconds) => update({ timeSeconds })}
+          disabled={readOnly}
         />
         <NumberField
           label="נקודות"
@@ -249,14 +281,16 @@ export function QuestionEditor({
           max={10000}
           step={50}
           onChange={(points) => update({ points })}
+          disabled={readOnly}
         />
       </div>
 
       <Field label="פידבק לאחר תשובה">
         <textarea
           rows={3}
-          className="w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px]"
+          className="w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
           value={question.explanation ?? ""}
+          disabled={readOnly}
           onChange={(event) =>
             update({ explanation: event.target.value || null })
           }
@@ -344,6 +378,7 @@ function NumberField({
   min,
   max,
   step = 1,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -351,6 +386,7 @@ function NumberField({
   min?: number;
   max?: number;
   step?: number;
+  disabled?: boolean;
 }) {
   return (
     <label className="flex flex-col gap-1.5">
@@ -359,11 +395,12 @@ function NumberField({
       </span>
       <input
         type="number"
-        className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 font-mono text-[14px]"
+        className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 font-mono text-[14px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
         value={Number.isFinite(value) ? value : ""}
         min={min}
         max={max}
         step={step}
+        disabled={disabled}
         onChange={(event) => {
           const next = Number(event.target.value);
           if (Number.isFinite(next)) onChange(next);

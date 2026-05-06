@@ -16,30 +16,17 @@ import {
   listAdminQuestions,
   listAdminSessions,
   listAdminTeam,
-  rescoreAdminSession,
   updateAdminSessionHost,
   type AdminQuizDetail,
   type AdminSessionListRow,
   type AdminTeamMember,
 } from "@/src/lib/admin/api-client";
 import {
-  formatRescoreSummary,
   SESSION_CREATE_HELPER,
   SESSION_PUBLISH_CONFIRM,
-  SESSION_RESCORE_CONFIRM,
 } from "@/src/lib/admin/lifecycle-copy";
-import { GAME_MODE_LABELS, type SessionStatus } from "@/src/lib/constants";
+import { GAME_MODE_LABELS } from "@/src/lib/constants";
 import { HOST_REASSIGNABLE_STATUSES } from "@/src/lib/sessions/state-machine";
-
-/**
- * Statuses where a rescore makes sense — any state in which answer rows
- * could exist. Excludes draft / scheduled (no answers yet).
- */
-const RESCORABLE_STATUSES: readonly SessionStatus[] = [
-  "ended",
-  "live",
-  "paused",
-];
 
 export function SessionsScreen({ quizId }: { quizId: string }) {
   const [quiz, setQuiz] = useState<AdminQuizDetail | null>(null);
@@ -192,21 +179,6 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     );
   }, [showArchived]);
 
-  const handleRescore = useCallback(async (sessionId: string) => {
-    if (typeof window !== "undefined" && !window.confirm(SESSION_RESCORE_CONFIRM)) {
-      return;
-    }
-    setErrorMessage(null);
-    const body = await rescoreAdminSession(sessionId);
-    if (isAdminApiError(body)) {
-      setErrorMessage(body.message);
-      return;
-    }
-    if (typeof window !== "undefined") {
-      window.alert(formatRescoreSummary(body));
-    }
-  }, []);
-
   const handleHardDelete = useCallback(async (sessionId: string) => {
     if (
       typeof window !== "undefined" &&
@@ -313,7 +285,6 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
                   onReassign={handleReassign}
                   onArchive={handleArchive}
                   onHardDelete={handleHardDelete}
-                  onRescore={handleRescore}
                 />
               </li>
             ))}
@@ -411,7 +382,6 @@ function SessionCard({
   onReassign,
   onArchive,
   onHardDelete,
-  onRescore,
 }: {
   session: AdminSessionListRow;
   quizId: string;
@@ -420,7 +390,6 @@ function SessionCard({
   onReassign: (sessionId: string, hostUserId: string) => void;
   onArchive: (sessionId: string) => void;
   onHardDelete: (sessionId: string) => void;
-  onRescore: (sessionId: string) => void;
 }) {
   const created = new Date(session.createdAt);
   const canReassign = HOST_REASSIGNABLE_STATUSES.includes(session.status);
@@ -435,7 +404,6 @@ function SessionCard({
       session.status === "scheduled");
   // Hard-delete only after archiving.
   const canHardDelete = isArchived;
-  const canRescore = RESCORABLE_STATUSES.includes(session.status);
 
   return (
     <article
@@ -520,17 +488,6 @@ function SessionCard({
           תוצאות
         </Link>
 <span className="ms-auto flex items-center gap-2">
-          {canRescore ? (
-            <button
-              type="button"
-              onClick={() => onRescore(session.id)}
-              className="text-[12px] text-bsy-stone-700 hover:text-bsy-forest"
-              data-testid="admin-session-rescore"
-              title="חישוב מחדש של הציונים לפי הגדרות החידון העדכניות"
-            >
-              חשב מחדש
-            </button>
-          ) : null}
           {canArchive ? (
             <button
               type="button"
