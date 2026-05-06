@@ -190,6 +190,15 @@ export function AdminMobileNav({
           <span aria-hidden="true">◒</span>
           <span>צוות</span>
         </Link>
+
+        <form action="/api/auth/signout" method="post" className="mt-auto pt-4">
+          <button
+            type="submit"
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-bsy-stone-200 bg-white px-3 py-2 text-[12px] font-bold text-bsy-stone-700 transition-colors hover:bg-bsy-stone-50"
+          >
+            התנתק
+          </button>
+        </form>
       </nav>
     </>
   );
