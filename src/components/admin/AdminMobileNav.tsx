@@ -83,12 +83,13 @@ export function AdminMobileNav({
       {/* Slide-in drawer (RTL - slides from right) */}
       <nav
         className={[
-          "fixed right-0 top-0 z-50 h-screen w-[220px] bg-bsy-paper-warm border-l border-bsy-stone-100 overflow-y-auto transition-transform duration-300 md:hidden",
-          "flex flex-col gap-1 px-4 py-5",
+          "fixed right-0 top-0 z-50 h-screen w-[220px] bg-bsy-paper-warm border-l border-bsy-stone-100 transition-transform duration-300 md:hidden",
+          "flex flex-col",
           open ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
         dir="rtl"
       >
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-4 pt-5">
         {/* Close button at top */}
         <div className="flex justify-end mb-4">
           <button
@@ -191,7 +192,12 @@ export function AdminMobileNav({
           <span>צוות</span>
         </Link>
 
-        <form action="/api/auth/signout" method="post" className="mt-auto pt-4">
+        </div>
+        <form
+          action="/api/auth/signout"
+          method="post"
+          className="shrink-0 border-t border-bsy-stone-100 bg-bsy-paper-warm px-4 py-4"
+        >
           <button
             type="submit"
             className="flex w-full items-center justify-center gap-2 rounded-full border border-bsy-stone-200 bg-white px-3 py-2 text-[12px] font-bold text-bsy-stone-700 transition-colors hover:bg-bsy-stone-50"

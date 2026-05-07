@@ -18,7 +18,8 @@ export function AdminSidebar({
   const pathname = usePathname() ?? "";
 
   return (
-    <aside className="hidden w-[220px] shrink-0 flex-col gap-1 border-l border-bsy-stone-100 bg-bsy-paper-warm px-4 py-5 md:flex">
+    <aside className="sticky top-0 hidden h-screen max-h-screen w-[220px] shrink-0 flex-col border-l border-bsy-stone-100 bg-bsy-paper-warm md:flex">
+      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-4 pt-5">
       <div className="mb-4 flex items-center gap-3">
         <div className="relative h-10 w-10 overflow-hidden rounded-md bg-white">
           <Image
@@ -92,7 +93,12 @@ export function AdminSidebar({
         active={pathname.startsWith("/admin/settings/team")}
       />
 
-      <form action="/api/auth/signout" method="post" className="mt-auto pt-4">
+      </div>
+      <form
+        action="/api/auth/signout"
+        method="post"
+        className="shrink-0 border-t border-bsy-stone-100 bg-bsy-paper-warm px-4 py-4"
+      >
         <button
           type="submit"
           className="flex w-full items-center justify-center gap-2 rounded-full border border-bsy-stone-200 bg-white px-3 py-2 text-[12px] font-bold text-bsy-stone-700 transition-colors hover:bg-bsy-stone-50"
