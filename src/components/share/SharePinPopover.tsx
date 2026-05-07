@@ -88,7 +88,13 @@ export function SharePinPopover({
       : "inline-flex items-center rounded-full border border-bsy-stone-200 px-3 py-1 text-[12px] font-bold text-bsy-stone-700 hover:bg-bsy-stone-50";
 
   return (
-    <div className="relative inline-block" ref={containerRef}>
+    <div
+      className={[
+        "relative inline-block",
+        open ? "z-30" : "",
+      ].join(" ")}
+      ref={containerRef}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
