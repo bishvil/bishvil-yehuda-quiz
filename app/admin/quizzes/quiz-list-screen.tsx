@@ -1,9 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { AdminTopBar } from "@/src/components/admin/AdminTopBar";
+import {
+  AdminCard,
+  BrandSwatch,
+  CardActions,
+  CardEyebrow,
+  CardTitle,
+  PrimaryAction,
+  StatusChip,
+  type MenuItem,
+} from "@/src/components/admin/cards";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import {
   archiveAdminQuiz,
@@ -179,7 +188,7 @@ export function QuizListScreen({ brands, defaultBrandId }: QuizListScreenProps) 
         ) : visible.length === 0 ? (
           <EmptyState onCreate={handleCreate} creating={creating} />
         ) : (
-          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visible.map((quiz) => (
               <li key={quiz.id}>
                 <QuizCard
@@ -201,11 +210,11 @@ export function QuizListScreen({ brands, defaultBrandId }: QuizListScreenProps) 
 
 function Skeleton() {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="h-[120px] animate-pulse rounded-md border border-bsy-stone-100 bg-white"
+          className="h-[180px] animate-pulse rounded-[12px] border border-bsy-stone-100 bg-[color:var(--bsy-paper-card)]"
         />
       ))}
     </div>
@@ -220,7 +229,7 @@ function EmptyState({
   creating: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-md border border-dashed border-bsy-stone-200 bg-white px-6 py-16 text-center">
+    <div className="flex flex-col items-center gap-4 rounded-[12px] border border-dashed border-bsy-stone-200 bg-[color:var(--bsy-paper-card)] px-6 py-16 text-center">
       <div>
         <h2 className="font-[var(--font-display)] text-2xl text-bsy-brown">
           אין חידונים עדיין
@@ -255,94 +264,90 @@ function QuizCard({
   const sessionCount = quiz.sessionCount ?? 0;
   const canHardDelete = archived && sessionCount === 0;
   const locked = sessionCount > 0;
+  const brand = brands.find((b) => b.id === quiz.brandId);
+  const brandName = brand?.name ?? quiz.brandId;
+  const questionCount = quiz.questionCount;
+
+  const menu: MenuItem[] = [
+    {
+      key: "sessions",
+      label: "משחקים שלי",
+      href: `/admin/quizzes/${quiz.id}/sessions`,
+    },
+    {
+      key: "duplicate",
+      label: "שכפל",
+      onClick: onDuplicate,
+      title: "צור עותק זמין לעריכה",
+    },
+  ];
+  if (archived) {
+    menu.push({ key: "unarchive", label: "שחזר", onClick: onUnarchive });
+    menu.push({
+      key: "hard-delete",
+      label: "מחק לצמיתות",
+      onClick: onHardDelete,
+      destructive: true,
+      disabled: !canHardDelete,
+      title: canHardDelete ? undefined : "לא ניתן למחוק חידון עם משחקים",
+    });
+  } else {
+    menu.push({
+      key: "archive",
+      label: "ארכוב",
+      onClick: onArchive,
+      destructive: true,
+    });
+  }
+
+  const eyebrowParts = [GAME_MODE_LABELS[quiz.defaultGameMode], brandName];
+
   return (
-    <article
-      className={[
-        "flex h-full flex-col justify-between rounded-md border bg-white p-4 shadow-[var(--shadow-xs)] transition-colors",
-        archived
-          ? "border-bsy-stone-100 opacity-60"
-          : "border-bsy-stone-100 hover:border-bsy-forest",
-      ].join(" ")}
+    <AdminCard
+      tone={archived ? "muted" : "default"}
       data-testid="admin-quiz-card"
     >
-      <div>
-        <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-bsy-stone-400">
-          <span>{GAME_MODE_LABELS[quiz.defaultGameMode]}</span>
-          {archived ? (
-            <span className="rounded bg-bsy-stone-100 px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-bsy-stone-500">
-              בארכיון
-            </span>
-          ) : null}
-        </div>
-        <h3 className="font-[var(--font-display)] text-xl text-bsy-brown">
-          {quiz.title}
-        </h3>
-        <p className="mt-1 text-[12px] text-bsy-stone-700">
-          {typeof quiz.questionCount === "number"
-            ? `${quiz.questionCount} תחנות`
-            : "—"}
-          <span className="px-1">·</span>
-          <span>{brands.find((b) => b.id === quiz.brandId)?.name ?? quiz.brandId}</span>
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <BrandSwatch name={brandName} color={brand?.primary} />
+        {archived ? <StatusChip status="archived" /> : null}
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2">
-        <Link
-          href={`/admin/quizzes/${quiz.id}`}
-          className="text-[13px] font-bold text-bsy-forest hover:underline"
-        >
-          {locked ? "צפייה ←" : "עריכה ←"}
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/quizzes/${quiz.id}/sessions`}
-            className="text-[12px] text-bsy-stone-700 hover:text-bsy-forest"
-          >
-            משחקים
-          </Link>
-          <button
-            type="button"
-            onClick={onDuplicate}
-            className="text-[12px] text-bsy-stone-700 hover:text-bsy-forest"
-            data-testid="admin-duplicate-quiz"
-            title="צור עותק זמין לעריכה"
-          >
-            שכפל
-          </button>
-          {archived ? (
+
+      <div className="mt-4 flex flex-col gap-2">
+        <CardEyebrow>{eyebrowParts.join(" · ")}</CardEyebrow>
+        <CardTitle>{quiz.title}</CardTitle>
+        <p className="m-0 text-[12.5px] text-bsy-stone-700">
+          {typeof questionCount === "number" ? (
             <>
-              <button
-                type="button"
-                onClick={onUnarchive}
-                className="text-[12px] text-bsy-forest hover:underline"
-              >
-                שחזר
-              </button>
-              <button
-                type="button"
-                onClick={onHardDelete}
-                disabled={!canHardDelete}
-                title={
-                  canHardDelete
-                    ? undefined
-                    : "לא ניתן למחוק חידון עם משחקים"
-                }
-                className="rounded border border-bsy-error/40 px-2 py-0.5 text-[12px] text-bsy-error hover:bg-bsy-error/10 disabled:cursor-not-allowed disabled:border-bsy-stone-200 disabled:text-bsy-stone-400 disabled:hover:bg-transparent"
-                data-testid="admin-hard-delete-quiz"
-              >
-                מחק לצמיתות
-              </button>
+              <span className="font-bold text-bsy-brown" dir="ltr">
+                {questionCount}
+              </span>
+              <span className="px-1">תחנות</span>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={onArchive}
-              className="text-[12px] text-bsy-stone-400 hover:text-bsy-error"
-            >
-              ארכוב
-            </button>
+            <span>—</span>
           )}
-        </div>
+          {sessionCount > 0 ? (
+            <>
+              <span className="px-1.5 text-bsy-stone-200">·</span>
+              <span className="font-bold text-bsy-brown" dir="ltr">
+                {sessionCount}
+              </span>
+              <span className="px-1">משחקים</span>
+            </>
+          ) : null}
+        </p>
       </div>
-    </article>
+
+      <div className="mt-auto">
+        <CardActions
+          primary={
+            <PrimaryAction href={`/admin/quizzes/${quiz.id}`}>
+              {locked ? "צפייה" : "עריכה"}
+            </PrimaryAction>
+          }
+          menu={menu}
+        />
+      </div>
+    </AdminCard>
   );
 }
