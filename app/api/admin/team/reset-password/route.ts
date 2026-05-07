@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   }
 
   const redirectTo = new URL(
-    "/auth/update-password",
+    "/auth/confirm?next=/auth/update-password",
     request.url,
   ).toString();
 

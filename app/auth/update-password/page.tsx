@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import UpdatePasswordForm from "./update-password-form";
 
 export default function UpdatePasswordPage() {
@@ -28,7 +30,15 @@ export default function UpdatePasswordPage() {
         >
           עדכון סיסמה
         </h1>
-        <UpdatePasswordForm />
+        <Suspense
+          fallback={
+            <p style={{ textAlign: "center", color: "var(--bsy-stone-700)" }}>
+              טוען…
+            </p>
+          }
+        >
+          <UpdatePasswordForm />
+        </Suspense>
       </div>
     </div>
   );

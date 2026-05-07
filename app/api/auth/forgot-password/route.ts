@@ -25,7 +25,13 @@ export async function POST(request: NextRequest) {
   const { email } = parsed.data;
 
   const supabase = await createServerSupabaseClient();
-  const redirectTo = new URL("/auth/update-password", request.url).toString();
+  // Recovery links arrive with `?code=...` (PKCE) or `?token_hash=...&type=recovery`.
+  // `/auth/confirm` exchanges the credential into a session cookie before
+  // forwarding to the password-update form.
+  const redirectTo = new URL(
+    "/auth/confirm?next=/auth/update-password",
+    request.url,
+  ).toString();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
   });

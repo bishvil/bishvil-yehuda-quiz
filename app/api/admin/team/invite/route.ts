@@ -45,8 +45,17 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createServiceRoleSupabaseClient();
+  // Send invitees through `/auth/confirm` so the PKCE code (or token_hash)
+  // appended to the redirect is exchanged into a session cookie before they
+  // land on the password-update form. Without a redirectTo Supabase falls back
+  // to site_url, leaving the credential unhandled on the landing page.
+  const redirectTo = new URL(
+    "/auth/confirm?next=/auth/update-password",
+    request.url,
+  ).toString();
   const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
     data: { role },
+    redirectTo,
   });
   if (error || !data?.user) {
     return privateNoStoreJson<InviteErrorBody>(

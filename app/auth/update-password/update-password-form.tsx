@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { MIN_PASSWORD_LENGTH } from "@/src/lib/auth/validation";
 import { createBrowserSupabaseClient } from "@/src/lib/supabase/browser";
@@ -10,13 +10,16 @@ type Status = "loading" | "ready" | "saving" | "saved" | "error" | "no-session";
 
 export default function UpdatePasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const confirmError = searchParams.get("error");
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
-  const [status, setStatus] = useState<Status>("loading");
+  const [status, setStatus] = useState<Status>(confirmError ? "no-session" : "loading");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (confirmError) return;
     let cancelled = false;
     void (async () => {
       // Recovery links open with #access_token=...&type=recovery in the URL
@@ -35,7 +38,7 @@ export default function UpdatePasswordForm() {
       cancelled = true;
       sub.data.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, confirmError]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
