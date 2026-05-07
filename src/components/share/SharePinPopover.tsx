@@ -14,6 +14,8 @@ interface SharePinPopoverProps {
 
 const POPOVER_WIDTH = 260;
 const POPOVER_GAP = 8;
+const POPOVER_MARGIN = 8;
+const POPOVER_HEIGHT_FALLBACK = 370;
 
 interface PopoverPosition {
   top: number;
@@ -58,10 +60,28 @@ export function SharePinPopover({
       const isRtl =
         getComputedStyle(trigger).direction === "rtl" ||
         document.documentElement.dir === "rtl";
-      const inlineEnd = isRtl
-        ? Math.max(8, rect.left)
-        : Math.max(8, window.innerWidth - rect.right);
-      setPos({ top: rect.bottom + POPOVER_GAP, inlineEnd });
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      // Anchor the popover's inline-end edge to the trigger's inline-end
+      // edge, then clamp so the popover stays fully within the viewport.
+      const rawInlineEnd = isRtl ? rect.left : vw - rect.right;
+      const maxInlineEnd = Math.max(POPOVER_MARGIN, vw - POPOVER_WIDTH - POPOVER_MARGIN);
+      const inlineEnd = Math.min(
+        Math.max(POPOVER_MARGIN, rawInlineEnd),
+        maxInlineEnd,
+      );
+
+      // Prefer dropping below the trigger; flip above when there isn't room.
+      const dialogHeight =
+        dialogRef.current?.getBoundingClientRect().height ?? POPOVER_HEIGHT_FALLBACK;
+      const spaceBelow = vh - rect.bottom;
+      const top =
+        spaceBelow >= dialogHeight + POPOVER_GAP + POPOVER_MARGIN
+          ? rect.bottom + POPOVER_GAP
+          : Math.max(POPOVER_MARGIN, rect.top - dialogHeight - POPOVER_GAP);
+
+      setPos({ top, inlineEnd });
     };
     reposition();
     window.addEventListener("scroll", reposition, true);
