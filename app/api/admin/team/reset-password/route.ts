@@ -4,15 +4,13 @@ import { requireRole } from "@/src/lib/auth/server-auth";
 import { teamUserIdSchema } from "@/src/lib/auth/validation";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { writeLog } from "@/src/lib/logging";
-import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  createServiceRoleSupabaseClient,
+} from "@/src/lib/supabase/server";
 
 interface OkBody {
   ok: true;
-  /**
-   * Returned only when not in production. Lets the admin copy the link
-   * directly when SMTP is not configured (typical dev setup).
-   */
-  actionLink?: string;
 }
 
 interface ErrBody {
@@ -21,8 +19,14 @@ interface ErrBody {
 }
 
 /**
- * Admin-triggered password recovery email. Generates a recovery link via
- * Supabase admin API, which dispatches the configured recovery template.
+ * Admin-triggered password recovery email.
+ *
+ * We deliberately use `resetPasswordForEmail` (anon client) rather than
+ * `admin.generateLink({ type: "recovery" })`. `generateLink` returns the
+ * action link in the response and only triggers SMTP under specific
+ * configurations — in our hosted setup it consistently produced a 200 with
+ * no email actually dispatched. `resetPasswordForEmail` always goes through
+ * the project's SMTP pipeline and the configured "Reset Password" template.
  */
 export async function POST(request: NextRequest) {
   const auth = await requireRole("admin");
@@ -37,8 +41,8 @@ export async function POST(request: NextRequest) {
   }
   const { userId } = parsed.data;
 
-  const supabase = await createServiceRoleSupabaseClient();
-  const { data: existing } = await supabase.auth.admin.getUserById(userId);
+  const adminClient = await createServiceRoleSupabaseClient();
+  const { data: existing } = await adminClient.auth.admin.getUserById(userId);
   const email = existing?.user?.email ?? null;
   if (!email) {
     return privateNoStoreJson<ErrBody>(
@@ -52,15 +56,12 @@ export async function POST(request: NextRequest) {
     request.url,
   ).toString();
 
-  const { data, error } = await supabase.auth.admin.generateLink({
-    type: "recovery",
-    email,
-    options: { redirectTo },
-  });
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) {
     writeLog({
       level: "error",
-      message: "generateLink(recovery) failed",
+      message: "resetPasswordForEmail (admin-triggered) failed",
       context: { userId, error: error.message },
     });
     return privateNoStoreJson<ErrBody>(
@@ -69,10 +70,5 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const actionLink =
-    process.env.NODE_ENV !== "production"
-      ? (data?.properties?.action_link ?? undefined)
-      : undefined;
-
-  return privateNoStoreJson<OkBody>({ ok: true, actionLink });
+  return privateNoStoreJson<OkBody>({ ok: true });
 }

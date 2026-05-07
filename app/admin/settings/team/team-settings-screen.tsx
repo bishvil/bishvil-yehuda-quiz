@@ -168,22 +168,7 @@ export function TeamSettingsScreen() {
           | null;
         throw new Error(errBody?.message ?? `HTTP ${res.status}`);
       }
-      const okBody = (await res.json().catch(() => null)) as
-        | { actionLink?: string }
-        | null;
-      if (okBody?.actionLink) {
-        try {
-          await navigator.clipboard.writeText(okBody.actionLink);
-          flashInfo(
-            "סביבת פיתוח: הקישור הועתק ללוח. ייתכן שלא נשלח מייל בפועל.",
-          );
-        } catch {
-          window.prompt("העתק את קישור האיפוס:", okBody.actionLink);
-          flashInfo("סביבת פיתוח: הקישור מוצג להעתקה ידנית.");
-        }
-      } else {
-        flashInfo(`נשלח קישור איפוס ל־${member.email || member.id}.`);
-      }
+      flashInfo(`נשלח קישור איפוס ל־${member.email || member.id}.`);
     } catch (err) {
       flashError((err as Error).message);
     } finally {
