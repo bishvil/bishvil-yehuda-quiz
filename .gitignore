@@ -44,3 +44,4 @@ supabase/.temp/
 
 # Agent runtime artifacts (Agendo session attachments, etc.)
 .agendo/
+tests/load/.run.json

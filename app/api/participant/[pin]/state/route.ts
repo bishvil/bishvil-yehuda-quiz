@@ -68,12 +68,53 @@ export async function GET(
     );
   }
 
-  const { data: participant, error: participantError } = await serviceSupabase
-    .from("session_participants")
-    .select("id, session_id, streak, status")
-    .eq("session_id", session.id)
-    .eq("id", auth.claims.userId)
-    .maybeSingle();
+  const userId = auth.claims.userId;
+  const sessionId = session.id;
+  const quizId = session.quiz_id;
+  const syncCurrentQuestionId =
+    session.game_mode === "sync" ? session.current_question_id : null;
+
+  // Wave A: every lookup that depends only on already-known IDs (sessionId,
+  // quizId, userId) runs in parallel. score uses userId directly (it equals
+  // participant.id by ADR-0007). currentQuestion only fetched in sync mode.
+  const [
+    { data: participant, error: participantError },
+    { data: quiz },
+    { count: totalQuestions },
+    { data: scoreRow },
+    currentQuestionResult,
+  ] = await Promise.all([
+    serviceSupabase
+      .from("session_participants")
+      .select("id, session_id, streak, status")
+      .eq("session_id", sessionId)
+      .eq("id", userId)
+      .maybeSingle(),
+    serviceSupabase
+      .from("quizzes")
+      .select("title, brand_id, custom_logo")
+      .eq("id", quizId)
+      .maybeSingle(),
+    serviceSupabase
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .eq("quiz_id", quizId),
+    serviceSupabase
+      .from("participant_scores")
+      .select("total_score")
+      .eq("session_id", sessionId)
+      .eq("participant_id", userId)
+      .maybeSingle(),
+    syncCurrentQuestionId
+      ? serviceSupabase
+          .from("questions")
+          .select(
+            "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, time_seconds, points, correct_ids, explanation",
+          )
+          .eq("id", syncCurrentQuestionId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   if (participantError || !participant) {
     return privateNoStoreJson<ParticipantStateResponseBody>(
@@ -81,17 +122,6 @@ export async function GET(
       { status: 404 },
     );
   }
-
-  const { data: quiz } = await serviceSupabase
-    .from("quizzes")
-    .select("title, brand_id, custom_logo")
-    .eq("id", session.quiz_id)
-    .maybeSingle();
-
-  const { count: totalQuestions } = await serviceSupabase
-    .from("questions")
-    .select("id", { count: "exact", head: true })
-    .eq("quiz_id", session.quiz_id);
 
   const sessionPayload: ParticipantStateResponse["session"] = {
     status: session.status,
@@ -101,20 +131,11 @@ export async function GET(
     customLogo: quiz?.custom_logo ?? null,
   };
 
-  const { data: scoreRow } = await serviceSupabase
-    .from("participant_scores")
-    .select("total_score")
-    .eq("session_id", session.id)
-    .eq("participant_id", participant.id)
-    .maybeSingle();
-
   const myScore = scoreRow?.total_score ?? 0;
 
   // Sync mode: shared current_question_id; question state is per-session.
   if (session.game_mode === "sync") {
-    const currentQuestionId = session.current_question_id;
-
-    if (!currentQuestionId) {
+    if (!syncCurrentQuestionId) {
       return privateNoStoreJson<ParticipantStateResponseBody>(
         {
           session: sessionPayload,
@@ -127,19 +148,13 @@ export async function GET(
       );
     }
 
-    const { data: currentQuestion } = await serviceSupabase
-      .from("questions")
-      .select(
-        "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, time_seconds, points, correct_ids, explanation",
-      )
-      .eq("id", currentQuestionId)
-      .maybeSingle();
+    const currentQuestion = currentQuestionResult.data;
 
     if (!currentQuestion) {
       writeLog({
         level: "warn",
         message: "Sync session pointed at missing question",
-        context: { sessionId: session.id, currentQuestionId },
+        context: { sessionId, currentQuestionId: syncCurrentQuestionId },
       });
       return privateNoStoreJson<ParticipantStateResponseBody>(
         {
@@ -153,12 +168,23 @@ export async function GET(
       );
     }
 
-    const { row: questionState } = await lazyExpireSyncQuestionState(
-      serviceSupabase,
-      session.id,
-      currentQuestion.id,
-      { autoReveal: session.auto_reveal },
-    );
+    // Wave B: lazy expiry (read-mostly; writes only when deadline crossed)
+    // and existingAnswer have no data dependency on each other.
+    const [{ row: questionState }, { data: existingAnswer }] = await Promise.all([
+      lazyExpireSyncQuestionState(
+        serviceSupabase,
+        sessionId,
+        currentQuestion.id,
+        { autoReveal: session.auto_reveal },
+      ),
+      serviceSupabase
+        .from("answers")
+        .select("*")
+        .eq("session_id", sessionId)
+        .eq("question_id", currentQuestion.id)
+        .eq("participant_id", userId)
+        .maybeSingle(),
+    ]);
 
     const status = questionState?.status ?? "idle";
     const isRevealed = status === "revealed";
@@ -177,7 +203,7 @@ export async function GET(
       writeLog({
         level: "error",
         message: "Stored question JSON failed participant serialization",
-        context: { sessionId: session.id, questionId: currentQuestion.id },
+        context: { sessionId, questionId: currentQuestion.id },
       });
       return privateNoStoreJson<ParticipantStateResponseBody>(
         {
@@ -190,14 +216,6 @@ export async function GET(
         { status: 200 },
       );
     }
-
-    const { data: existingAnswer } = await serviceSupabase
-      .from("answers")
-      .select("*")
-      .eq("session_id", session.id)
-      .eq("question_id", currentQuestion.id)
-      .eq("participant_id", participant.id)
-      .maybeSingle();
 
     const answerPayload = existingAnswer
       ? buildParticipantAnswerPayload(existingAnswer, isRevealed)
