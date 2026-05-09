@@ -17,10 +17,12 @@ export interface UseParticipantStateValue {
 }
 
 /**
- * Polling-first realtime fallback per ADR-0005 §5. We always poll every
- * 5s and additionally try to wake the poll on Supabase Realtime broadcasts
- * for the relevant tables. If the realtime channel never connects (RLS
- * misconfiguration, network quirks), polling alone keeps the UI live.
+ * Realtime-first with polling as a safety net per ADR-0007 §5. We
+ * subscribe to a single private broadcast channel `session:<id>:tick`
+ * fed by Postgres triggers (see migration 20260509200010_realtime_broadcast.sql)
+ * and poll periodically as a backup. The sessionId for the topic comes
+ * from the JWT (`app_metadata.session_id` set at join), so the channel
+ * can come up before the first poll completes.
  */
 export function useParticipantState(args: {
   pin: string;
@@ -82,55 +84,41 @@ export function useParticipantState(args: {
     return () => clearInterval(interval);
   }, [refetch, paused, intervalMs]);
 
-  // Realtime subscription. Best-effort — silently degrades to polling if
-  // the channel can't subscribe (RLS, network, etc.). The participant
-  // state route is the source of truth; realtime simply pokes us to
-  // refetch sooner than the next poll tick.
+  // Realtime subscription — one private broadcast channel per session.
+  // Best-effort: if the channel can't subscribe (RLS, network, JWT not
+  // yet propagated) the polling effect above keeps the UI live.
   useEffect(() => {
     if (paused) return;
+    let cancelled = false;
     const supabase = createBrowserSupabaseClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    const channel = supabase
-      .channel(`participant-${pin}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "question_session_state",
-        },
-        () => {
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      const sessionId =
+        (data.user?.app_metadata as { session_id?: string } | undefined)
+          ?.session_id ?? null;
+      if (cancelled || !sessionId) return;
+
+      channel = supabase
+        .channel(`session:${sessionId}:tick`, { config: { private: true } })
+        .on("broadcast", { event: "INSERT" }, () => {
           void refetch();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "participant_question_progress",
-        },
-        () => {
+        })
+        .on("broadcast", { event: "UPDATE" }, () => {
           void refetch();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "sessions",
-        },
-        () => {
+        })
+        .on("broadcast", { event: "DELETE" }, () => {
           void refetch();
-        },
-      )
-      .subscribe();
+        })
+        .subscribe();
+    })();
 
     return () => {
-      void supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
     };
-  }, [pin, paused, refetch]);
+  }, [paused, refetch]);
 
   return { state, status, error, refetch };
 }

@@ -215,6 +215,20 @@ In sync mode, the leaderboard is live (Realtime subscription). In async mode, it
 
 The game mode (`sync` / `async`) is set at quiz creation time and fixed for a session once it transitions to `live`. Changing mode mid-session is not supported.
 
+### 6. Realtime Delivery — Broadcast First, Polling Safety Net
+
+Supersedes the "polling-first realtime fallback" wording in ADR-0005 §5.
+
+**Primary signal:** one private Supabase Realtime broadcast channel per session, topic `session:<sessionId>:tick`. Postgres triggers (migration `20260509200010_realtime_broadcast.sql`) call `realtime.broadcast_changes(...)` on `INSERT/UPDATE/DELETE` of `sessions`, `question_session_state`, and `participant_question_progress`. RLS on `realtime.messages` gates subscribe access — participants by `JWT.app_metadata.session_id`, hosts/admins by `sessions.host_id` lookup.
+
+**Safety net:** participants and hosts also poll their state endpoint at `PARTICIPANT_POLL_INTERVAL_MS` (currently 5 s; will move to 30 s in a follow-up once broadcast is validated under load). Polling exists only to recover when the WebSocket is unavailable; it is not the load-bearing tick.
+
+**Why broadcast and not `postgres_changes`:** Supabase's own guidance is to migrate away from `postgres_changes` for new code — it is single-threaded and filters RLS per subscriber per change, which does not scale to 200–400 subscribers per session. Broadcast collapses N tables × M subscribers into 1 broadcast × M cheap fan-out per session.
+
+**Why not a shared CDN cache:** considered and rejected. A short-TTL public cache on the participant `/state` payload would lower DB load similarly, but it caps question-advance latency at the TTL — Kahoot-style live UX needs sub-second reactions to the host clicking "next."
+
+**The `answers` table stays on `postgres_changes`** for the host dashboard. Host fanout is 1–few per session, so the single-threaded path is fine, and broadcasting answers on the tick topic would wake every participant on every answer.
+
 ---
 
 ## Consequences

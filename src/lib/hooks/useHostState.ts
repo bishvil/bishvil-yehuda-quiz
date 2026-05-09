@@ -16,11 +16,15 @@ export interface UseHostStateValue {
 }
 
 /**
- * Polling-first realtime fallback per ADR-0005 §5 — same shape as the
- * participant hook. We poll /api/host/[pin]/live every 5s and additionally
- * subscribe to Supabase Realtime broadcasts on the tables the host cares
- * about (`answers`, `question_session_state`, `sessions`). If the realtime
- * channel never connects, polling alone keeps the UI live.
+ * Realtime-first with polling as a safety net per ADR-0007 §5. Tick
+ * events (`sessions`, `question_session_state`) arrive via the private
+ * broadcast channel `session:<id>:tick` (see migration
+ * 20260509200010_realtime_broadcast.sql). Hosts also still receive
+ * `answers` updates via the legacy postgres_changes path because the
+ * answers table isn't on the tick topic — the host fanout is tiny so
+ * single-threaded postgres_changes is fine for it. The sessionId comes
+ * from the first /live response, so the broadcast channel comes up
+ * one poll behind the participants.
  */
 export function useHostState(args: {
   pin: string;
@@ -72,12 +76,15 @@ export function useHostState(args: {
     return () => clearInterval(interval);
   }, [refetch, paused, intervalMs]);
 
+  // answers stays on postgres_changes — host fanout is small (1-few
+  // hosts per session) so the single-threaded path is fine, and the
+  // alternative would wake every participant on every answer.
   useEffect(() => {
     if (paused) return;
     const supabase = createBrowserSupabaseClient();
 
     const channel = supabase
-      .channel(`host-${pin}`)
+      .channel(`host-answers-${pin}`)
       .on(
         "postgres_changes",
         {
@@ -89,34 +96,37 @@ export function useHostState(args: {
           void refetch();
         },
       )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "question_session_state",
-        },
-        () => {
-          void refetch();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "sessions",
-        },
-        () => {
-          void refetch();
-        },
-      )
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [pin, paused, refetch]);
+
+  // Tick events (sessions / question_session_state) arrive via the
+  // private broadcast channel scoped to this session.
+  const sessionId = state?.sessionId ?? null;
+  useEffect(() => {
+    if (paused || !sessionId) return;
+    const supabase = createBrowserSupabaseClient();
+
+    const channel = supabase
+      .channel(`session:${sessionId}:tick`, { config: { private: true } })
+      .on("broadcast", { event: "INSERT" }, () => {
+        void refetch();
+      })
+      .on("broadcast", { event: "UPDATE" }, () => {
+        void refetch();
+      })
+      .on("broadcast", { event: "DELETE" }, () => {
+        void refetch();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [sessionId, paused, refetch]);
 
   return { state, status, error, refetch };
 }
