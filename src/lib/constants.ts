@@ -48,7 +48,10 @@ export type JoinField = (typeof DEFAULT_JOIN_FIELDS)[number];
 
 export const DEFAULT_QUESTION_TIME_SECONDS = 25;
 export const DEFAULT_QUESTION_POINTS = 1500;
-export const PARTICIPANT_POLL_INTERVAL_MS = 5_000;
+// Safety net only. Realtime broadcast on `session:<id>:tick` is the
+// primary signal that drives refetches (ADR-0007 §6); polling exists
+// to recover when the WebSocket is unavailable.
+export const PARTICIPANT_POLL_INTERVAL_MS = 30_000;
 export const HOST_SESSION_TIMEOUT_MINUTES = 30;
 
 // Participant UI ----------------------------------------------------------

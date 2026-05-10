@@ -20,7 +20,11 @@ if (!BASE_URL) throw new Error("BASE_URL env var is required");
 const TARGET_VUS = Number(__ENV.VUS || 200);
 const RAMP_S = Number(__ENV.RAMP_S || 60);
 const HOLD_S = Number(__ENV.HOLD_S || 240);
-const POLL_INTERVAL_S = Number(__ENV.POLL_INTERVAL_S || 5);
+// Mirrors PARTICIPANT_POLL_INTERVAL_MS (src/lib/constants.ts). Real
+// browsers also refetch on Supabase Realtime broadcast events; this
+// pure-HTTP runner does not, so its load profile is closer to the
+// "broadcast unavailable" worst case.
+const POLL_INTERVAL_S = Number(__ENV.POLL_INTERVAL_S || 30);
 const ANSWER_DELAY_MIN_S = Number(__ENV.ANSWER_DELAY_MIN_S || 2);
 const ANSWER_DELAY_MAX_S = Number(__ENV.ANSWER_DELAY_MAX_S || 15);
 
