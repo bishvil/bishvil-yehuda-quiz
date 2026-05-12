@@ -22,6 +22,7 @@ import {
 } from "@/src/lib/participant/api-client";
 import type { ParticipantBrand } from "@/src/lib/participant/brands";
 import type { ParticipantStateResponse } from "@/src/lib/sessions/participant-payload";
+import { formatAnswerSeconds } from "@/src/lib/time/answer-duration";
 import { useServerCountdown } from "@/src/lib/time/countdown";
 
 const MapQuestionInteractive = dynamic(
@@ -74,6 +75,7 @@ export function PlayScreen({
     correctIds: string[] | null;
     explanation: string | null;
     score?: number | null;
+    answerSeconds?: number | null;
     distanceKm?: number | null;
     correctnessRatio?: number | null;
   } | null>(null);
@@ -144,6 +146,8 @@ export function PlayScreen({
   const revealedScore =
     pendingReveal?.score ??
     (myAnswer?.status === "revealed" ? (myAnswer.score ?? null) : null);
+  const answerSeconds =
+    pendingReveal?.answerSeconds ?? myAnswer?.answerSeconds ?? null;
   const revealedDistanceKm =
     pendingReveal?.distanceKm ??
     (myAnswer?.status === "revealed" ? (myAnswer.distanceKm ?? null) : null);
@@ -218,6 +222,7 @@ export function PlayScreen({
           correctIds: response.correctIds ?? null,
           explanation: response.explanation ?? null,
           score: response.score ?? null,
+          answerSeconds: response.answerSeconds ?? null,
           distanceKm: response.distanceKm ?? null,
           correctnessRatio: response.correctnessRatio ?? null,
         });
@@ -389,6 +394,11 @@ export function PlayScreen({
               תשובתכם התקבלה
             </span>
             <p className="m-0 mt-1">ממתינים לחשיפה אצל המדריך…</p>
+            {answerSeconds != null ? (
+              <p className="m-0 mt-1 text-[12px] font-bold text-bsy-stone-700">
+                זמן מענה: {formatAnswerSeconds(answerSeconds)}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -398,6 +408,7 @@ export function PlayScreen({
             explanation={explanation}
             score={revealedScore}
             totalPoints={question?.points ?? null}
+            answerSeconds={answerSeconds}
             distanceKm={revealedDistanceKm}
             correctCount={question?.type === "multi" ? multiCorrectCount : null}
             totalCorrect={

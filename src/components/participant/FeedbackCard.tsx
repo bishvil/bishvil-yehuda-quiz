@@ -1,4 +1,5 @@
 import { formatKm } from "@/src/lib/format/distance";
+import { formatAnswerSeconds } from "@/src/lib/time/answer-duration";
 
 interface FeedbackCardProps {
   isCorrect: boolean;
@@ -10,6 +11,8 @@ interface FeedbackCardProps {
   score?: number | null;
   /** Maximum possible points for the question. */
   totalPoints?: number | null;
+  /** Rounded elapsed answer time inside the configured question timer. */
+  answerSeconds?: number | null;
   /**
    * Haversine distance in km — passed for geo map questions to render the
    * "Z ק״מ מהיעד" suffix (ADR-0006 Open Q2 RESOLVED).
@@ -39,11 +42,13 @@ export function FeedbackCard({
   explanation,
   score,
   totalPoints,
+  answerSeconds,
   distanceKm,
   correctCount,
   totalCorrect,
 }: FeedbackCardProps) {
   const hasScore = score != null && totalPoints != null;
+  const answerTime = formatAnswerSeconds(answerSeconds);
   const hasDistance = distanceKm != null;
   const hasMultiDetail = correctCount != null && totalCorrect != null;
 
@@ -79,16 +84,22 @@ export function FeedbackCard({
               : null}
           </p>
         ) : null}
+        {answerTime ? (
+          <p className="m-0 mt-1 text-[13px] font-bold text-bsy-stone-700">
+            זמן מענה: {answerTime}
+          </p>
+        ) : null}
         {!hasScore && hasDistance ? (
           <p className="m-0 mt-1 text-[13px] text-bsy-stone-700">
             {formatKm(distanceKm)} ק״מ מהיעד
           </p>
         ) : null}
         {explanation ? (
-          <p className="m-0 mt-1 text-[13px] text-bsy-stone-700">{explanation}</p>
+          <p className="m-0 mt-1 text-[13px] text-bsy-stone-700">
+            {explanation}
+          </p>
         ) : null}
       </div>
     </div>
   );
 }
-

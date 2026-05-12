@@ -170,21 +170,22 @@ export async function GET(
 
     // Wave B: lazy expiry (read-mostly; writes only when deadline crossed)
     // and existingAnswer have no data dependency on each other.
-    const [{ row: questionState }, { data: existingAnswer }] = await Promise.all([
-      lazyExpireSyncQuestionState(
-        serviceSupabase,
-        sessionId,
-        currentQuestion.id,
-        { autoReveal: session.auto_reveal },
-      ),
-      serviceSupabase
-        .from("answers")
-        .select("*")
-        .eq("session_id", sessionId)
-        .eq("question_id", currentQuestion.id)
-        .eq("participant_id", userId)
-        .maybeSingle(),
-    ]);
+    const [{ row: questionState }, { data: existingAnswer }] =
+      await Promise.all([
+        lazyExpireSyncQuestionState(
+          serviceSupabase,
+          sessionId,
+          currentQuestion.id,
+          { autoReveal: session.auto_reveal },
+        ),
+        serviceSupabase
+          .from("answers")
+          .select("*")
+          .eq("session_id", sessionId)
+          .eq("question_id", currentQuestion.id)
+          .eq("participant_id", userId)
+          .maybeSingle(),
+      ]);
 
     const status = questionState?.status ?? "idle";
     const isRevealed = status === "revealed";
@@ -218,7 +219,10 @@ export async function GET(
     }
 
     const answerPayload = existingAnswer
-      ? buildParticipantAnswerPayload(existingAnswer, isRevealed)
+      ? buildParticipantAnswerPayload(existingAnswer, isRevealed, {
+          deadlineAt: questionState?.deadline_at ?? null,
+          timeSeconds: currentQuestion.time_seconds,
+        })
       : null;
 
     const reveal = isRevealed
@@ -393,7 +397,10 @@ export async function GET(
     .maybeSingle();
 
   const answerPayload = existingAnswer
-    ? buildParticipantAnswerPayload(existingAnswer, isRevealed)
+    ? buildParticipantAnswerPayload(existingAnswer, isRevealed, {
+        deadlineAt: progress?.deadline_at ?? currentProgress.deadline_at,
+        timeSeconds: question.time_seconds,
+      })
     : null;
 
   const reveal = isRevealed

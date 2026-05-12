@@ -18,7 +18,7 @@ export function TimerBar({
   showBar = true,
 }: TimerBarProps) {
   const percent = Math.min(100, Math.max(0, fraction * 100));
-  const display = String(Math.max(0, remainingSeconds)).padStart(2, "0");
+  const display = formatTimerSeconds(remainingSeconds);
 
   return (
     <div className="flex items-center gap-3">
@@ -31,6 +31,7 @@ export function TimerBar({
         ].join(" ")}
         aria-live="polite"
         aria-atomic="true"
+        aria-label={`נותר זמן: ${display}`}
       >
         {isWarning ? (
           <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-bsy-error">
@@ -55,4 +56,11 @@ export function TimerBar({
       ) : null}
     </div>
   );
+}
+
+function formatTimerSeconds(seconds: number): string {
+  const safeSeconds = Math.max(0, seconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainder = safeSeconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }

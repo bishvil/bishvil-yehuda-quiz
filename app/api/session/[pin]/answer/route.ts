@@ -9,6 +9,7 @@ import { findActiveSessionByPin } from "@/src/lib/sessions/lookup";
 import { writeLog } from "@/src/lib/logging";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
 import type { Database } from "@/src/lib/supabase/database.types";
+import { computeAnswerSeconds } from "@/src/lib/time/answer-duration";
 
 interface AnswerRouteContext {
   params: Promise<{ pin: string }>;
@@ -17,6 +18,7 @@ interface AnswerRouteContext {
 interface AnswerSubmittedBody {
   status: "submitted" | "already_submitted";
   submittedAt: string;
+  answerSeconds?: number | null;
   isCorrect?: boolean;
   score?: number;
   timeBonus?: number;
@@ -57,10 +59,7 @@ type CompleteSubmitAnswerRow = SubmitAnswerRow & {
   time_bonus: number;
 };
 
-export async function POST(
-  request: NextRequest,
-  context: AnswerRouteContext,
-) {
+export async function POST(request: NextRequest, context: AnswerRouteContext) {
   const { pin } = await context.params;
   const auth = await requireRole("participant");
 
@@ -85,7 +84,10 @@ export async function POST(
 
   if (!session) {
     return noStoreJson<AnswerResponseBody>(
-      { error: "SESSION_NOT_FOUND", message: "Session not joinable for this PIN." },
+      {
+        error: "SESSION_NOT_FOUND",
+        message: "Session not joinable for this PIN.",
+      },
       { status: 404 },
     );
   }
@@ -120,14 +122,17 @@ export async function POST(
   const participantId = auth.claims.userId;
   const { data: questionForScoring } = await serviceSupabase
     .from("questions")
-    .select("id, type, options, map")
+    .select("id, type, options, map, time_seconds")
     .eq("id", submission.questionId)
     .eq("quiz_id", session.quiz_id)
     .maybeSingle();
 
   if (!questionForScoring) {
     return noStoreJson<AnswerResponseBody>(
-      { error: "QUESTION_NOT_FOUND", message: "Question not part of this quiz." },
+      {
+        error: "QUESTION_NOT_FOUND",
+        message: "Question not part of this quiz.",
+      },
       { status: 404 },
     );
   }
@@ -228,7 +233,9 @@ export async function POST(
     return buildSubmittedResponse(
       submitResult,
       submitResult.result_status,
-      session.game_mode === "async" || submitResult.question_status === "revealed",
+      session.game_mode === "async" ||
+        submitResult.question_status === "revealed",
+      questionForScoring.time_seconds,
     );
   }
 
@@ -241,7 +248,10 @@ export async function POST(
 
   if (submitResult.result_status === "question_not_found") {
     return noStoreJson<AnswerResponseBody>(
-      { error: "QUESTION_NOT_FOUND", message: "Question not part of this quiz." },
+      {
+        error: "QUESTION_NOT_FOUND",
+        message: "Question not part of this quiz.",
+      },
       { status: 404 },
     );
   }
@@ -292,12 +302,20 @@ function buildSubmittedResponse(
   answer: CompleteSubmitAnswerRow,
   status: SubmitAnswerSuccessStatus,
   includeReveal: boolean,
+  timeSeconds: number,
 ) {
+  const answerSeconds = computeAnswerSeconds({
+    submittedAt: answer.submitted_at,
+    deadlineAt: answer.deadline_at,
+    timeSeconds,
+  });
+
   if (includeReveal) {
     return noStoreJson<AnswerResponseBody>(
       {
         status,
         submittedAt: answer.submitted_at,
+        answerSeconds,
         isCorrect: answer.is_correct,
         score: answer.score,
         timeBonus: answer.time_bonus,
@@ -318,6 +336,7 @@ function buildSubmittedResponse(
     {
       status,
       submittedAt: answer.submitted_at,
+      answerSeconds,
     },
     { status: 200 },
   );

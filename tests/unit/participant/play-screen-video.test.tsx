@@ -91,6 +91,61 @@ describe("PlayScreen video questions", () => {
 
     expect(screen.getByTestId("participant-spotlight")).toBeInTheDocument();
   });
+
+  it("renders the configured question timer instead of the default", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-12T00:00:00.000Z"));
+    mock.state = buildChoiceState({
+      timeSeconds: 45,
+      deadlineAt: "2026-05-12T00:00:45.000Z",
+      status: "answering",
+    });
+
+    render(
+      <PlayScreen
+        pin="123456"
+        brand={BRAND}
+        customLogo={null}
+        customLogoLabel={null}
+        gameMode="sync"
+      />,
+    );
+
+    expect(screen.getByText("0:45")).toBeInTheDocument();
+  });
+
+  it("shows answer time with revealed scoring", () => {
+    mock.state = buildChoiceState({
+      status: "revealed",
+      myAnswer: {
+        submittedAt: "2026-05-12T00:00:12.100Z",
+        status: "revealed",
+        answerSeconds: 13,
+        selectedIds: ["a"],
+        isCorrect: true,
+        score: 100,
+        timeBonus: 20,
+      },
+      reveal: {
+        correctIds: ["a"],
+        explanation: null,
+        mapGeoTarget: null,
+      },
+    });
+
+    render(
+      <PlayScreen
+        pin="123456"
+        brand={BRAND}
+        customLogo={null}
+        customLogoLabel={null}
+        gameMode="sync"
+      />,
+    );
+
+    expect(screen.getByText("100/100 נקודות")).toBeInTheDocument();
+    expect(screen.getByText("זמן מענה: 13 שניות")).toBeInTheDocument();
+  });
 });
 
 function buildState(
@@ -139,5 +194,61 @@ function buildState(
     myAnswer: null,
     myScore: 0,
     reveal: null,
+  };
+}
+
+function buildChoiceState(
+  overrides: {
+    timeSeconds?: number;
+    deadlineAt?: string;
+    status?: "answering" | "revealed";
+    myAnswer?: ParticipantStateResponse["myAnswer"];
+    reveal?: ParticipantStateResponse["reveal"];
+  } = {},
+): ParticipantStateResponse {
+  const timeSeconds = overrides.timeSeconds ?? 30;
+  return {
+    session: {
+      status: "live",
+      gameMode: "sync",
+      quizTitle: "חידון בדיקה",
+      brandId: "main",
+      customLogo: null,
+    },
+    question: {
+      id: "q-choice",
+      index: 1,
+      total: 1,
+      type: "single",
+      prompt: "שאלה רגילה",
+      options: [
+        { id: "a", text: "תשובה א" },
+        { id: "b", text: "תשובה ב" },
+      ],
+      imageUrl: null,
+      imageAlt: null,
+      imageWidth: null,
+      imageHeight: null,
+      videoUrl: null,
+      videoEmbedUrl: null,
+      videoProvider: null,
+      videoMimeType: null,
+      videoDurationSeconds: null,
+      videoPosterUrl: null,
+      videoWidth: null,
+      videoHeight: null,
+      mediaLeadSeconds: 0,
+      map: null,
+      timeSeconds,
+      points: 100,
+      status: overrides.status ?? "answering",
+      startedAt: "2026-05-12T00:00:00.000Z",
+      deadlineAt:
+        overrides.deadlineAt ?? `2026-05-12T00:00:${timeSeconds}.000Z`,
+      serverNow: "2026-05-12T00:00:00.000Z",
+    },
+    myAnswer: overrides.myAnswer ?? null,
+    myScore: 0,
+    reveal: overrides.reveal ?? null,
   };
 }

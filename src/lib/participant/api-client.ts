@@ -55,6 +55,7 @@ export type SubmitAnswerBody = SubmitChoiceAnswerBody | SubmitMapAnswerBody;
 export interface SubmitAnswerSuccessResponse {
   status: "submitted" | "already_submitted";
   submittedAt: string;
+  answerSeconds?: number | null;
   isCorrect?: boolean;
   score?: number;
   timeBonus?: number;

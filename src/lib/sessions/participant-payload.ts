@@ -10,6 +10,7 @@ import {
   parseStoredQuestionMap,
   validateStoredQuestionContent,
 } from "@/src/lib/schemas/question-content";
+import { computeAnswerSeconds } from "@/src/lib/time/answer-duration";
 
 export interface ParticipantSessionPayload {
   status: SessionStatusEnum;
@@ -88,6 +89,8 @@ export type ParticipantAnswerStatus = "submitted_awaiting_reveal" | "revealed";
 export interface ParticipantAnswerPayload {
   submittedAt: string;
   status: ParticipantAnswerStatus;
+  /** Rounded elapsed answer time inside the configured question timer. */
+  answerSeconds?: number | null;
   /**
    * The participant's submitted choice ids (single / truefalse / image /
    * multi). Surfaced so the reveal screen can render
@@ -261,13 +264,23 @@ export function buildParticipantQuestionPayload(args: {
 export function buildParticipantAnswerPayload(
   answer: AnswerRow,
   isRevealed: boolean,
+  timing?: {
+    deadlineAt: string | null;
+    timeSeconds: number;
+  },
 ): ParticipantAnswerPayload {
   const submittedPin = getSubmittedMapPin(answer);
+  const answerSeconds = computeAnswerSeconds({
+    submittedAt: answer.submitted_at,
+    deadlineAt: timing?.deadlineAt ?? null,
+    timeSeconds: timing?.timeSeconds ?? null,
+  });
 
   if (!isRevealed) {
     return {
       submittedAt: answer.submitted_at,
       status: "submitted_awaiting_reveal",
+      answerSeconds,
       selectedIds: answer.selected_ids,
       pin: submittedPin,
     };
@@ -276,6 +289,7 @@ export function buildParticipantAnswerPayload(
   return {
     submittedAt: answer.submitted_at,
     status: "revealed",
+    answerSeconds,
     selectedIds: answer.selected_ids,
     pin: submittedPin,
     isCorrect: answer.is_correct,

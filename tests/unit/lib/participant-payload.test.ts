@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildParticipantQuestionPayload } from "@/src/lib/sessions/participant-payload";
+import {
+  buildParticipantAnswerPayload,
+  buildParticipantQuestionPayload,
+} from "@/src/lib/sessions/participant-payload";
+import type { Database } from "@/src/lib/supabase/database.types";
 
 describe("buildParticipantQuestionPayload", () => {
   it("strips stale image metadata from map questions", () => {
@@ -46,6 +50,39 @@ describe("buildParticipantQuestionPayload", () => {
       imageAlt: null,
       imageWidth: null,
       imageHeight: null,
+    });
+  });
+});
+
+describe("buildParticipantAnswerPayload", () => {
+  it("includes elapsed answer seconds when timing context is available", () => {
+    const payload = buildParticipantAnswerPayload(
+      {
+        id: "answer-1",
+        session_id: "session-1",
+        question_id: "question-1",
+        participant_id: "participant-1",
+        submitted_at: "2026-05-12T00:00:18.100Z",
+        selected_ids: ["a"],
+        pin_lat: null,
+        pin_lng: null,
+        is_correct: true,
+        time_bonus: 10,
+        score: 100,
+        distance_km: null,
+        correctness_ratio: null,
+      } satisfies Database["public"]["Tables"]["answers"]["Row"],
+      true,
+      {
+        deadlineAt: "2026-05-12T00:00:45.000Z",
+        timeSeconds: 45,
+      },
+    );
+
+    expect(payload).toMatchObject({
+      status: "revealed",
+      answerSeconds: 19,
+      score: 100,
     });
   });
 });
