@@ -64,8 +64,11 @@ export function PlayScreen({
   const [advancing, setAdvancing] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Local state — a page reload re-engages the spotlight (v1 simplification).
-  const [mediaSettled, setMediaSettled] = useState(false);
-  const handleMediaSettled = useCallback(() => setMediaSettled(true), []);
+  // Store the settled question id so a freshly advanced async video question
+  // cannot inherit the previous question's "watched" state for one render.
+  const [settledMediaQuestionId, setSettledMediaQuestionId] = useState<
+    string | null
+  >(null);
   const [pendingReveal, setPendingReveal] = useState<{
     isCorrect: boolean;
     correctIds: string[] | null;
@@ -82,11 +85,6 @@ export function PlayScreen({
   const previousQuestionKeyRef = useRef<string>("");
   const currentQuestionKey = buildQuestionKey(question);
 
-  // Separate ref so mediaSettled survives status transitions
-  // (answering→locked→revealed) but resets on a new question UUID.
-  const previousQuestionIdRef = useRef<string>("");
-  const currentQuestionId = question?.id ?? "";
-
   useEffect(() => {
     if (previousQuestionKeyRef.current !== currentQuestionKey) {
       setSelectedIds([]);
@@ -95,14 +93,7 @@ export function PlayScreen({
       setSubmitError(null);
       previousQuestionKeyRef.current = currentQuestionKey;
     }
-    if (
-      gameMode === "async" &&
-      previousQuestionIdRef.current !== currentQuestionId
-    ) {
-      setMediaSettled(false);
-      previousQuestionIdRef.current = currentQuestionId;
-    }
-  }, [currentQuestionKey, currentQuestionId, gameMode]);
+  }, [currentQuestionKey]);
 
   // End-state route.
   useEffect(() => {
@@ -297,11 +288,14 @@ export function PlayScreen({
     gameMode === "sync" && hasSubmitted && !isRevealed;
 
   const isVideoQuestion = question.type === "video";
+  const hasSettledCurrentMedia = settledMediaQuestionId === question.id;
   const needsSpotlight =
     isVideoQuestion &&
     !hasSubmitted &&
     !isRevealed &&
-    (gameMode === "sync" ? question.status === "presenting" : !mediaSettled) &&
+    (gameMode === "sync"
+      ? question.status === "presenting"
+      : !hasSettledCurrentMedia) &&
     (question.videoUrl !== null || question.videoEmbedUrl !== null);
 
   const submitDisabled =
@@ -466,7 +460,11 @@ export function PlayScreen({
           videoMimeType={question.videoMimeType}
           videoPosterUrl={question.videoPosterUrl}
           mediaLeadSeconds={question.mediaLeadSeconds}
-          onConfirm={gameMode === "sync" ? undefined : handleMediaSettled}
+          onConfirm={
+            gameMode === "sync"
+              ? undefined
+              : () => setSettledMediaQuestionId(question.id)
+          }
         />
       ) : null}
     </main>
