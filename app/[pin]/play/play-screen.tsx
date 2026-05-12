@@ -4,7 +4,10 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AnswerOption, type AnswerOptionState } from "@/src/components/participant/AnswerOption";
+import {
+  AnswerOption,
+  type AnswerOptionState,
+} from "@/src/components/participant/AnswerOption";
 import { FeedbackCard } from "@/src/components/participant/FeedbackCard";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import { ProgressBar } from "@/src/components/participant/ProgressBar";
@@ -53,7 +56,10 @@ export function PlayScreen({
   } = useParticipantState({ pin });
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [mapGeoPin, setMapGeoPin] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapGeoPin, setMapGeoPin] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -89,7 +95,10 @@ export function PlayScreen({
       setSubmitError(null);
       previousQuestionKeyRef.current = currentQuestionKey;
     }
-    if (gameMode === "async" && previousQuestionIdRef.current !== currentQuestionId) {
+    if (
+      gameMode === "async" &&
+      previousQuestionIdRef.current !== currentQuestionId
+    ) {
       setMediaSettled(false);
       previousQuestionIdRef.current = currentQuestionId;
     }
@@ -137,7 +146,7 @@ export function PlayScreen({
   const explanation = pendingReveal?.explanation ?? reveal?.explanation ?? null;
   const submittedIsCorrect =
     pendingReveal?.isCorrect ??
-    (myAnswer && "isCorrect" in myAnswer ? myAnswer.isCorrect ?? null : null);
+    (myAnswer && "isCorrect" in myAnswer ? (myAnswer.isCorrect ?? null) : null);
 
   // Partial-credit display fields (ADR-0006 Open Q2+Q3 RESOLVED).
   // Score source: pendingReveal (async immediate reveal) → myAnswer (polled state).
@@ -147,6 +156,7 @@ export function PlayScreen({
   const revealedDistanceKm =
     pendingReveal?.distanceKm ??
     (myAnswer?.status === "revealed" ? (myAnswer.distanceKm ?? null) : null);
+  const submittedMapGeoPin = myAnswer?.pin ?? mapGeoPin;
 
   // For multi-select: count how many of the participant's submitted options
   // are in the correct set (for "X מתוך W סימונים נכונים" display).
@@ -188,7 +198,10 @@ export function PlayScreen({
 
     const body =
       question.type === "map" && mapGeoPin
-        ? { questionId: question.id, pin: { lat: mapGeoPin.lat, lng: mapGeoPin.lng } }
+        ? {
+            questionId: question.id,
+            pin: { lat: mapGeoPin.lat, lng: mapGeoPin.lng },
+          }
         : selectedIds.length > 0
           ? { questionId: question.id, selectedIds }
           : null;
@@ -208,10 +221,7 @@ export function PlayScreen({
 
       // Async mode response includes reveal data immediately. Sync mode
       // returns only `status: submitted` and `submittedAt`.
-      if (
-        "isCorrect" in response &&
-        typeof response.isCorrect === "boolean"
-      ) {
+      if ("isCorrect" in response && typeof response.isCorrect === "boolean") {
         setPendingReveal({
           isCorrect: response.isCorrect,
           correctIds: response.correctIds ?? null,
@@ -304,16 +314,19 @@ export function PlayScreen({
 
   return (
     <main className="flex min-h-screen flex-col bg-bsy-paper">
-      {loadStatus === "error" ? (
-        <ReconnectingBanner onRetry={refetch} />
-      ) : null}
+      {loadStatus === "error" ? <ReconnectingBanner onRetry={refetch} /> : null}
       <header className="border-b border-bsy-stone-100 bg-bsy-paper-warm px-5 pb-3 pt-3.5">
         <div className="mb-2 flex items-center justify-between text-xs font-bold text-bsy-stone-700">
           <span className="font-[var(--font-display)] text-[15px] text-bsy-brown">
-            תחנה <b className="text-bsy-forest">{question.index}</b> מתוך {question.total}
+            תחנה <b className="text-bsy-forest">{question.index}</b> מתוך{" "}
+            {question.total}
           </span>
           {needsSpotlight ? null : (
-            <TimerLane question={question} hasSubmitted={hasSubmitted} isRevealed={isRevealed} />
+            <TimerLane
+              question={question}
+              hasSubmitted={hasSubmitted}
+              isRevealed={isRevealed}
+            />
           )}
         </div>
         <ProgressBar
@@ -343,7 +356,7 @@ export function PlayScreen({
         {question.type === "map" ? (
           renderMapQuestion({
             question,
-            mapGeoPin,
+            mapGeoPin: submittedMapGeoPin,
             isRevealed,
             isAnswering,
             hasSubmitted,
@@ -395,7 +408,8 @@ export function PlayScreen({
             correctCount={question?.type === "multi" ? multiCorrectCount : null}
             totalCorrect={
               question?.type === "multi"
-                ? (reveal?.correctIds ?? pendingReveal?.correctIds)?.length ?? null
+                ? ((reveal?.correctIds ?? pendingReveal?.correctIds)?.length ??
+                  null)
                 : null
             }
           />
@@ -419,7 +433,11 @@ export function PlayScreen({
             onClick={handleSubmit}
             disabled={submitDisabled}
           >
-            {submitting ? "שולחים…" : hasSubmitted ? "תשובה נשלחה" : "שליחת תשובה"}
+            {submitting
+              ? "שולחים…"
+              : hasSubmitted
+                ? "תשובה נשלחה"
+                : "שליחת תשובה"}
           </PrimaryButton>
         ) : (
           <PrimaryButton

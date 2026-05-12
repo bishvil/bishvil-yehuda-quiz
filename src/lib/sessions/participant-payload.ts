@@ -83,9 +83,7 @@ export interface ParticipantQuestionPayload {
   serverNow: string;
 }
 
-export type ParticipantAnswerStatus =
-  | "submitted_awaiting_reveal"
-  | "revealed";
+export type ParticipantAnswerStatus = "submitted_awaiting_reveal" | "revealed";
 
 export interface ParticipantAnswerPayload {
   submittedAt: string;
@@ -97,6 +95,11 @@ export interface ParticipantAnswerPayload {
    * client-side selection state has been cleared.
    */
   selectedIds?: string[] | null;
+  /**
+   * The participant's submitted map pin. This is their own answer and is
+   * safe before reveal; the correct target remains in the reveal payload.
+   */
+  pin?: { lat: number; lng: number } | null;
   isCorrect?: boolean;
   score?: number;
   timeBonus?: number;
@@ -193,11 +196,12 @@ export function buildParticipantQuestionPayload(args: {
     return null;
   }
 
-  const optionsArray = parsedContent.data.options?.map((option) => ({
-    id: option.id,
-    text: option.text,
-    image_url: option.image_url,
-  })) ?? null;
+  const optionsArray =
+    parsedContent.data.options?.map((option) => ({
+      id: option.id,
+      text: option.text,
+      image_url: option.image_url,
+    })) ?? null;
 
   const mapPayload = (() => {
     const parsedMap = parsedContent.data.map;
@@ -247,11 +251,14 @@ export function buildParticipantAnswerPayload(
   answer: AnswerRow,
   isRevealed: boolean,
 ): ParticipantAnswerPayload {
+  const submittedPin = getSubmittedMapPin(answer);
+
   if (!isRevealed) {
     return {
       submittedAt: answer.submitted_at,
       status: "submitted_awaiting_reveal",
       selectedIds: answer.selected_ids,
+      pin: submittedPin,
     };
   }
 
@@ -259,11 +266,24 @@ export function buildParticipantAnswerPayload(
     submittedAt: answer.submitted_at,
     status: "revealed",
     selectedIds: answer.selected_ids,
+    pin: submittedPin,
     isCorrect: answer.is_correct,
     score: answer.score,
     timeBonus: answer.time_bonus,
     distanceKm: answer.distance_km != null ? Number(answer.distance_km) : null,
     correctnessRatio:
-      answer.correctness_ratio != null ? Number(answer.correctness_ratio) : null,
+      answer.correctness_ratio != null
+        ? Number(answer.correctness_ratio)
+        : null,
   };
+}
+
+function getSubmittedMapPin(
+  answer: AnswerRow,
+): { lat: number; lng: number } | null {
+  if (answer.pin_lat == null || answer.pin_lng == null) return null;
+  const lat = Number(answer.pin_lat);
+  const lng = Number(answer.pin_lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
 }

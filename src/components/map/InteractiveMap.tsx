@@ -29,6 +29,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -178,6 +179,10 @@ export interface InteractiveMapProps {
   ariaLabel?: string;
   /** Camera move callback (e.g. for an editor's "use current view" button). */
   onMove?: (view: MapViewState) => void;
+  /** When true, place/road/city labels remain visible for admin authoring. */
+  showLabels?: boolean;
+  /** Imperative camera target for editor search/focus affordances. */
+  flyTo?: Partial<MapViewState> & { durationMs?: number };
   /** Set true if the consumer wants to read the underlying MapLibre instance. */
   exposeRef?: boolean;
   /**
@@ -218,118 +223,165 @@ const DefaultMarker = ({ color }: { color: string }) => (
   />
 );
 
-const InteractiveMapImpl = forwardRef<InteractiveMapHandle, InteractiveMapProps>(
-  function InteractiveMapImpl(props, ref) {
-    const mapRef = useRef<MapRef | null>(null);
+const InteractiveMapImpl = forwardRef<
+  InteractiveMapHandle,
+  InteractiveMapProps
+>(function InteractiveMapImpl(props, ref) {
+  const mapRef = useRef<MapRef | null>(null);
 
-    useImperativeHandle(
-      ref,
-      (): InteractiveMapHandle => ({
-        getMap: () => mapRef.current?.getMap() ?? null,
-      }),
-      [],
-    );
+  useImperativeHandle(
+    ref,
+    (): InteractiveMapHandle => ({
+      getMap: () => mapRef.current?.getMap() ?? null,
+    }),
+    [],
+  );
 
-    const initialViewState = useMemo<MapViewState>(() => {
-      const center = props.initialView?.latitude ?? MAP_DEFAULT_CENTER.lat;
-      const lng = props.initialView?.longitude ?? MAP_DEFAULT_CENTER.lng;
-      const zoom = props.initialView?.zoom ?? MAP_DEFAULT_ZOOM;
-      return { longitude: lng, latitude: center, zoom };
-    }, [props.initialView?.latitude, props.initialView?.longitude, props.initialView?.zoom]);
+  const initialViewState = useMemo<MapViewState>(() => {
+    const center = props.initialView?.latitude ?? MAP_DEFAULT_CENTER.lat;
+    const lng = props.initialView?.longitude ?? MAP_DEFAULT_CENTER.lng;
+    const zoom = props.initialView?.zoom ?? MAP_DEFAULT_ZOOM;
+    return { longitude: lng, latitude: center, zoom };
+  }, [
+    props.initialView?.latitude,
+    props.initialView?.longitude,
+    props.initialView?.zoom,
+  ]);
 
-    const mapStyle = useMemo(() => resolveStyle(props.styleHint), [props.styleHint]);
+  const mapStyle = useMemo(
+    () => resolveStyle(props.styleHint),
+    [props.styleHint],
+  );
 
-    const showMaptilerWarning =
-      props.isAdmin === true && !process.env.NEXT_PUBLIC_MAPTILER_KEY;
+  const showMaptilerWarning =
+    props.isAdmin === true && !process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
-    const handleClick = useCallback(
-      (event: MapLayerMouseEvent) => {
-        if (props.disabled || !props.onMapClick) return;
-        props.onMapClick(lngLatFromClick(event));
-      },
-      [props],
-    );
+  const handleClick = useCallback(
+    (event: MapLayerMouseEvent) => {
+      if (props.disabled || !props.onMapClick) return;
+      props.onMapClick(lngLatFromClick(event));
+    },
+    [props],
+  );
 
-    const handleMove = useCallback(
-      (event: ViewStateChangeEvent) => {
-        if (!props.onMove) return;
-        const v = event.viewState;
-        props.onMove({ longitude: v.longitude, latitude: v.latitude, zoom: v.zoom });
-      },
-      [props],
-    );
+  const handleMove = useCallback(
+    (event: ViewStateChangeEvent) => {
+      if (!props.onMove) return;
+      const v = event.viewState;
+      props.onMove({
+        longitude: v.longitude,
+        latitude: v.latitude,
+        zoom: v.zoom,
+      });
+    },
+    [props],
+  );
 
-    /**
-     * QA-20: hide every symbol layer (place names, POI, road labels,
-     * country labels) on the active style. We deliberately apply this on
-     * BOTH `load` and `styledata` so it survives async style swaps when
-     * the consumer toggles `styleHint`. Raster-only styles (e.g. the
-     * `israel-hiking` hint) ship no symbol layers so this is a no-op for
-     * them — labels baked into the raster cannot be hidden via the
-     * MapLibre style API; that limitation is mitigated upstream by
-     * picking a label-free raster source (see `resolveStyle` above).
-     */
-    const hideAllSymbolLayers = useCallback((map: MapLibreMap) => {
+  /**
+   * QA-20: hide every symbol layer (place names, POI, road labels,
+   * country labels) on the active style. We deliberately apply this on
+   * BOTH `load` and `styledata` so it survives async style swaps when
+   * the consumer toggles `styleHint`. Raster-only styles (e.g. the
+   * `israel-hiking` hint) ship no symbol layers so this is a no-op for
+   * them — labels baked into the raster cannot be hidden via the
+   * MapLibre style API; that limitation is mitigated upstream by
+   * picking a label-free raster source (see `resolveStyle` above).
+   */
+  const applySymbolLayerVisibility = useCallback(
+    (map: MapLibreMap) => {
       try {
         if (!map.isStyleLoaded()) return;
         const style = map.getStyle();
         if (!style?.layers) return;
         for (const layer of style.layers) {
           if (layer.type === "symbol") {
-            map.setLayoutProperty(layer.id, "visibility", "none");
+            map.setLayoutProperty(
+              layer.id,
+              "visibility",
+              props.showLabels ? "visible" : "none",
+            );
           }
         }
       } catch {
         // Style may be mid-swap; the next `styledata` event will retry.
       }
-    }, []);
+    },
+    [props.showLabels],
+  );
 
-    const handleLoad = useCallback(() => {
-      const map = mapRef.current?.getMap();
-      if (map) hideAllSymbolLayers(map);
-    }, [hideAllSymbolLayers]);
+  const handleLoad = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (map) applySymbolLayerVisibility(map);
+  }, [applySymbolLayerVisibility]);
 
-    const handleStyleData = useCallback(() => {
-      const map = mapRef.current?.getMap();
-      if (map) hideAllSymbolLayers(map);
-    }, [hideAllSymbolLayers]);
+  const handleStyleData = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (map) applySymbolLayerVisibility(map);
+  }, [applySymbolLayerVisibility]);
 
-    return (
-      <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", ...props.style }}>
-        {showMaptilerWarning ? (
-          <div
-            role="alert"
-            dir="rtl"
-            style={{
-              backgroundColor: "#fef9c3",
-              borderBottom: "1px solid #fde047",
-              padding: "6px 12px",
-              fontSize: 12,
-              color: "#713f12",
-              flexShrink: 0,
-            }}
-          >
-            מפת לוויין מקוצרת — הוסף NEXT_PUBLIC_MAPTILER_KEY לקבלת איכות מלאה
-          </div>
-        ) : null}
-        <Map
-          ref={mapRef}
-          reuseMaps
-          initialViewState={initialViewState}
-          mapStyle={mapStyle}
-          RTLTextPlugin={MAP_RTL_TEXT_PLUGIN_URL}
-          maxBounds={MAP_ISRAEL_BOUNDS}
-          minZoom={MAP_MIN_ZOOM}
-          maxZoom={MAP_MAX_ZOOM}
-          dragRotate={false}
-          attributionControl={{ compact: true }}
-          onClick={handleClick}
-          onMove={props.onMove ? handleMove : undefined}
-          onLoad={handleLoad}
-          onStyleData={handleStyleData}
-          style={{ width: "100%", flex: 1 }}
-          aria-label={props.ariaLabel}
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (map) applySymbolLayerVisibility(map);
+  }, [applySymbolLayerVisibility]);
+
+  useEffect(() => {
+    if (!props.flyTo) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    map.flyTo({
+      center: [
+        props.flyTo.longitude ?? map.getCenter().lng,
+        props.flyTo.latitude ?? map.getCenter().lat,
+      ],
+      zoom: props.flyTo.zoom ?? map.getZoom(),
+      duration: props.flyTo.durationMs ?? 700,
+    });
+  }, [props.flyTo]);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        ...props.style,
+      }}
+    >
+      {showMaptilerWarning ? (
+        <div
+          role="alert"
+          dir="rtl"
+          style={{
+            backgroundColor: "#fef9c3",
+            borderBottom: "1px solid #fde047",
+            padding: "6px 12px",
+            fontSize: 12,
+            color: "#713f12",
+            flexShrink: 0,
+          }}
         >
+          מפת לוויין מקוצרת — הוסף NEXT_PUBLIC_MAPTILER_KEY לקבלת איכות מלאה
+        </div>
+      ) : null}
+      <Map
+        ref={mapRef}
+        reuseMaps
+        initialViewState={initialViewState}
+        mapStyle={mapStyle}
+        RTLTextPlugin={MAP_RTL_TEXT_PLUGIN_URL}
+        maxBounds={MAP_ISRAEL_BOUNDS}
+        minZoom={MAP_MIN_ZOOM}
+        maxZoom={MAP_MAX_ZOOM}
+        dragRotate={false}
+        attributionControl={{ compact: true }}
+        onClick={handleClick}
+        onMove={props.onMove ? handleMove : undefined}
+        onLoad={handleLoad}
+        onStyleData={handleStyleData}
+        style={{ width: "100%", flex: 1 }}
+        aria-label={props.ariaLabel}
+      >
         {props.showNavigation !== false ? (
           <NavigationControl position="top-left" showCompass={false} />
         ) : null}
@@ -343,7 +395,8 @@ const InteractiveMapImpl = forwardRef<InteractiveMapHandle, InteractiveMapProps>
             draggable={marker.draggable}
             onDragEnd={
               marker.draggable && marker.onDragEnd
-                ? (e) => marker.onDragEnd?.({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+                ? (e) =>
+                    marker.onDragEnd?.({ lat: e.lngLat.lat, lng: e.lngLat.lng })
                 : undefined
             }
           >
@@ -371,10 +424,9 @@ const InteractiveMapImpl = forwardRef<InteractiveMapHandle, InteractiveMapProps>
           </Source>
         ) : null}
       </Map>
-      </div>
-    );
-  },
-);
+    </div>
+  );
+});
 
 function buildSegmentFeatureCollection(
   segments: Array<[LatLng, LatLng]>,
