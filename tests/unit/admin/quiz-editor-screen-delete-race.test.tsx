@@ -13,7 +13,13 @@
  * → just drop locally).
  */
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
@@ -27,8 +33,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/src/lib/admin/api-client", () => ({
-  isAdminApiError: vi.fn((v: unknown) =>
-    typeof v === "object" && v !== null && "error" in (v as object),
+  isAdminApiError: vi.fn(
+    (v: unknown) =>
+      typeof v === "object" && v !== null && "error" in (v as object),
   ),
   getAdminQuiz: vi.fn(),
   listAdminQuestions: vi.fn(),
@@ -38,13 +45,13 @@ vi.mock("@/src/lib/admin/api-client", () => ({
   reorderAdminQuestions: vi.fn(),
   updateAdminQuiz: vi.fn(),
   createAdminSession: vi.fn(),
+  duplicateAdminQuiz: vi.fn(),
 }));
 
 // DND-kit needs a working pointer-events model; stub it in jsdom.
 vi.mock("@dnd-kit/core", async () => {
-  const actual = await vi.importActual<typeof import("@dnd-kit/core")>(
-    "@dnd-kit/core",
-  );
+  const actual =
+    await vi.importActual<typeof import("@dnd-kit/core")>("@dnd-kit/core");
   return {
     ...actual,
     DndContext: ({ children }: { children: React.ReactNode }) => children,
@@ -54,7 +61,9 @@ vi.mock("@dnd-kit/core", async () => {
 });
 vi.mock("@dnd-kit/sortable", async () => {
   const actual =
-    await vi.importActual<typeof import("@dnd-kit/sortable")>("@dnd-kit/sortable");
+    await vi.importActual<typeof import("@dnd-kit/sortable")>(
+      "@dnd-kit/sortable",
+    );
   return {
     ...actual,
     SortableContext: ({ children }: { children: React.ReactNode }) => children,
@@ -110,6 +119,13 @@ const QUIZ_FIXTURE = {
   },
 };
 
+const LOCKED_QUIZ_FIXTURE = {
+  quiz: {
+    ...QUIZ_FIXTURE.quiz,
+    hasAnySession: true,
+  },
+};
+
 const SERVER_QUESTION_FIXTURE = {
   question: {
     id: SERVER_QUESTION_ID,
@@ -156,111 +172,136 @@ describe("QuizEditorScreen — delete-while-POST-in-flight race (QA-C)", () => {
     vi.restoreAllMocks();
   });
 
-  it(
-    "DELETEs the server row when the user removes a question whose POST was in-flight at delete time",
-    async () => {
-      // POST will resolve only when we call `resolvePost`.
-      let resolvePost!: (v: typeof SERVER_QUESTION_FIXTURE) => void;
-      const postPromise = new Promise<typeof SERVER_QUESTION_FIXTURE>(
-        (resolve) => {
-          resolvePost = resolve;
-        },
-      );
-      vi.mocked(createAdminQuestion).mockReturnValue(postPromise);
+  it("DELETEs the server row when the user removes a question whose POST was in-flight at delete time", async () => {
+    // POST will resolve only when we call `resolvePost`.
+    let resolvePost!: (v: typeof SERVER_QUESTION_FIXTURE) => void;
+    const postPromise = new Promise<typeof SERVER_QUESTION_FIXTURE>(
+      (resolve) => {
+        resolvePost = resolve;
+      },
+    );
+    vi.mocked(createAdminQuestion).mockReturnValue(postPromise);
 
-      render(<QuizEditorScreen quizId={QUIZ_ID} brands={BRANDS_FIXTURE} />);
+    render(<QuizEditorScreen quizId={QUIZ_ID} brands={BRANDS_FIXTURE} />);
 
-      // Wait for initial load to finish (data fetched, editor renders).
-      const addBtn = await screen.findByTestId("admin-add-question", {}, { timeout: 5000 });
+    // Wait for initial load to finish (data fetched, editor renders).
+    const addBtn = await screen.findByTestId(
+      "admin-add-question",
+      {},
+      { timeout: 5000 },
+    );
 
-      // Add a new question — this triggers the autosave debounce.
-      act(() => {
-        fireEvent.click(addBtn);
-      });
+    // Add a new question — this triggers the autosave debounce.
+    act(() => {
+      fireEvent.click(addBtn);
+    });
 
-      // Wait for autosave debounce to fire and POST to start (800 ms).
-      // We use real timers + waitFor here to avoid fake-timer complexity with RTL.
-      await waitFor(
-        () => {
-          expect(vi.mocked(createAdminQuestion)).toHaveBeenCalledTimes(1);
-        },
-        { timeout: 3000 },
-      );
+    // Wait for autosave debounce to fire and POST to start (800 ms).
+    // We use real timers + waitFor here to avoid fake-timer complexity with RTL.
+    await waitFor(
+      () => {
+        expect(vi.mocked(createAdminQuestion)).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 3000 },
+    );
 
-      // POST is in-flight. Delete is called before the POST resolves.
-      expect(deleteAdminQuestion).not.toHaveBeenCalled();
+    // POST is in-flight. Delete is called before the POST resolves.
+    expect(deleteAdminQuestion).not.toHaveBeenCalled();
 
-      const deleteBtn = screen.getByText("מחיקת תחנה");
+    const deleteBtn = screen.getByText("מחיקת תחנה");
 
-      // Fire delete click. The fix flushes the pending POST, resolving postPromise.
-      // We resolve it immediately after the click to simulate the POST completing
-      // during the flush wait.
-      act(() => {
-        fireEvent.click(deleteBtn);
-      });
+    // Fire delete click. The fix flushes the pending POST, resolving postPromise.
+    // We resolve it immediately after the click to simulate the POST completing
+    // during the flush wait.
+    act(() => {
+      fireEvent.click(deleteBtn);
+    });
 
-      // Resolve the POST so flush() can complete.
-      await act(async () => {
-        resolvePost(SERVER_QUESTION_FIXTURE);
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
-      });
+    // Resolve the POST so flush() can complete.
+    await act(async () => {
+      resolvePost(SERVER_QUESTION_FIXTURE);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
-      // After flush + id-stamp, removeQuestion must issue a DELETE with the
-      // server-assigned id — not silently skip because serverId was null.
-      await waitFor(
-        () => {
-          expect(deleteAdminQuestion).toHaveBeenCalledWith(QUIZ_ID, SERVER_QUESTION_ID);
-        },
-        { timeout: 3000 },
-      );
-    },
-    15000,
-  );
+    // After flush + id-stamp, removeQuestion must issue a DELETE with the
+    // server-assigned id — not silently skip because serverId was null.
+    await waitFor(
+      () => {
+        expect(deleteAdminQuestion).toHaveBeenCalledWith(
+          QUIZ_ID,
+          SERVER_QUESTION_ID,
+          { allowLockedQuizEdit: false },
+        );
+      },
+      { timeout: 3000 },
+    );
+  }, 15000);
 
-  it(
-    "does NOT call deleteAdminQuestion when the POST failed (question was never persisted)",
-    async () => {
-      // POST always rejects — question never reaches server.
-      vi.mocked(createAdminQuestion).mockRejectedValue(
-        new Error("network error"),
-      );
+  it("does NOT call deleteAdminQuestion when the POST failed (question was never persisted)", async () => {
+    // POST always rejects — question never reaches server.
+    vi.mocked(createAdminQuestion).mockRejectedValue(
+      new Error("network error"),
+    );
 
-      render(<QuizEditorScreen quizId={QUIZ_ID} brands={BRANDS_FIXTURE} />);
+    render(<QuizEditorScreen quizId={QUIZ_ID} brands={BRANDS_FIXTURE} />);
 
-      const addBtn = await screen.findByTestId("admin-add-question", {}, { timeout: 5000 });
+    const addBtn = await screen.findByTestId(
+      "admin-add-question",
+      {},
+      { timeout: 5000 },
+    );
 
-      act(() => {
-        fireEvent.click(addBtn);
-      });
+    act(() => {
+      fireEvent.click(addBtn);
+    });
 
-      // Wait for autosave to fire and fail.
-      await waitFor(
-        () => {
-          expect(createAdminQuestion).toHaveBeenCalledTimes(1);
-        },
-        { timeout: 3000 },
-      );
+    // Wait for autosave to fire and fail.
+    await waitFor(
+      () => {
+        expect(createAdminQuestion).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 3000 },
+    );
 
-      // Wait for the POST rejection to propagate.
-      await act(async () => {
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
-      });
+    // Wait for the POST rejection to propagate.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
-      const deleteBtn = screen.getByText("מחיקת תחנה");
-      await act(async () => {
-        fireEvent.click(deleteBtn);
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
-      });
+    const deleteBtn = screen.getByText("מחיקת תחנה");
+    await act(async () => {
+      fireEvent.click(deleteBtn);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
-      // The question was never on the server → no DELETE.
-      expect(deleteAdminQuestion).not.toHaveBeenCalled();
-    },
-    15000,
-  );
+    // The question was never on the server → no DELETE.
+    expect(deleteAdminQuestion).not.toHaveBeenCalled();
+  }, 15000);
+
+  it("keeps a quiz with sessions read-only until the admin confirms editing anyway", async () => {
+    vi.mocked(getAdminQuiz).mockResolvedValue(LOCKED_QUIZ_FIXTURE);
+    vi.mocked(listAdminQuestions).mockResolvedValue({ questions: [] });
+
+    render(<QuizEditorScreen quizId={QUIZ_ID} brands={BRANDS_FIXTURE} />);
+
+    const addBtn = await screen.findByTestId(
+      "admin-add-question",
+      {},
+      { timeout: 5000 },
+    );
+    expect(addBtn).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId("admin-quiz-force-edit-cta"));
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      expect.stringContaining("תשפיע על השאלות"),
+    );
+    expect(addBtn).not.toBeDisabled();
+  });
 });

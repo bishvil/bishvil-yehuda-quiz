@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 
+import { LOCKED_QUIZ_EDIT_HEADER } from "@/src/lib/admin/quiz-edit-override";
 import { getTestPostgres, SEED_ADMIN_ID } from "./test-db";
 
 vi.mock("@/src/lib/auth/server-auth", async () => {
@@ -37,9 +38,7 @@ interface SeedResult {
   questionId: string;
 }
 
-async function seedQuizWithSession(
-  withSession: boolean,
-): Promise<SeedResult> {
+async function seedQuizWithSession(withSession: boolean): Promise<SeedResult> {
   const [quiz] = await sql<{ id: string }[]>`
     insert into public.quizzes (owner_id, brand_id, title, default_game_mode)
     values (${SEED_ADMIN_ID}::uuid, 'yehuda', 'Lock fixture', 'sync')
@@ -52,7 +51,10 @@ async function seedQuizWithSession(
     insert into public.questions (quiz_id, ordinal, type, prompt, options, correct_ids, time_seconds, points)
     values (
       ${quiz.id}::uuid, 1, 'single', 'שאלה',
-      ${sql.json([{ id: "a", text: "א" }, { id: "b", text: "ב" }])},
+      ${sql.json([
+        { id: "a", text: "א" },
+        { id: "b", text: "ב" },
+      ])},
       ARRAY['a']::text[], 25, 1500
     )
     returning id
@@ -73,9 +75,8 @@ async function seedQuizWithSession(
 describe("Quiz lock guard (ADR-0013)", () => {
   it("PUT /quizzes/[id]/questions/[questionId] returns 409 QUIZ_LOCKED when a session exists", async () => {
     const { quizId, questionId } = await seedQuizWithSession(true);
-    const { PUT } = await import(
-      "@/app/api/admin/quizzes/[id]/questions/[questionId]/route"
-    );
+    const { PUT } =
+      await import("@/app/api/admin/quizzes/[id]/questions/[questionId]/route");
     const request = new Request(
       `http://localhost:3000/api/admin/quizzes/${quizId}/questions/${questionId}`,
       {
@@ -92,11 +93,34 @@ describe("Quiz lock guard (ADR-0013)", () => {
     expect(body.error).toBe("QUIZ_LOCKED");
   });
 
+  it("PUT /quizzes/[id]/questions/[questionId] allows a locked quiz with the explicit override header", async () => {
+    const { quizId, questionId } = await seedQuizWithSession(true);
+    const { PUT } =
+      await import("@/app/api/admin/quizzes/[id]/questions/[questionId]/route");
+    const request = new Request(
+      `http://localhost:3000/api/admin/quizzes/${quizId}/questions/${questionId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          [LOCKED_QUIZ_EDIT_HEADER]: "true",
+        },
+        body: JSON.stringify({ prompt: "עודכן בכוונה" }),
+      },
+    ) as unknown as Parameters<typeof PUT>[0];
+    const response = await PUT(request, {
+      params: Promise.resolve({ id: quizId, questionId }),
+    } as Parameters<typeof PUT>[1]);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      question: { prompt: "עודכן בכוונה" },
+    });
+  });
+
   it("POST /quizzes/[id]/questions returns 409 QUIZ_LOCKED when a session exists", async () => {
     const { quizId } = await seedQuizWithSession(true);
-    const { POST } = await import(
-      "@/app/api/admin/quizzes/[id]/questions/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/quizzes/[id]/questions/route");
     const request = new Request(
       `http://localhost:3000/api/admin/quizzes/${quizId}/questions`,
       {
@@ -124,9 +148,8 @@ describe("Quiz lock guard (ADR-0013)", () => {
 
   it("PUT succeeds when the quiz has no sessions", async () => {
     const { quizId, questionId } = await seedQuizWithSession(false);
-    const { PUT } = await import(
-      "@/app/api/admin/quizzes/[id]/questions/[questionId]/route"
-    );
+    const { PUT } =
+      await import("@/app/api/admin/quizzes/[id]/questions/[questionId]/route");
     const request = new Request(
       `http://localhost:3000/api/admin/quizzes/${quizId}/questions/${questionId}`,
       {
@@ -143,9 +166,8 @@ describe("Quiz lock guard (ADR-0013)", () => {
 
   it("duplicate route is allowed even on a quiz with sessions", async () => {
     const { quizId } = await seedQuizWithSession(true);
-    const { POST } = await import(
-      "@/app/api/admin/quizzes/[id]/duplicate/route"
-    );
+    const { POST } =
+      await import("@/app/api/admin/quizzes/[id]/duplicate/route");
     const request = new Request(
       `http://localhost:3000/api/admin/quizzes/${quizId}/duplicate`,
       { method: "POST" },

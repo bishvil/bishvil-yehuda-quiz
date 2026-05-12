@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 
 import { assertQuizEditable } from "@/src/lib/admin/quiz-lock";
+import { hasLockedQuizEditOverride } from "@/src/lib/admin/quiz-edit-override";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuestionUpdateSchema } from "@/src/lib/admin/validation";
 import { resolveVideoEmbedFields } from "@/src/lib/admin/video-embed";
@@ -131,8 +132,11 @@ export async function PUT(
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
 
-  // ADR-0013: a quiz with any session is immutable. Iterate via duplicate.
-  const lock = await assertQuizEditable(serviceSupabase, quizId);
+  // A quiz with sessions is protected by default. The editor can send an
+  // explicit override after the admin acknowledges the warning.
+  const lock = await assertQuizEditable(serviceSupabase, quizId, {
+    allowLockedEdit: hasLockedQuizEditOverride(request),
+  });
   if (!lock.ok) return lock.response;
 
   const update: Database["public"]["Tables"]["questions"]["Update"] = {};
@@ -145,9 +149,12 @@ export async function PUT(
   if (parsed.data.correctIds !== undefined) {
     update.correct_ids = parsed.data.correctIds;
   }
-  if (parsed.data.map !== undefined) update.map = parsed.data.map as Json | null;
-  if (parsed.data.imageUrl !== undefined) update.image_url = parsed.data.imageUrl;
-  if (parsed.data.imageAlt !== undefined) update.image_alt = parsed.data.imageAlt;
+  if (parsed.data.map !== undefined)
+    update.map = parsed.data.map as Json | null;
+  if (parsed.data.imageUrl !== undefined)
+    update.image_url = parsed.data.imageUrl;
+  if (parsed.data.imageAlt !== undefined)
+    update.image_alt = parsed.data.imageAlt;
   if (parsed.data.imageWidth !== undefined) {
     update.image_width = parsed.data.imageWidth;
   }
@@ -164,10 +171,14 @@ export async function PUT(
     update.time_seconds = parsed.data.timeSeconds;
   }
   if (parsed.data.points !== undefined) update.points = parsed.data.points;
-  if (parsed.data.videoUrl !== undefined) update.video_url = parsed.data.videoUrl;
-  if (parsed.data.videoPath !== undefined) update.video_path = parsed.data.videoPath;
-  if (normalizedEmbedUrl !== undefined) update.video_embed_url = normalizedEmbedUrl;
-  if (resolvedVideoProvider !== undefined) update.video_provider = resolvedVideoProvider;
+  if (parsed.data.videoUrl !== undefined)
+    update.video_url = parsed.data.videoUrl;
+  if (parsed.data.videoPath !== undefined)
+    update.video_path = parsed.data.videoPath;
+  if (normalizedEmbedUrl !== undefined)
+    update.video_embed_url = normalizedEmbedUrl;
+  if (resolvedVideoProvider !== undefined)
+    update.video_provider = resolvedVideoProvider;
   if (parsed.data.videoMimeType !== undefined) {
     update.video_mime_type = parsed.data.videoMimeType;
   }
@@ -177,8 +188,10 @@ export async function PUT(
   if (parsed.data.videoPosterUrl !== undefined) {
     update.video_poster_url = parsed.data.videoPosterUrl;
   }
-  if (parsed.data.videoWidth !== undefined) update.video_width = parsed.data.videoWidth;
-  if (parsed.data.videoHeight !== undefined) update.video_height = parsed.data.videoHeight;
+  if (parsed.data.videoWidth !== undefined)
+    update.video_width = parsed.data.videoWidth;
+  if (parsed.data.videoHeight !== undefined)
+    update.video_height = parsed.data.videoHeight;
   if (parsed.data.mediaLeadSeconds !== undefined) {
     update.media_lead_seconds = parsed.data.mediaLeadSeconds;
   }
@@ -211,7 +224,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: AdminQuestionItemRouteContext,
 ) {
   const auth = await requireRole("admin");
@@ -220,7 +233,9 @@ export async function DELETE(
   const { id: quizId, questionId } = await context.params;
   const serviceSupabase = await createServiceRoleSupabaseClient();
 
-  const lock = await assertQuizEditable(serviceSupabase, quizId);
+  const lock = await assertQuizEditable(serviceSupabase, quizId, {
+    allowLockedEdit: hasLockedQuizEditOverride(request),
+  });
   if (!lock.ok) return lock.response;
 
   const { data, error } = await serviceSupabase

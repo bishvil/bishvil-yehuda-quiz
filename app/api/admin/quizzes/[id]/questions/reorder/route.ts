@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 
 import { assertQuizEditable } from "@/src/lib/admin/quiz-lock";
+import { hasLockedQuizEditOverride } from "@/src/lib/admin/quiz-edit-override";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuestionReorderSchema } from "@/src/lib/admin/validation";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
@@ -16,7 +17,11 @@ interface AdminQuestionReorderBody {
 }
 
 interface AdminQuestionReorderErrorBody {
-  error: "INVALID_REQUEST" | "QUIZ_NOT_FOUND" | "WRITE_FAILED" | "VALIDATION_FAILED";
+  error:
+    | "INVALID_REQUEST"
+    | "QUIZ_NOT_FOUND"
+    | "WRITE_FAILED"
+    | "VALIDATION_FAILED";
   message: string;
 }
 
@@ -47,9 +52,11 @@ export async function POST(
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
 
-  // ADR-0013 — reorder mutates ordinal columns; locked once a session
-  // exists. assertQuizEditable handles missing-quiz 404s too.
-  const lock = await assertQuizEditable(serviceSupabase, quizId);
+  // Reorder mutates ordinal columns; locked once a session exists unless the
+  // admin explicitly acknowledged locked-quiz editing.
+  const lock = await assertQuizEditable(serviceSupabase, quizId, {
+    allowLockedEdit: hasLockedQuizEditOverride(request),
+  });
   if (!lock.ok) return lock.response;
 
   // Fetch all current questions to validate the update is complete
@@ -69,7 +76,10 @@ export async function POST(
   const currentIds = new Set((currentQuestions ?? []).map((q) => q.id));
   const newIds = new Set(parsed.data.ordinals.map((o) => o.id));
 
-  if (currentIds.size !== newIds.size || ![...currentIds].every((id) => newIds.has(id))) {
+  if (
+    currentIds.size !== newIds.size ||
+    ![...currentIds].every((id) => newIds.has(id))
+  ) {
     return privateNoStoreJson<AdminQuestionReorderErrorBody>(
       {
         error: "VALIDATION_FAILED",
@@ -82,10 +92,11 @@ export async function POST(
   try {
     // Negate all existing ordinals to avoid UNIQUE constraint collision.
     // Fetch current ordinals first so we can map them to unique negatives.
-    const { data: currentQuestions, error: fetchCurrentError } = await serviceSupabase
-      .from("questions")
-      .select("id, ordinal")
-      .eq("quiz_id", quizId);
+    const { data: currentQuestions, error: fetchCurrentError } =
+      await serviceSupabase
+        .from("questions")
+        .select("id, ordinal")
+        .eq("quiz_id", quizId);
 
     if (fetchCurrentError || !currentQuestions) {
       throw new Error("Failed to fetch current questions");
@@ -101,7 +112,9 @@ export async function POST(
         .eq("quiz_id", quizId);
 
       if (negError) {
-        throw new Error(`Negate step failed for ${row.id}: ${negError.message}`);
+        throw new Error(
+          `Negate step failed for ${row.id}: ${negError.message}`,
+        );
       }
     }
 

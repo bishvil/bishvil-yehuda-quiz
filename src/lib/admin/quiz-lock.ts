@@ -1,10 +1,11 @@
 /**
- * Quiz immutability guard (ADR-0013).
+ * Quiz edit guard.
  *
  * A quiz becomes read-only the moment any session row points at it,
  * regardless of session status (draft / scheduled / live / paused / ended,
- * archived or not). To iterate, admins duplicate the quiz via
- * `POST /api/admin/quizzes/[id]/duplicate`.
+ * archived or not). Admins can still opt into editing a quiz with sessions
+ * from the editor after acknowledging the warning; those requests carry an
+ * explicit override header and still pass through this single guard.
  *
  * `assertQuizEditable` is the single point of enforcement — it returns
  * `null` when the quiz is editable and a `409 QUIZ_LOCKED` JSON response
@@ -36,14 +37,20 @@ type AssertQuizEditableResult =
   | { ok: true }
   | { ok: false; response: Response };
 
+interface AssertQuizEditableOptions {
+  allowLockedEdit?: boolean;
+}
+
 /**
- * Returns `{ ok: true }` if the quiz exists and has zero sessions.
+ * Returns `{ ok: true }` if the quiz exists and has zero sessions, or if the
+ * caller explicitly opted into locked-quiz editing.
  * Otherwise returns `{ ok: false, response }` where `response` is a 404 /
  * 409 / 500 ready to be returned from the handler.
  */
 export async function assertQuizEditable(
   serviceSupabase: ServiceRoleSupabaseClient,
   quizId: string,
+  options: AssertQuizEditableOptions = {},
 ): Promise<AssertQuizEditableResult> {
   const { data, error } = await serviceSupabase
     .from("quizzes")
@@ -75,7 +82,7 @@ export async function assertQuizEditable(
     ? (data.sessions[0]?.count ?? 0)
     : 0;
 
-  if (sessionCount > 0) {
+  if (sessionCount > 0 && !options.allowLockedEdit) {
     return {
       ok: false,
       response: privateNoStoreJson<QuizLockedErrorBody>(

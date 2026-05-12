@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 
 import { assertQuizEditable } from "@/src/lib/admin/quiz-lock";
+import { hasLockedQuizEditOverride } from "@/src/lib/admin/quiz-edit-override";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuestionCreateSchema } from "@/src/lib/admin/validation";
 import { resolveVideoEmbedFields } from "@/src/lib/admin/video-embed";
@@ -150,9 +151,11 @@ export async function POST(
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
 
-  // ADR-0013 — adding a question is a content edit; locked once the quiz
-  // has any session. assertQuizEditable also returns 404 for missing quiz.
-  const lock = await assertQuizEditable(serviceSupabase, quizId);
+  // Adding a question is a content edit; locked once the quiz has any session
+  // unless the admin explicitly acknowledged locked-quiz editing.
+  const lock = await assertQuizEditable(serviceSupabase, quizId, {
+    allowLockedEdit: hasLockedQuizEditOverride(request),
+  });
   if (!lock.ok) return lock.response;
 
   const insert: Database["public"]["Tables"]["questions"]["Insert"] = {

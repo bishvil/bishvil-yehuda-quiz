@@ -1,7 +1,9 @@
-# ADR-0013 — Quiz Immutability + Duplicate Workflow
+# ADR-0013 — Quiz Edit Lock + Duplicate Workflow
 
-**Status:** Accepted
+**Status:** Amended
 **Date:** 2026-05-06
+**Amended:** 2026-05-12 — admins may explicitly override the edit lock after
+acknowledging that existing game results can be affected.
 **Supersedes:** the score-edit guard / rescore flow described in
   ADR-0006 §"Update 2026-05-04 — unified scoring contract".
 
@@ -23,16 +25,21 @@ correct in the narrow technical sense and confusing in every other way:
 admins could not tell which fields would lock, "force edit" felt
 unsafe, and the rescore step was easy to forget.
 
-The product model that actually fits the problem is the one used by
-Google Forms / Kahoot / Quizizz: **once a quiz has run, it is frozen.
-To iterate, duplicate.** The duplicate is a fresh editable template with
-no historical baggage; the original keeps its results intact.
+The default product model is the one used by Google Forms / Kahoot /
+Quizizz: **once a quiz has run, duplicate before iterating.** The
+duplicate is a fresh editable template with no historical baggage; the
+original keeps its results intact.
+
+As of 2026-05-12, customer feedback requires a deliberate override for
+test runs and exceptional admin workflows. The default remains locked,
+but admins can acknowledge a warning and edit anyway.
 
 ## Decision
 
-### 1. Immutability rule
+### 1. Edit-lock rule
 
-A quiz is **read-only** as soon as `count(sessions WHERE quiz_id = X) > 0`.
+A quiz is **read-only by default** as soon as
+`count(sessions WHERE quiz_id = X) > 0`.
 Status of those sessions is irrelevant — `draft`, `scheduled`, `live`,
 `paused`, `ended`, archived or not, all count.
 
@@ -46,16 +53,28 @@ This is enforced in two places:
   - `DELETE /api/admin/quizzes/[id]/questions/[questionId]`
   - `POST /api/admin/quizzes/[id]/questions/reorder`
 
-  On a locked quiz the helper replies `409 QUIZ_LOCKED` with
-  `{ error, message, sessionCount }`.
+  On a locked quiz without an explicit override, the helper replies
+  `409 QUIZ_LOCKED` with `{ error, message, sessionCount }`.
 
 - **Client-side** by the editor: `GET /api/admin/quizzes/[id]` now
   returns `hasAnySession: boolean`. When true, every input/control in
-  the quiz editor is rendered disabled, the autosave loops are gated
-  off, the launch button is disabled, and a banner with a "שכפל לעריכה"
-  CTA is shown above the editor.
+  the quiz editor starts disabled, the autosave loops are gated off, the
+  launch button is disabled, and a banner with "שכפל לעריכה" and
+  "עריכה בכל זאת" CTAs is shown above the editor.
 
-### 2. Duplicate
+### 2. Explicit admin override
+
+Clicking "עריכה בכל זאת" shows a browser confirmation explaining that
+editing quiz questions can affect existing game results. If the admin
+confirms, the editor re-enables inputs and autosave. Mutating requests
+sent from that unlocked editor include the `x-bsy-locked-quiz-edit: true`
+header.
+
+The header is intentionally not sent by default from the API client. A
+direct or stale write without the override remains blocked by
+`QUIZ_LOCKED`.
+
+### 3. Duplicate
 
 `POST /api/admin/quizzes/[id]/duplicate` (admin-only) deep-copies a quiz:
 
@@ -72,13 +91,14 @@ This is enforced in two places:
 Duplicate is available for any quiz, including archived ones. The
 result is always active so the admin can iterate immediately.
 
-### 3. Archive vs duplicate
+### 4. Archive vs duplicate
 
 | Operation | Effect | Editable result? |
 |---|---|---|
-| Archive (`DELETE /…/[id]`) | Sets `archived_at = now()` | No (still locked, content unchanged) |
-| Unarchive (`POST /…/[id]/unarchive`) | Sets `archived_at = null` | No (lock follows session count, not archive flag) |
+| Archive (`DELETE /…/[id]`) | Sets `archived_at = now()` | No by default (lock follows session count, not archive flag) |
+| Unarchive (`POST /…/[id]/unarchive`) | Sets `archived_at = null` | No by default (lock follows session count, not archive flag) |
 | Duplicate (`POST /…/[id]/duplicate`) | New quiz row, owner = caller | Yes (new quiz has zero sessions) |
+| Override ("עריכה בכל זאת") | Existing quiz remains the same row | Yes, after admin confirmation |
 
 The two flags are orthogonal. Archive is the "hide from list" knob;
 duplicate is the "make me a copy I can edit" knob.
@@ -107,17 +127,17 @@ duplicate is the "make me a copy I can edit" knob.
 ### Added
 
 - `src/lib/admin/quiz-lock.ts` — `assertQuizEditable` + `QUIZ_LOCKED_MESSAGE`.
+- `src/lib/admin/quiz-edit-override.ts` — shared override header helper.
 - `app/api/admin/quizzes/[id]/duplicate/route.ts`.
 - `hasAnySession: boolean` on `AdminQuizDetail`.
-- Read-only mode in `quiz-editor-screen.tsx` and `QuestionEditor.tsx`,
-  banner + CTA, list-page "שכפל" button.
+- Read-only mode in the quiz editor and `QuestionEditor.tsx`, warning
+  banner, duplicate CTA, and explicit "edit anyway" CTA.
 
 ### Migration & data
 
 No application data changes — the rule is purely an authoring-time
-constraint on top of the existing schema. The migration only drops the
-RPC; existing answer rows remain valid because their underlying
-questions are now guaranteed not to mutate.
+constraint on top of the existing schema. The 2026-05-12 override change
+does not require a migration.
 
 ## Verification
 
@@ -125,7 +145,8 @@ questions are now guaranteed not to mutate.
   `tests/unit/api/admin-quiz-lock.test.ts`.
 - Manual: editing a quiz that has a session shows the banner and the
   inputs are disabled; clicking שכפל creates a new quiz that opens in
-  the editor, fully editable.
+  the editor, fully editable; clicking עריכה בכל זאת asks for
+  confirmation and then re-enables editing on the existing quiz.
 - DB: after `pnpm supabase db reset --local`,
   `select proname from pg_proc where proname = 'rescore_session';`
   returns zero rows.

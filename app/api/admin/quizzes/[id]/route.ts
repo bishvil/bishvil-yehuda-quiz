@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 
 import { assertQuizEditable } from "@/src/lib/admin/quiz-lock";
+import { hasLockedQuizEditOverride } from "@/src/lib/admin/quiz-edit-override";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuizUpdateSchema } from "@/src/lib/admin/validation";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
@@ -140,10 +141,11 @@ export async function PUT(
 
   const serviceSupabase = await createServiceRoleSupabaseClient();
 
-  // ADR-0013 — content edits are blocked once any session exists. The
-  // archive/unarchive flows have dedicated endpoints (DELETE here without
-  // ?hard, and POST /unarchive), so PUT is treated as a pure content edit.
-  const lock = await assertQuizEditable(serviceSupabase, id);
+  // Content edits are blocked once any session exists unless the admin
+  // explicitly acknowledged locked-quiz editing in the editor UI.
+  const lock = await assertQuizEditable(serviceSupabase, id, {
+    allowLockedEdit: hasLockedQuizEditOverride(request),
+  });
   if (!lock.ok) return lock.response;
 
   const { data, error } = await serviceSupabase
@@ -151,7 +153,7 @@ export async function PUT(
     .update(update)
     .eq("id", id)
     .select(
-      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, custom_logo_active, join_fields, archived_at, created_at",
+      "id, title, brand_id, default_game_mode, custom_logo, custom_logo_label, custom_logo_active, join_fields, archived_at, created_at, sessions(count)",
     )
     .maybeSingle();
 
@@ -169,6 +171,10 @@ export async function PUT(
     );
   }
 
+  const sessionCount = Array.isArray(data.sessions)
+    ? (data.sessions[0]?.count ?? 0)
+    : 0;
+
   return privateNoStoreJson<AdminQuizDetailBody>({
     quiz: {
       id: data.id,
@@ -181,8 +187,7 @@ export async function PUT(
       joinFields: normalizeJoinFields(data.join_fields),
       archivedAt: data.archived_at,
       createdAt: data.created_at,
-      // The lock guard above guarantees a writable quiz reaches this point.
-      hasAnySession: false,
+      hasAnySession: sessionCount > 0,
     },
   });
 }
