@@ -43,6 +43,7 @@ export function QuestionCard({
 }: QuestionCardProps) {
   const eyebrow = buildEyebrow(type);
   const hasVideo = Boolean(videoUrl ?? videoEmbedUrl);
+  const imageSrc = type === "image" ? imageUrl : null;
 
   return (
     <div className="rounded-md border border-bsy-stone-100 bg-white p-5 shadow-[0_1px_2px_rgba(74,63,38,0.06)]">
@@ -59,10 +60,10 @@ export function QuestionCard({
             videoPosterUrl={videoPosterUrl}
           />
         </div>
-      ) : imageUrl ? (
+      ) : imageSrc ? (
         <div className="relative mb-3 aspect-[16/10] overflow-hidden rounded-md bg-bsy-paper-warm">
           <Image
-            src={imageUrl}
+            src={imageSrc}
             alt={imageAlt ?? ""}
             fill
             sizes="(max-width: 640px) 100vw, 640px"

@@ -122,11 +122,12 @@ export async function GET(
     );
   }
 
-  const options = parsedContent.data.options?.map((option) => ({
-    id: option.id,
-    text: option.text,
-    image_url: option.image_url,
-  })) ?? null;
+  const options =
+    parsedContent.data.options?.map((option) => ({
+      id: option.id,
+      text: option.text,
+      image_url: option.image_url,
+    })) ?? null;
 
   // ADR-0008 §2: never expose `target` coordinates pre-reveal — strip the
   // geo target. ADR-0011 §6.1.
@@ -148,10 +149,10 @@ export async function GET(
       type: question.type,
       prompt: question.prompt,
       options,
-      imageUrl: question.image_url,
-      imageAlt: question.image_alt,
-      imageWidth: question.image_width,
-      imageHeight: question.image_height,
+      imageUrl: question.type === "image" ? question.image_url : null,
+      imageAlt: question.type === "image" ? question.image_alt : null,
+      imageWidth: question.type === "image" ? question.image_width : null,
+      imageHeight: question.type === "image" ? question.image_height : null,
       map: mapPayload,
       timeSeconds: question.time_seconds,
       points: question.points,

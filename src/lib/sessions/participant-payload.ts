@@ -216,6 +216,20 @@ export function buildParticipantQuestionPayload(args: {
       },
     } as const;
   })();
+  const imagePayload =
+    args.question.type === "image"
+      ? {
+          imageUrl: args.question.image_url,
+          imageAlt: args.question.image_alt,
+          imageWidth: args.question.image_width,
+          imageHeight: args.question.image_height,
+        }
+      : {
+          imageUrl: null,
+          imageAlt: null,
+          imageWidth: null,
+          imageHeight: null,
+        };
 
   return {
     id: args.question.id,
@@ -224,10 +238,7 @@ export function buildParticipantQuestionPayload(args: {
     type: args.question.type,
     prompt: args.question.prompt,
     options: optionsArray,
-    imageUrl: args.question.image_url,
-    imageAlt: args.question.image_alt,
-    imageWidth: args.question.image_width,
-    imageHeight: args.question.image_height,
+    ...imagePayload,
     videoUrl: args.question.video_url,
     videoEmbedUrl: args.question.video_embed_url,
     videoProvider: narrowVideoProvider(args.question.video_provider),

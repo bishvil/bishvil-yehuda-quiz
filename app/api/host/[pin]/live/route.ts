@@ -204,11 +204,13 @@ export async function GET(
 
     if (question) {
       const optionsArray = Array.isArray(question.options)
-        ? (question.options as unknown as RawQuestionOption[]).map((option) => ({
-            id: option.id,
-            text: option.text,
-            image_url: option.image_url,
-          }))
+        ? (question.options as unknown as RawQuestionOption[]).map(
+            (option) => ({
+              id: option.id,
+              text: option.text,
+              image_url: option.image_url,
+            }),
+          )
         : null;
 
       const rawMap =
@@ -216,21 +218,22 @@ export async function GET(
           ? (question.map as unknown as RawQuestionMap)
           : null;
 
-      const mapPayload: HostLiveQuestion["map"] =
-        rawMap?.geo
-          ? {
-              geo: {
-                center: rawMap.geo.center,
-                zoom: rawMap.geo.zoom,
-                toleranceKm: rawMap.geo.toleranceKm,
-                styleHint: rawMap.geo.styleHint,
-              },
-            }
-          : null;
+      const mapPayload: HostLiveQuestion["map"] = rawMap?.geo
+        ? {
+            geo: {
+              center: rawMap.geo.center,
+              zoom: rawMap.geo.zoom,
+              toleranceKm: rawMap.geo.toleranceKm,
+              styleHint: rawMap.geo.styleHint,
+            },
+          }
+        : null;
 
       const rawVideoProvider = question.video_provider;
       const videoProvider: "self" | "youtube" | "vimeo" | null =
-        rawVideoProvider === "self" || rawVideoProvider === "youtube" || rawVideoProvider === "vimeo"
+        rawVideoProvider === "self" ||
+        rawVideoProvider === "youtube" ||
+        rawVideoProvider === "vimeo"
           ? rawVideoProvider
           : null;
 
@@ -240,10 +243,10 @@ export async function GET(
         type: question.type,
         prompt: question.prompt,
         options: optionsArray,
-        imageUrl: question.image_url,
-        imageAlt: question.image_alt,
-        imageWidth: question.image_width,
-        imageHeight: question.image_height,
+        imageUrl: question.type === "image" ? question.image_url : null,
+        imageAlt: question.type === "image" ? question.image_alt : null,
+        imageWidth: question.type === "image" ? question.image_width : null,
+        imageHeight: question.type === "image" ? question.image_height : null,
         // Video fields: video_path is intentionally excluded (admin-private per ADR-0008).
         videoUrl: question.video_url,
         videoEmbedUrl: question.video_embed_url,
@@ -281,7 +284,9 @@ export async function GET(
     // currently-live question. Also fetch geo pins for map-question guide view.
     const { data: answerRows } = await serviceSupabase
       .from("answers")
-      .select("selected_ids, participant_id, pin_lat, pin_lng, is_correct, distance_km, correctness_ratio")
+      .select(
+        "selected_ids, participant_id, pin_lat, pin_lng, is_correct, distance_km, correctness_ratio",
+      )
       .eq("session_id", session.id)
       .eq("question_id", session.current_question_id);
 
@@ -296,7 +301,11 @@ export async function GET(
 
     // isCorrect, distanceKm and correctnessRatio are stripped pre-reveal to
     // prevent answer leakage per ADR-0008 §2.
-    if (questionPayload?.type === "map" && questionPayload.map?.geo && answerRows) {
+    if (
+      questionPayload?.type === "map" &&
+      questionPayload.map?.geo &&
+      answerRows
+    ) {
       const isRevealed = questionPayload.status === "revealed";
       const geoTarget = revealPayload?.mapGeoTarget ?? null;
       const toleranceKm = questionPayload.map.geo.toleranceKm;
@@ -320,18 +329,19 @@ export async function GET(
           }
           // Prefer the stored distance_km (server-authoritative) over re-computing
           // haversine here to ensure host view is consistent with the answer row.
-          const storedDistKm = row.distance_km != null ? Number(row.distance_km) : null;
+          const storedDistKm =
+            row.distance_km != null ? Number(row.distance_km) : null;
           const distanceKm =
             storedDistKm ?? haversineKm({ lat, lng }, geoTarget);
           const roundedDist = Math.round(distanceKm * 100) / 100;
           // Compute correctness_ratio using the same strict-boundary formula as the RPC.
           const storedRatio =
-            row.correctness_ratio != null ? Number(row.correctness_ratio) : null;
+            row.correctness_ratio != null
+              ? Number(row.correctness_ratio)
+              : null;
           const correctnessRatio =
             storedRatio ??
-            (distanceKm < toleranceKm
-              ? 1 - distanceKm / toleranceKm
-              : 0);
+            (distanceKm < toleranceKm ? 1 - distanceKm / toleranceKm : 0);
           return {
             participantId: row.participant_id,
             lat,
@@ -399,7 +409,10 @@ export async function GET(
       answered: answeredIds.has(row.id),
     }))
     // Stable sort: highest score first, then by display name for determinism.
-    .sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName, "he"));
+    .sort(
+      (a, b) =>
+        b.score - a.score || a.displayName.localeCompare(b.displayName, "he"),
+    );
 
   // Per-participant question progress — async mode only (ADR-0007 §2.2 + §2.7).
   // Build a display-name lookup from the participants already fetched.
