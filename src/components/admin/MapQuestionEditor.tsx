@@ -220,13 +220,13 @@ export function MapQuestionEditor({
   return (
     <div className={className ?? "flex flex-col gap-3"}>
       <div
-        className="relative h-[320px] w-full overflow-hidden rounded-md border border-bsy-stone-200 shadow-[0_1px_2px_rgba(74,63,38,0.06)]"
+        className="relative flex h-[380px] w-full flex-col overflow-hidden rounded-md border border-bsy-stone-200 shadow-[0_1px_2px_rgba(74,63,38,0.06)] sm:h-[360px]"
         role="application"
         aria-label="עורך שאלת מפה — הקישו או גררו לסימון היעד"
       >
         <form
           onSubmit={handleSearch}
-          className="absolute inset-x-3 top-3 z-10 flex gap-2 rounded-md border border-bsy-stone-200 bg-white/95 p-2 shadow-[0_2px_8px_rgba(74,63,38,0.12)]"
+          className="relative z-10 flex flex-shrink-0 gap-2 border-b border-bsy-stone-200 bg-white/95 p-2"
           dir="rtl"
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -263,7 +263,7 @@ export function MapQuestionEditor({
         searchStatus === "empty" ||
         searchStatus === "error" ? (
           <div
-            className="absolute inset-x-3 top-[58px] z-10 rounded-md border border-bsy-stone-200 bg-white/95 p-1.5 text-[12px] shadow-[0_2px_8px_rgba(74,63,38,0.12)]"
+            className="absolute inset-x-2 top-[50px] z-20 max-h-40 overflow-y-auto rounded-md border border-bsy-stone-200 bg-white/95 p-1.5 text-[12px] shadow-[0_2px_8px_rgba(74,63,38,0.12)]"
             dir="rtl"
           >
             {searchStatus === "empty" ? (
@@ -288,17 +288,19 @@ export function MapQuestionEditor({
             ))}
           </div>
         ) : null}
-        <InteractiveMap
-          initialView={initialView}
-          styleHint={draft.styleHint}
-          onMapClick={handlePlace}
-          onMove={setView}
-          showLabels
-          flyTo={flyTo}
-          isAdmin
-          markers={markers}
-          ariaLabel="עורך שאלת מפה"
-        />
+        <div className="min-h-0 flex-1">
+          <InteractiveMap
+            initialView={initialView}
+            styleHint={draft.styleHint}
+            onMapClick={handlePlace}
+            onMove={setView}
+            showLabels
+            flyTo={flyTo}
+            isAdmin
+            markers={markers}
+            ariaLabel="עורך שאלת מפה"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-[12px]">
