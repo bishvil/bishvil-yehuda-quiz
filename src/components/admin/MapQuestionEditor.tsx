@@ -4,21 +4,28 @@
  * Admin authoring UI for an interactive map question (ADR-0011 §10).
  *
  * Click-to-set-target, draggable target marker, log-scale tolerance
- * slider (0.1..500 km), "use current view" capture button. Self-contained
- * — the integration tail wires this into `QuestionEditor.tsx` for
- * questions whose `type === 'map'`. The editor produces and consumes a
- * `MapQuestionGeoDraft` shape that maps 1:1 onto the additive
- * `map.geo` block defined by ADR-0011 §6.1.
+ * slider (0.1..500 km), and "use current view" capture button. The
+ * integration tail wires this into `QuestionEditor.tsx` for questions whose
+ * `type === 'map'`. The editor produces and consumes a `MapQuestionGeoDraft`
+ * shape that maps 1:1 onto the additive `map.geo` block defined by
+ * ADR-0011 §6.1.
  */
 
 import dynamic from "next/dynamic";
 import { useCallback, useMemo, useState, type FormEvent } from "react";
 
+import { MapQuestionDetails } from "@/src/components/admin/map/MapQuestionDetails";
+import {
+  MapSearchBox,
+  type MapSearchStatus,
+} from "@/src/components/admin/map/MapSearchBox";
+import { MapToleranceControl } from "@/src/components/admin/map/MapToleranceControl";
 import {
   MAP_DEFAULT_CENTER,
   MAP_DEFAULT_ZOOM,
   type InteractiveMarker,
   type LatLng,
+  type MapStyleHint,
   type MapViewState,
 } from "@/src/components/map/InteractiveMap";
 import {
@@ -48,7 +55,7 @@ export interface MapQuestionGeoDraft {
   toleranceKm: number;
   center?: LatLng;
   zoom?: number;
-  styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+  styleHint?: MapStyleHint;
 }
 
 export const TOLERANCE_KM_MIN = 0.1;
@@ -88,9 +95,7 @@ export function MapQuestionEditor({
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PlaceSearchResult[]>([]);
-  const [searchStatus, setSearchStatus] = useState<
-    "idle" | "loading" | "empty" | "error"
-  >("idle");
+  const [searchStatus, setSearchStatus] = useState<MapSearchStatus>("idle");
   const [flyTo, setFlyTo] = useState<
     (Partial<MapViewState> & { durationMs?: number }) | undefined
   >(undefined);
@@ -149,6 +154,19 @@ export function MapQuestionEditor({
     },
     [searchQuery],
   );
+
+  const handleSearchQueryChange = useCallback((next: string) => {
+    setSearchQuery(next);
+    if (next.trim().length === 0) {
+      setSearchResults([]);
+      setSearchStatus("idle");
+    }
+  }, []);
+
+  const handleDismissSearchResults = useCallback(() => {
+    setSearchResults([]);
+    setSearchStatus("idle");
+  }, []);
 
   const handlePickSearchResult = useCallback(
     (result: PlaceSearchResult) => {
@@ -224,70 +242,15 @@ export function MapQuestionEditor({
         role="application"
         aria-label="עורך שאלת מפה — הקישו או גררו לסימון היעד"
       >
-        <form
+        <MapSearchBox
+          query={searchQuery}
+          results={searchResults}
+          status={searchStatus}
+          onQueryChange={handleSearchQueryChange}
           onSubmit={handleSearch}
-          className="relative z-10 flex flex-shrink-0 gap-2 border-b border-bsy-stone-200 bg-white/95 p-2"
-          dir="rtl"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              setSearchResults([]);
-              setSearchStatus("idle");
-            }
-          }}
-        >
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value);
-              if (event.target.value.trim().length === 0) {
-                setSearchResults([]);
-                setSearchStatus("idle");
-              }
-            }}
-            placeholder="חיפוש עיר, יישוב או אתר"
-            className="min-w-0 flex-1 rounded-md border border-bsy-stone-200 px-3 py-1.5 text-[13px] text-bsy-ink outline-none focus:border-bsy-forest"
-            aria-label="חיפוש מקום במפה"
-          />
-          <button
-            type="submit"
-            disabled={
-              searchQuery.trim().length < 2 || searchStatus === "loading"
-            }
-            className="rounded-md bg-bsy-forest px-3 py-1.5 text-[12px] font-bold text-bsy-paper disabled:cursor-not-allowed disabled:bg-bsy-stone-300"
-          >
-            {searchStatus === "loading" ? "מחפש..." : "חיפוש"}
-          </button>
-        </form>
-        {searchResults.length > 0 ||
-        searchStatus === "empty" ||
-        searchStatus === "error" ? (
-          <div
-            className="absolute inset-x-2 top-[50px] z-20 max-h-40 overflow-y-auto rounded-md border border-bsy-stone-200 bg-white/95 p-1.5 text-[12px] shadow-[0_2px_8px_rgba(74,63,38,0.12)]"
-            dir="rtl"
-          >
-            {searchStatus === "empty" ? (
-              <p className="m-0 px-2 py-1.5 text-bsy-stone-700">
-                לא נמצאו תוצאות.
-              </p>
-            ) : null}
-            {searchStatus === "error" ? (
-              <p className="m-0 px-2 py-1.5 text-bsy-error">
-                החיפוש נכשל. נסו שוב.
-              </p>
-            ) : null}
-            {searchResults.map((result) => (
-              <button
-                key={result.id}
-                type="button"
-                onClick={() => handlePickSearchResult(result)}
-                className="block w-full rounded px-2 py-1.5 text-right text-bsy-ink hover:bg-bsy-paper-warm"
-              >
-                {result.name}
-              </button>
-            ))}
-          </div>
-        ) : null}
+          onSelectResult={handlePickSearchResult}
+          onDismissResults={handleDismissSearchResults}
+        />
         <div className="min-h-0 flex-1">
           <InteractiveMap
             initialView={initialView}
@@ -303,80 +266,22 @@ export function MapQuestionEditor({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-[12px]">
-        <div className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2">
-          <div className="font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
-            יעד (lat / lng)
-          </div>
-          <div className="font-mono text-[13px] text-bsy-ink" dir="ltr">
-            {draft.target.lat.toFixed(5)}, {draft.target.lng.toFixed(5)}
-          </div>
-        </div>
-        <div className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2">
-          <div className="font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
-            ברירת מחדל לתצוגה
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            {draft.center && draft.zoom !== undefined ? (
-              <span className="font-mono text-[13px] text-bsy-ink" dir="ltr">
-                {draft.center.lat.toFixed(2)}, {draft.center.lng.toFixed(2)} @{" "}
-                {draft.zoom}
-              </span>
-            ) : (
-              <span className="text-bsy-stone-400">ברירת מחדל ארצית</span>
-            )}
-            <div className="flex gap-1">
-              <button
-                type="button"
-                className="rounded-md border border-bsy-stone-200 px-2 py-1 text-[11px] hover:border-bsy-forest"
-                onClick={handleUseCurrentView}
-              >
-                השתמש במבט הנוכחי
-              </button>
-              {draft.center ? (
-                <button
-                  type="button"
-                  className="rounded-md border border-bsy-stone-200 px-2 py-1 text-[11px] text-bsy-stone-700 hover:border-bsy-error hover:text-bsy-error"
-                  onClick={handleResetView}
-                >
-                  איפוס
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </div>
+      <MapQuestionDetails
+        target={draft.target}
+        center={draft.center}
+        zoom={draft.zoom}
+        onUseCurrentView={handleUseCurrentView}
+        onResetView={handleResetView}
+      />
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
-          רדיוס סובלנות (ק״מ)
-        </span>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={0}
-            max={1000}
-            step={1}
-            value={sliderValue}
-            onChange={(e) => handleToleranceSlider(Number(e.target.value))}
-            aria-label="רדיוס סובלנות בק״מ"
-            className="flex-1 accent-bsy-forest"
-          />
-          <input
-            type="number"
-            min={TOLERANCE_KM_MIN}
-            max={TOLERANCE_KM_MAX}
-            step={0.1}
-            value={Number(draft.toleranceKm.toFixed(2))}
-            onChange={(e) => handleToleranceText(e.target.value)}
-            className="w-24 rounded-md border border-bsy-stone-200 bg-white px-2 py-1 font-mono text-[13px]"
-            aria-label="רדיוס סובלנות בק״מ — קלט טקסטואלי"
-          />
-        </div>
-        <span className="text-[11px] text-bsy-stone-400">
-          סולם לוגריתמי בין {TOLERANCE_KM_MIN} ל־{TOLERANCE_KM_MAX} ק״מ.
-        </span>
-      </label>
+      <MapToleranceControl
+        minKm={TOLERANCE_KM_MIN}
+        maxKm={TOLERANCE_KM_MAX}
+        valueKm={draft.toleranceKm}
+        sliderValue={sliderValue}
+        onSliderChange={handleToleranceSlider}
+        onTextChange={handleToleranceText}
+      />
     </div>
   );
 }

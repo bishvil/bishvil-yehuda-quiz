@@ -46,101 +46,42 @@ import {
   type MapRef,
   type ViewStateChangeEvent,
 } from "react-map-gl/maplibre";
-import type { Map as MapLibreMap, StyleSpecification } from "maplibre-gl";
-import type { Feature, FeatureCollection, LineString } from "geojson";
+import type { Map as MapLibreMap } from "maplibre-gl";
 
-/** ADR-0011 §3 default IL viewport. */
-export const MAP_DEFAULT_CENTER = { lat: 31.5, lng: 34.9 } as const;
-export const MAP_DEFAULT_ZOOM = 7;
+import {
+  buildHebrewLabelExpression,
+  buildSegmentFeatureCollection,
+} from "@/src/components/map/map-overlays";
+import {
+  MAP_DEFAULT_CENTER,
+  MAP_DEFAULT_ZOOM,
+  MAP_ISRAEL_BOUNDS,
+  MAP_MAX_ZOOM,
+  MAP_MIN_ZOOM,
+  MAP_RTL_TEXT_PLUGIN_URL,
+  resolveStyle,
+} from "@/src/components/map/map-style";
+import type {
+  LatLng,
+  MapStyleHint,
+  MapViewState,
+} from "@/src/components/map/map-types";
 
-/**
- * Camera is locked to Israel + a small buffer so participants can't pan to
- * other countries. Bounds are [west, south, east, north] in WGS-84 degrees.
- * Buffer chosen to comfortably include Eilat, the Galilee, the Golan, and
- * the West Bank without revealing Cyprus or the Sinai interior.
- */
-export const MAP_ISRAEL_BOUNDS: [number, number, number, number] = [
-  33.8, 29.3, 36.0, 33.5,
-];
-export const MAP_MIN_ZOOM = 6.5;
-export const MAP_MAX_ZOOM = 17;
-
-/** Geographic coordinate. WGS-84 degrees. */
-export interface LatLng {
-  lat: number;
-  lng: number;
-}
-
-/** Subset of the `react-map-gl` view-state shape we control. */
-export interface MapViewState {
-  longitude: number;
-  latitude: number;
-  zoom: number;
-}
-
-/** RTL plugin URL — mirrors Mapbox's plugin protocol byte-for-byte. */
-export const MAP_RTL_TEXT_PLUGIN_URL =
-  "https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.js";
-
-/**
- * Resolve the single MapLibre style used by the map question.
- *
- * The game uses satellite imagery only (matches the visual style of the
- * israel-map-game inspiration). MapTiler `satellite` is preferred; without
- * a key we fall back to Esri World Imagery (free, no key required).
- *
- * The `styleHint` parameter is accepted for backward compatibility with
- * stored question content but is ignored — every map renders satellite.
- */
-export function resolveStyle(
-  styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty",
-): string | StyleSpecification {
-  void styleHint;
-  const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-
-  if (key) {
-    return `https://api.maptiler.com/maps/satellite/style.json?key=${encodeURIComponent(key)}`;
-  }
-
-  // Free fallback: Esri World Imagery — raster aerial photography, no key.
-  const esriSatelliteStyle: StyleSpecification = {
-    version: 8,
-    sources: {
-      "esri-world-imagery": {
-        type: "raster",
-        tiles: [
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        ],
-        tileSize: 256,
-        attribution:
-          'Tiles © <a href="https://www.esri.com/">Esri</a> — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-        maxzoom: 19,
-      },
-    },
-    layers: [
-      {
-        id: "esri-world-imagery-layer",
-        type: "raster",
-        source: "esri-world-imagery",
-        minzoom: 0,
-        maxzoom: 22,
-      },
-    ],
-  };
-  return esriSatelliteStyle;
-}
-
-/**
- * @deprecated Use `resolveStyle` which returns `string | StyleSpecification`.
- * This shim exists only for callers that still expect a plain string URL.
- */
-export function resolveStyleUrl(
-  styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty",
-): string {
-  const result = resolveStyle(styleHint);
-  if (typeof result === "string") return result;
-  return "https://demotiles.maplibre.org/style.json";
-}
+export {
+  MAP_DEFAULT_CENTER,
+  MAP_DEFAULT_ZOOM,
+  MAP_ISRAEL_BOUNDS,
+  MAP_MAX_ZOOM,
+  MAP_MIN_ZOOM,
+  MAP_RTL_TEXT_PLUGIN_URL,
+  resolveStyle,
+  resolveStyleUrl,
+} from "@/src/components/map/map-style";
+export type {
+  LatLng,
+  MapStyleHint,
+  MapViewState,
+} from "@/src/components/map/map-types";
 
 /** A marker rendered on the map. */
 export interface InteractiveMarker {
@@ -162,7 +103,7 @@ export interface InteractiveMapProps {
   /** Initial camera (uncontrolled). */
   initialView?: Partial<MapViewState>;
   /** Style hint per ADR-0011 §6.1. */
-  styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
+  styleHint?: MapStyleHint;
   /** Click handler — receives WGS-84 lat/lng. Disabled when `disabled` true. */
   onMapClick?: (point: LatLng) => void;
   /** Stable list of markers; placement order does not matter. */
@@ -437,36 +378,5 @@ const InteractiveMapImpl = forwardRef<
     </div>
   );
 });
-
-function buildSegmentFeatureCollection(
-  segments: Array<[LatLng, LatLng]>,
-): FeatureCollection<LineString> {
-  return {
-    type: "FeatureCollection",
-    features: segments.map<Feature<LineString>>(([a, b], i) => ({
-      type: "Feature",
-      id: i,
-      properties: {},
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [a.lng, a.lat],
-          [b.lng, b.lat],
-        ],
-      },
-    })),
-  };
-}
-
-function buildHebrewLabelExpression(fallback: unknown): unknown[] {
-  return [
-    "coalesce",
-    ["get", "name:he"],
-    ["get", "name_he"],
-    ["get", "name:he-Latn"],
-    fallback,
-    ["get", "name"],
-  ];
-}
 
 export const InteractiveMap = InteractiveMapImpl;
