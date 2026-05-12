@@ -293,7 +293,7 @@ export function useQuizEditorController(quizId: string) {
   const handleLaunch = useCallback(async () => {
     if (!quiz) return;
     if (questions.length === 0) {
-      setErrorMessage("הוסיפו לפחות תחנה אחת לפני הפעלה.");
+      setErrorMessage("הוסיפו לפחות תחנה אחת לפני יצירת משחק.");
       return;
     }
     setLaunching(true);
@@ -304,7 +304,9 @@ export function useQuizEditorController(quizId: string) {
     } catch (caught) {
       setLaunching(false);
       setErrorMessage(
-        caught instanceof Error ? caught.message : "השמירה לפני הפעלה נכשלה.",
+        caught instanceof Error
+          ? caught.message
+          : "השמירה לפני יצירת המשחק נכשלה.",
       );
       return;
     }

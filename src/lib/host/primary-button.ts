@@ -29,16 +29,27 @@ export interface HostPrimaryDecisionInput {
 export function decideHostPrimaryButton(
   input: HostPrimaryDecisionInput,
 ): HostPrimaryButtonState {
-  const { sessionStatus, questionStatus, deadlinePassed, hasNextQuestion, isLastQuestion } = input;
+  const {
+    sessionStatus,
+    questionStatus,
+    deadlinePassed,
+    hasNextQuestion,
+    isLastQuestion,
+  } = input;
 
   if (sessionStatus === "ended") {
-    return { action: "ended", label: "החידון הסתיים", disabled: true, hint: null };
+    return {
+      action: "ended",
+      label: "החידון הסתיים",
+      disabled: true,
+      hint: null,
+    };
   }
 
   if (sessionStatus === "draft") {
     return {
       action: "start_session",
-      label: "הפעלת חידון ←",
+      label: "התחל חידון ←",
       disabled: true,
       hint: "יש לפרסם או לתזמן את החידון לפני ההפעלה.",
     };
@@ -47,7 +58,7 @@ export function decideHostPrimaryButton(
   if (sessionStatus === "scheduled") {
     return {
       action: "start_session",
-      label: "הפעלת חידון ←",
+      label: "התחל חידון ←",
       disabled: !hasNextQuestion,
       hint: hasNextQuestion ? null : "לא הוגדרו שאלות לחידון.",
     };
@@ -71,7 +82,10 @@ export function decideHostPrimaryButton(
       action: "begin_answering",
       label: "התחלת מענה ←",
       disabled: sessionStatus === "paused",
-      hint: sessionStatus === "paused" ? "החידון מושהה — חזרו אליו לפני התחלת המענה." : null,
+      hint:
+        sessionStatus === "paused"
+          ? "החידון מושהה — חזרו אליו לפני התחלת המענה."
+          : null,
     };
   }
 
@@ -79,7 +93,8 @@ export function decideHostPrimaryButton(
     if (sessionStatus === "paused") {
       return {
         action: "advance",
-        label: !hasNextQuestion || isLastQuestion ? "סיום החידון ←" : "לתחנה הבאה ←",
+        label:
+          !hasNextQuestion || isLastQuestion ? "סיום החידון ←" : "לתחנה הבאה ←",
         disabled: true,
         hint: "החידון מושהה — חזרו אליו לפני מעבר תחנה.",
       };
@@ -87,7 +102,8 @@ export function decideHostPrimaryButton(
 
     return {
       action: "advance",
-      label: !hasNextQuestion || isLastQuestion ? "סיום החידון ←" : "לתחנה הבאה ←",
+      label:
+        !hasNextQuestion || isLastQuestion ? "סיום החידון ←" : "לתחנה הבאה ←",
       disabled: false,
       hint: null,
     };
@@ -104,4 +120,3 @@ export function decideHostPrimaryButton(
       : "ניתן לחשוף לאחר תום הזמן או לאחר שכל המשתתפים יענו.",
   };
 }
-

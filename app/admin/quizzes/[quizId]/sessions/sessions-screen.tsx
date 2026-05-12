@@ -156,28 +156,33 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
     [],
   );
 
-  const handleArchive = useCallback(async (sessionId: string) => {
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm("לארכב את המשחק? פעולה זו תסיים ותסתיר את המשחק מהרשימה.")
-    ) {
-      return;
-    }
-    setErrorMessage(null);
-    const body = await archiveAdminSession(sessionId);
-    if (isAdminApiError(body)) {
-      setErrorMessage(body.message);
-      return;
-    }
-    // If not showing archived, remove the row; otherwise update it with archivedAt.
-    setSessions((prev) =>
-      showArchived
-        ? prev.map((s) =>
-            s.id === sessionId ? { ...s, archivedAt: body.archivedAt } : s,
-          )
-        : prev.filter((s) => s.id !== sessionId),
-    );
-  }, [showArchived]);
+  const handleArchive = useCallback(
+    async (sessionId: string) => {
+      if (
+        typeof window !== "undefined" &&
+        !window.confirm(
+          "לארכב את המשחק? פעולה זו תסיים ותסתיר את המשחק מהרשימה.",
+        )
+      ) {
+        return;
+      }
+      setErrorMessage(null);
+      const body = await archiveAdminSession(sessionId);
+      if (isAdminApiError(body)) {
+        setErrorMessage(body.message);
+        return;
+      }
+      // If not showing archived, remove the row; otherwise update it with archivedAt.
+      setSessions((prev) =>
+        showArchived
+          ? prev.map((s) =>
+              s.id === sessionId ? { ...s, archivedAt: body.archivedAt } : s,
+            )
+          : prev.filter((s) => s.id !== sessionId),
+      );
+    },
+    [showArchived],
+  );
 
   const handleHardDelete = useCallback(async (sessionId: string) => {
     if (
@@ -229,7 +234,7 @@ export function SessionsScreen({ quizId }: { quizId: string }) {
               disabled={launchDisabled}
               data-testid="admin-create-session"
             >
-              {launching ? "מפעיל…" : "הפעלת חידון"}
+              {launching ? "יוצר משחק…" : "צור משחק"}
             </PrimaryButton>
           </div>
         }
@@ -358,17 +363,17 @@ function EmptyState({
   return (
     <div className="flex flex-col items-center gap-4 rounded-md border border-dashed border-bsy-stone-200 bg-white px-6 py-16 text-center">
       <h2 className="font-[var(--font-display)] text-2xl text-bsy-brown">
-        אין משחקים פעילים
+        עדיין אין משחקים לחידון הזה
       </h2>
       <p className="text-[13px] text-bsy-stone-700">
-        ההפעלה תיצור קוד הצטרפות ותעביר את החידון למצב “מתוזמן”.
+        צרו משחק כדי לקבל קוד הצטרפות. אחר כך פותחים לוח מנחה ומתחילים משם.
       </p>
       <PrimaryButton
         onClick={onLaunch}
         withArrow
         disabled={launching || !hasQuestions}
       >
-        {launching ? "מפעיל…" : "הפעלת חידון"}
+        {launching ? "יוצר משחק…" : "צור משחק"}
       </PrimaryButton>
     </div>
   );
@@ -440,6 +445,9 @@ function SessionCard({
             })}
           </span>
         </div>
+        <p className="mt-3 mb-0 text-[12.5px] leading-5 text-bsy-stone-700">
+          {sessionGuidance(session.status, session.gameMode)}
+        </p>
         <div className="mt-3 flex items-center gap-2 text-[12px] text-bsy-stone-700">
           <span className="text-bsy-stone-400">מנחה</span>
           {canReassign && team.length > 0 ? (
@@ -471,7 +479,7 @@ function SessionCard({
             target="_blank"
             rel="noreferrer"
           >
-            לוח מנחה ←
+            פתח לוח מנחה ←
           </Link>
         ) : (
           <span
@@ -487,7 +495,7 @@ function SessionCard({
         >
           תוצאות
         </Link>
-<span className="ms-auto flex items-center gap-2">
+        <span className="ms-auto flex items-center gap-2">
           {canArchive ? (
             <button
               type="button"
@@ -508,9 +516,30 @@ function SessionCard({
               מחק לצמיתות
             </button>
           ) : null}
-          {!isArchived ? <SharePinPopover pin={session.pin} variant="compact" /> : null}
+          {!isArchived ? (
+            <SharePinPopover pin={session.pin} variant="compact" />
+          ) : null}
         </span>
       </div>
     </article>
   );
+}
+
+function sessionGuidance(
+  status: AdminSessionListRow["status"],
+  gameMode: AdminSessionListRow["gameMode"],
+): string {
+  if (gameMode === "async") {
+    return "משחק עצמאי מוכן לשיתוף. המשתתפים נכנסים עם הקוד ומתקדמים בקצב שלהם.";
+  }
+  if (status === "scheduled" || status === "draft") {
+    return "המשחק מוכן להצטרפות. שתפו את הקוד, פתחו לוח מנחה, ואז התחילו כשהקבוצה מוכנה.";
+  }
+  if (status === "live") {
+    return "המשחק פעיל עכשיו. לוח המנחה מנהל את התחנות, התשובות והמעבר קדימה.";
+  }
+  if (status === "paused") {
+    return "המשחק מושהה. פתחו את לוח המנחה כדי להמשיך מאותה נקודה.";
+  }
+  return "המשחק הסתיים. אפשר לצפות בתוצאות או לארכב אותו.";
 }

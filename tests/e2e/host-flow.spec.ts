@@ -8,7 +8,8 @@ import {
   LOCAL_TEST_PASSWORD,
 } from "@/src/lib/constants";
 
-const localDatabaseUrl = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+const localDatabaseUrl =
+  "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
 function getE2ePostgres() {
   return postgres(process.env.DIRECT_URL ?? localDatabaseUrl, {
@@ -105,11 +106,15 @@ test("host flow starts, reveals, and advances without partial mutation errors", 
       timeout: 15_000,
     });
 
-    const startSession = page.getByRole("button", { name: /הפעלת חידון/ }).first();
+    const startSession = page
+      .getByRole("button", { name: /התחל חידון/ })
+      .first();
     await expect(startSession).toBeEnabled();
     await startSession.click();
 
-    const startQuestion = page.getByRole("button", { name: /התחלת תחנה/ }).first();
+    const startQuestion = page
+      .getByRole("button", { name: /התחלת תחנה/ })
+      .first();
     await expect(startQuestion).toBeEnabled({ timeout: 15_000 });
     await startQuestion.click();
     await expect(page.getByText("E2E first station").first()).toBeVisible({
@@ -148,17 +153,24 @@ test("host flow starts, reveals, and advances without partial mutation errors", 
     const reveal = page.getByRole("button", { name: /חשיפת התשובה/ }).first();
     await expect(reveal).toBeEnabled({ timeout: 15_000 });
     await reveal.click();
-    await expect(page.getByRole("button", { name: /לתחנה הבאה/ }).first()).toBeEnabled({
+    await expect(
+      page.getByRole("button", { name: /לתחנה הבאה/ }).first(),
+    ).toBeEnabled({
       timeout: 15_000,
     });
 
-    await page.getByRole("button", { name: /לתחנה הבאה/ }).first().click();
+    await page
+      .getByRole("button", { name: /לתחנה הבאה/ })
+      .first()
+      .click();
     await expect(page.getByText("E2E second station").first()).toBeVisible({
       timeout: 15_000,
     });
     await expect(page.getByText(/אירעה שגיאה|לא ניתן|שגיאה/)).toHaveCount(0);
 
-    const [session] = await sql<{ current_question_id: string; status: string }[]>`
+    const [session] = await sql<
+      { current_question_id: string; status: string }[]
+    >`
       select current_question_id, status
       from public.sessions
       where id = ${sessionId}::uuid

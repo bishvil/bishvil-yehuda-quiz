@@ -71,7 +71,7 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
               disabled={editor.launching || editor.readOnly}
               data-testid="admin-launch-session"
             >
-              {editor.launching ? "מפעיל…" : "הפעלת חידון"}
+              {editor.launching ? "יוצר משחק…" : "צור משחק"}
             </PrimaryButton>
           </>
         }

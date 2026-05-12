@@ -7,7 +7,10 @@ import { HostAsyncProgressList } from "@/src/components/host/HostAsyncProgressLi
 import { HostControlBar } from "@/src/components/host/HostControlBar";
 import { HostHeader } from "@/src/components/host/HostHeader";
 import { HostMapSummary } from "@/src/components/host/HostMapSummary";
-import { HostPlayerList, type HostPlayer } from "@/src/components/host/HostPlayerList";
+import {
+  HostPlayerList,
+  type HostPlayer,
+} from "@/src/components/host/HostPlayerList";
 import { HostQuestionCard } from "@/src/components/host/HostQuestionCard";
 import { HostTimerPanel } from "@/src/components/host/HostTimerPanel";
 import { VideoQuestionSpotlight } from "@/src/components/participant/VideoQuestionSpotlight";
@@ -53,7 +56,12 @@ export function HostScreen({
   const [error, setError] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("live");
 
-  const { state, status: loadStatus, error: loadError, refetch } = useHostState({ pin });
+  const {
+    state,
+    status: loadStatus,
+    error: loadError,
+    refetch,
+  } = useHostState({ pin });
 
   const question = state?.question ?? null;
 
@@ -84,7 +92,8 @@ export function HostScreen({
 
   const totalQuestions = state?.totalQuestions ?? 0;
   const hasNextQuestion = Boolean(state?.nextQuestion);
-  const questionStatus = (question?.status ?? null) as QuestionStatusEnum | null;
+  const questionStatus = (question?.status ??
+    null) as QuestionStatusEnum | null;
   const questionOrdinal = question?.ordinal ?? null;
   const isLastQuestion =
     questionOrdinal !== null &&
@@ -164,7 +173,9 @@ export function HostScreen({
         }
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "אירעה שגיאה. נסו שוב.");
+      setError(
+        caught instanceof Error ? caught.message : "אירעה שגיאה. נסו שוב.",
+      );
     } finally {
       setBusy(false);
       await refetch();
@@ -239,7 +250,9 @@ export function HostScreen({
             לא ניתן לטעון את לוח המדריך
           </h2>
           {loadError ? (
-            <p className="max-w-xs text-[13px] text-bsy-stone-700">{loadError}</p>
+            <p className="max-w-xs text-[13px] text-bsy-stone-700">
+              {loadError}
+            </p>
           ) : null}
           <button
             type="button"
@@ -273,7 +286,9 @@ export function HostScreen({
 
   const canControl = state.canControl;
   const showRevealedHighlight = question?.status === "revealed";
-  const correctIds = showRevealedHighlight ? (state.reveal?.correctIds ?? []) : null;
+  const correctIds = showRevealedHighlight
+    ? (state.reveal?.correctIds ?? [])
+    : null;
   const isMapQuestion = question?.type === "map";
   const hasOptions = !isMapQuestion && Array.isArray(question?.options);
   const participantPins = state.mapAnswers ?? null;
@@ -664,10 +679,7 @@ function HostEndedSummary({
 
       <dl className="mt-4 grid grid-cols-3 gap-2">
         <Stat label="שחקנים" value={playerCount.toLocaleString("he-IL")} />
-        <Stat
-          label="ענו לפחות פעם"
-          value={answered.toLocaleString("he-IL")}
-        />
+        <Stat label="ענו לפחות פעם" value={answered.toLocaleString("he-IL")} />
         <Stat label="תחנות" value={totalQuestions.toLocaleString("he-IL")} />
       </dl>
 
@@ -683,7 +695,8 @@ function HostEndedSummary({
                 className="flex items-center justify-between gap-3 rounded-md bg-bsy-paper-warm px-3 py-2 text-[13px]"
               >
                 <span className="font-bold text-bsy-stone-700">
-                  {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"} {player.displayName}
+                  {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}{" "}
+                  {player.displayName}
                 </span>
                 <span className="font-mono font-bold text-bsy-forest">
                   {player.score.toLocaleString("he-IL")}
@@ -694,12 +707,12 @@ function HostEndedSummary({
         </div>
       ) : (
         <p className="mt-5 text-[13px] text-bsy-stone-400">
-          אף שחקן לא צבר נקודות בסשן זה.
+          אף שחקן לא צבר נקודות במשחק הזה.
         </p>
       )}
 
       <p className="mt-5 text-[12px] text-bsy-stone-700">
-        לתצוגת תוצאות מפורטת לכל המשתתפים — דף ניהול ׳תוצאות׳ של הסשן.
+        לתצוגת תוצאות מפורטת לכל המשתתפים — דף ניהול ׳תוצאות׳ של המשחק.
       </p>
     </div>
   );
@@ -732,7 +745,7 @@ function idleHeadline(
 ): string {
   if (status === "ended") return "תודה רבה!";
   if (status === "scheduled" || status === "draft") {
-    return totalQuestions > 0 ? "מוכנים להפעיל את החידון" : "החידון עדיין ריק";
+    return totalQuestions > 0 ? "המשחק פתוח להצטרפות" : "החידון עדיין ריק";
   }
   if (nextOrdinal) return `תחנה ${nextOrdinal}`;
   return "מוכנים להמשיך";
@@ -741,7 +754,7 @@ function idleHeadline(
 function idleBody(status: string): string {
   if (status === "ended") return "תוצאות החידון הוצגו לכל המשתתפים.";
   if (status === "scheduled" || status === "draft") {
-    return "לחיצה על ׳הפעלת חידון׳ תפתח את ההצטרפות ותעביר את הסטטוס ל׳פעיל׳.";
+    return "שתפו את קוד ההצטרפות עם המשתתפים. כשהקבוצה מוכנה, לחצו ׳התחל חידון׳.";
   }
   if (status === "paused") {
     return "החידון מושהה כרגע. לחצו ׳המשך׳ כדי לחזור ולפתוח את התחנה הבאה.";
@@ -843,7 +856,7 @@ function lifecycleBanner({
   if (sessionStatus === "scheduled" || sessionStatus === "draft") {
     return {
       message:
-        "החידון מתוכנן. עדיין ניתן לקבל משתתפים. לחצו ׳התחל׳ כשתהיו מוכנים.",
+        "המשחק פתוח להצטרפות. שתפו את הקוד, ואז לחצו ׳התחל חידון׳ כשהקבוצה מוכנה.",
       tone: "border-bsy-stone-100 bg-bsy-paper-warm text-bsy-stone-700",
     };
   }

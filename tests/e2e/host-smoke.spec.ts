@@ -41,13 +41,13 @@ test("host can sign in and reach the live dashboard", async ({ page }) => {
   await expect(page.getByText(LOCAL_TEST_SESSION_PIN).first()).toBeVisible();
 
   // The primary CTA shows up — exact label depends on session status. For a
-  // freshly-seeded scheduled session it's "הפעלת חידון", for a session that
+  // freshly-seeded scheduled session it's "התחל חידון", for a session that
   // has already been touched it could be "התחלת תחנה" or other states.
   // The control bar also surfaces "סיום החידון" so we lock to a non-end label.
   await expect(
     page
       .getByRole("button", {
-        name: /הפעלת חידון|התחלת תחנה|חשיפת התשובה|לתחנה הבאה|החידון הסתיים/,
+        name: /התחל חידון|התחלת תחנה|חשיפת התשובה|לתחנה הבאה|החידון הסתיים/,
       })
       .first(),
   ).toBeVisible();

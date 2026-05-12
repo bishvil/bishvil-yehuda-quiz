@@ -6,13 +6,13 @@
  * consistent across roles.
  */
 
-/** Helper sentence under the "צור סשן" form on the admin sessions surface. */
+/** Helper sentence under the "צור משחק" action on the admin sessions surface. */
 export const SESSION_CREATE_HELPER =
-  "סשן חדש נוצר במצב ׳טיוטה׳. ניתן לקבוע מועד ולפרסם לאחר מכן.";
+  "יצירת משחק תפתח קוד הצטרפות. המשתתפים יוכלו להצטרף, והחידון יתחיל רק מלוח המנחה.";
 
 /** Confirm copy when an admin clicks "פרסם" / "התחל". */
 export const SESSION_PUBLISH_CONFIRM =
-  "ברגע הפרסום החידון פתוח להצטרפות באמצעות קוד הסשן. ניתן לעצור או לבטל את החידון בכל עת לפני התחלתו.";
+  "ליצור משחק חדש? לאחר היצירה יופיע קוד הצטרפות ותוכלו לפתוח את לוח המנחה. החידון לא מתחיל עד שלוחצים ׳התחל חידון׳.";
 
 /** Confirm copy when an admin/host clicks "התחל חידון". */
 export const SESSION_START_CONFIRM =

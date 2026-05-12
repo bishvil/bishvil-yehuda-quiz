@@ -13,7 +13,7 @@ interface HostHomeCardProps {
  * PIN and one primary action whose label depends on the session status:
  *
  * - `live`            → "כנס לדשבורד"
- * - `scheduled|draft` → "כנס להמתנה" (lobby/waiting state on /host/[pin])
+ * - `scheduled|draft` → "פתח לוח מנחה" (waiting state on /host/[pin])
  * - `paused`          → "המשך מהמסך" (resume from host live screen)
  * - `ended`           → "צפה בתוצאות" — disabled until an admin results route ships
  */
@@ -45,6 +45,11 @@ export function HostHomeCard({ session }: HostHomeCardProps) {
           >
             {session.pin}
           </span>
+        </p>
+        <p className="mt-2 mb-0 text-[12.5px] leading-5 text-bsy-stone-700">
+          {session.status === "scheduled" || session.status === "draft"
+            ? "שתפו את הקוד עם המשתתפים. החידון יתחיל רק אחרי לחיצה על ׳התחל חידון׳ בלוח המנחה."
+            : "לוח המנחה ממשיך מאותו מצב שבו המשחק נמצא עכשיו."}
         </p>
       </div>
 
@@ -80,12 +85,24 @@ interface PrimaryAction {
 function primaryAction(session: HostSessionRow): PrimaryAction {
   switch (session.status) {
     case "live":
-      return { label: "כנס לדשבורד", href: `/host/${session.pin}`, disabled: false };
+      return {
+        label: "כנס לדשבורד",
+        href: `/host/${session.pin}`,
+        disabled: false,
+      };
     case "paused":
-      return { label: "המשך מהמסך", href: `/host/${session.pin}`, disabled: false };
+      return {
+        label: "המשך מהמסך",
+        href: `/host/${session.pin}`,
+        disabled: false,
+      };
     case "scheduled":
     case "draft":
-      return { label: "כנס להמתנה", href: `/host/${session.pin}`, disabled: false };
+      return {
+        label: "פתח לוח מנחה",
+        href: `/host/${session.pin}`,
+        disabled: false,
+      };
     case "ended":
       return { label: "צפה בתוצאות", href: "#", disabled: true };
   }
