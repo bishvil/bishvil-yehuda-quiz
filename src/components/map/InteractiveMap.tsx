@@ -300,6 +300,16 @@ const InteractiveMapImpl = forwardRef<
               "visibility",
               props.showLabels ? "visible" : "none",
             );
+            if (props.showLabels) {
+              const textField = map.getLayoutProperty(layer.id, "text-field");
+              if (textField !== undefined) {
+                map.setLayoutProperty(
+                  layer.id,
+                  "text-field",
+                  buildHebrewLabelExpression(textField),
+                );
+              }
+            }
           }
         }
       } catch {
@@ -446,6 +456,17 @@ function buildSegmentFeatureCollection(
       },
     })),
   };
+}
+
+function buildHebrewLabelExpression(fallback: unknown): unknown[] {
+  return [
+    "coalesce",
+    ["get", "name:he"],
+    ["get", "name_he"],
+    ["get", "name:he-Latn"],
+    fallback,
+    ["get", "name"],
+  ];
 }
 
 export const InteractiveMap = InteractiveMapImpl;

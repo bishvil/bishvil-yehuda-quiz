@@ -21,6 +21,10 @@ import {
   type LatLng,
   type MapViewState,
 } from "@/src/components/map/InteractiveMap";
+import {
+  searchMapPlaces,
+  type PlaceSearchResult,
+} from "@/src/lib/maps/place-search";
 
 const InteractiveMap = dynamic(
   () =>
@@ -55,36 +59,6 @@ export interface MapQuestionEditorProps {
   onChange: (next: MapQuestionGeoDraft) => void;
   className?: string;
 }
-
-interface PlaceSearchResult {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-}
-
-const ADMIN_PLACE_LABELS: Array<{ name: string; position: LatLng }> = [
-  { name: "ירושלים", position: { lat: 31.7683, lng: 35.2137 } },
-  { name: "תל אביב", position: { lat: 32.0853, lng: 34.7818 } },
-  { name: "חיפה", position: { lat: 32.794, lng: 34.9896 } },
-  { name: "באר שבע", position: { lat: 31.2518, lng: 34.7913 } },
-  { name: "אילת", position: { lat: 29.5577, lng: 34.9519 } },
-  { name: "אשדוד", position: { lat: 31.8044, lng: 34.6553 } },
-  { name: "אשקלון", position: { lat: 31.6688, lng: 34.5743 } },
-  { name: "נתניה", position: { lat: 32.3215, lng: 34.8532 } },
-  { name: "חדרה", position: { lat: 32.434, lng: 34.9196 } },
-  { name: "טבריה", position: { lat: 32.7959, lng: 35.5309 } },
-  { name: "צפת", position: { lat: 32.9646, lng: 35.496 } },
-  { name: "נצרת", position: { lat: 32.6996, lng: 35.3035 } },
-  { name: "עפולה", position: { lat: 32.6091, lng: 35.2892 } },
-  { name: "בית שאן", position: { lat: 32.4973, lng: 35.4967 } },
-  { name: "קריית שמונה", position: { lat: 33.2073, lng: 35.5708 } },
-  { name: "מודיעין", position: { lat: 31.898, lng: 35.0104 } },
-  { name: "אריאל", position: { lat: 32.1047, lng: 35.1733 } },
-  { name: "גוש עציון", position: { lat: 31.6574, lng: 35.1235 } },
-  { name: "חברון", position: { lat: 31.5326, lng: 35.0998 } },
-  { name: "יריחו", position: { lat: 31.856, lng: 35.46 } },
-];
 
 /**
  * Default draft used when an admin first switches a question to the
@@ -165,47 +139,11 @@ export function MapQuestionEditor({
 
       setSearchStatus("loading");
       try {
-        const params = new URLSearchParams({
-          format: "jsonv2",
-          q: query,
-          countrycodes: "il",
-          limit: "6",
-          bounded: "1",
-          viewbox: "33.8,33.5,36.0,29.3",
-          "accept-language": "he,en",
-        });
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?${params.toString()}`,
-        );
-        if (!response.ok) throw new Error("Place search failed");
-        const rawResults = (await response.json()) as Array<{
-          place_id?: number;
-          osm_id?: number;
-          display_name?: string;
-          name?: string;
-          lat?: string;
-          lon?: string;
-        }>;
-        const nextResults = rawResults
-          .map((result, index): PlaceSearchResult | null => {
-            const lat = Number(result.lat);
-            const lng = Number(result.lon);
-            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-            return {
-              id: String(result.place_id ?? result.osm_id ?? index),
-              name:
-                result.name ??
-                result.display_name?.split(",")[0]?.trim() ??
-                "מיקום במפה",
-              lat,
-              lng,
-            };
-          })
-          .filter((result): result is PlaceSearchResult => result !== null);
-
+        const nextResults = await searchMapPlaces(query);
         setSearchResults(nextResults);
         setSearchStatus(nextResults.length > 0 ? "idle" : "empty");
       } catch {
+        setSearchResults([]);
         setSearchStatus("error");
       }
     },
@@ -216,6 +154,9 @@ export function MapQuestionEditor({
     (result: PlaceSearchResult) => {
       const target = { lat: result.lat, lng: result.lng };
       onChange({ ...draft, target });
+      setSearchQuery(result.name);
+      setSearchResults([]);
+      setSearchStatus("idle");
       setFlyTo({
         latitude: result.lat,
         longitude: result.lng,
@@ -258,15 +199,6 @@ export function MapQuestionEditor({
 
   const markers = useMemo<InteractiveMarker[]>(
     () => [
-      ...ADMIN_PLACE_LABELS.map((place) => ({
-        key: `label-${place.name}`,
-        position: place.position,
-        children: (
-          <span className="pointer-events-none rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-bsy-ink shadow-[0_1px_3px_rgba(0,0,0,0.18)]">
-            {place.name}
-          </span>
-        ),
-      })),
       ...searchResults.map((result) => ({
         key: `search-${result.id}`,
         position: { lat: result.lat, lng: result.lng },
@@ -296,11 +228,23 @@ export function MapQuestionEditor({
           onSubmit={handleSearch}
           className="absolute inset-x-3 top-3 z-10 flex gap-2 rounded-md border border-bsy-stone-200 bg-white/95 p-2 shadow-[0_2px_8px_rgba(74,63,38,0.12)]"
           dir="rtl"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setSearchResults([]);
+              setSearchStatus("idle");
+            }
+          }}
         >
           <input
             type="search"
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              if (event.target.value.trim().length === 0) {
+                setSearchResults([]);
+                setSearchStatus("idle");
+              }
+            }}
             placeholder="חיפוש עיר, יישוב או אתר"
             className="min-w-0 flex-1 rounded-md border border-bsy-stone-200 px-3 py-1.5 text-[13px] text-bsy-ink outline-none focus:border-bsy-forest"
             aria-label="חיפוש מקום במפה"
