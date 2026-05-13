@@ -4,6 +4,7 @@ import {
   computeAnswerSeconds,
   formatAnswerSeconds,
 } from "@/src/lib/time/answer-duration";
+import { formatCountdownSeconds } from "@/src/lib/time/timer-display";
 
 describe("answer duration helpers", () => {
   it("computes elapsed time from the configured question timer", () => {
@@ -30,5 +31,11 @@ describe("answer duration helpers", () => {
     expect(formatAnswerSeconds(0)).toBe("פחות משנייה");
     expect(formatAnswerSeconds(1)).toBe("שנייה אחת");
     expect(formatAnswerSeconds(12)).toBe("12 שניות");
+  });
+
+  it("formats countdown labels consistently", () => {
+    expect(formatCountdownSeconds(5)).toBe("0:05");
+    expect(formatCountdownSeconds(45)).toBe("0:45");
+    expect(formatCountdownSeconds(125)).toBe("2:05");
   });
 });

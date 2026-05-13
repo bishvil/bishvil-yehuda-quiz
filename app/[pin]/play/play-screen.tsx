@@ -321,11 +321,7 @@ export function PlayScreen({
             {question.total}
           </span>
           {needsSpotlight ? null : (
-            <TimerLane
-              question={question}
-              hasSubmitted={hasSubmitted}
-              isRevealed={isRevealed}
-            />
+            <TimerLane question={question} isRevealed={isRevealed} />
           )}
         </div>
         <ProgressBar
@@ -546,16 +542,16 @@ function buildQuestionKey(
 
 interface TimerLaneProps {
   question: NonNullable<ParticipantStateResponse["question"]>;
-  hasSubmitted: boolean;
   isRevealed: boolean;
 }
 
-function TimerLane({ question, hasSubmitted, isRevealed }: TimerLaneProps) {
+function TimerLane({ question, isRevealed }: TimerLaneProps) {
   // Keep the deadline live across answering/locked/revealed so the display
   // settles at 0:00 instead of jumping back to the full duration when the
-  // station ends.
+  // station ends. This remains true after the current participant submits:
+  // their answer time is persisted separately, but the question timer itself
+  // is still running.
   const keepDeadline =
-    !hasSubmitted &&
     question.deadlineAt &&
     (question.status === "answering" ||
       question.status === "locked" ||
@@ -567,13 +563,13 @@ function TimerLane({ question, hasSubmitted, isRevealed }: TimerLaneProps) {
     timeSeconds: question.timeSeconds,
   });
 
-  const showBar = !isRevealed && !hasSubmitted;
+  const showBar = !isRevealed;
 
   return (
     <TimerBar
       fraction={countdown.fraction}
       remainingSeconds={countdown.remainingSeconds}
-      isWarning={countdown.isWarning && !hasSubmitted}
+      isWarning={countdown.isWarning && !isRevealed}
       showBar={showBar}
     />
   );

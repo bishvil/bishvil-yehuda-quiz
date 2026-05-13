@@ -1,3 +1,5 @@
+import { formatCountdownSeconds } from "@/src/lib/time/timer-display";
+
 interface HostTimerPanelProps {
   remainingSeconds: number;
   fraction: number;
@@ -9,7 +11,7 @@ interface HostTimerPanelProps {
 }
 
 /**
- * Big numeric timer (XX seconds) with a thin progress track underneath.
+ * Numeric timer (M:SS) with a thin progress track underneath.
  * Used in the host's right rail on desktop and at the top of the field
  * view on mobile (compact variant).
  */
@@ -22,7 +24,7 @@ export function HostTimerPanel({
   variant = "desktop",
 }: HostTimerPanelProps) {
   const percent = Math.min(100, Math.max(0, fraction * 100));
-  const display = String(Math.max(0, remainingSeconds)).padStart(2, "0");
+  const display = formatCountdownSeconds(remainingSeconds);
 
   if (variant === "compact") {
     return (

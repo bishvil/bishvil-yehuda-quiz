@@ -114,6 +114,36 @@ describe("PlayScreen video questions", () => {
     expect(screen.getByText("0:45")).toBeInTheDocument();
   });
 
+  it("keeps the question timer running after the participant submits", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-12T00:00:10.000Z"));
+    mock.state = buildChoiceState({
+      timeSeconds: 45,
+      deadlineAt: "2026-05-12T00:00:45.000Z",
+      serverNow: "2026-05-12T00:00:10.000Z",
+      status: "answering",
+      myAnswer: {
+        submittedAt: "2026-05-12T00:00:08.000Z",
+        status: "submitted_awaiting_reveal",
+        answerSeconds: 8,
+        selectedIds: ["a"],
+      },
+    });
+
+    render(
+      <PlayScreen
+        pin="123456"
+        brand={BRAND}
+        customLogo={null}
+        customLogoLabel={null}
+        gameMode="sync"
+      />,
+    );
+
+    expect(screen.getByText("0:35")).toBeInTheDocument();
+    expect(screen.getByText("זמן מענה: 8 שניות")).toBeInTheDocument();
+  });
+
   it("shows answer time with revealed scoring", () => {
     mock.state = buildChoiceState({
       status: "revealed",
@@ -201,6 +231,7 @@ function buildChoiceState(
   overrides: {
     timeSeconds?: number;
     deadlineAt?: string;
+    serverNow?: string;
     status?: "answering" | "revealed";
     myAnswer?: ParticipantStateResponse["myAnswer"];
     reveal?: ParticipantStateResponse["reveal"];
@@ -245,7 +276,7 @@ function buildChoiceState(
       startedAt: "2026-05-12T00:00:00.000Z",
       deadlineAt:
         overrides.deadlineAt ?? `2026-05-12T00:00:${timeSeconds}.000Z`,
-      serverNow: "2026-05-12T00:00:00.000Z",
+      serverNow: overrides.serverNow ?? "2026-05-12T00:00:00.000Z",
     },
     myAnswer: overrides.myAnswer ?? null,
     myScore: 0,

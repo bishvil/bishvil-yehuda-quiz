@@ -1,9 +1,11 @@
+import { formatCountdownSeconds } from "@/src/lib/time/timer-display";
+
 interface TimerBarProps {
   /** 0–1, fraction of time remaining. */
   fraction: number;
   remainingSeconds: number;
   isWarning: boolean;
-  /** Hide the bar (post-submit, post-reveal). The seconds chip stays. */
+  /** Hide the bar when only the chip should remain. */
   showBar?: boolean;
 }
 
@@ -18,7 +20,7 @@ export function TimerBar({
   showBar = true,
 }: TimerBarProps) {
   const percent = Math.min(100, Math.max(0, fraction * 100));
-  const display = formatTimerSeconds(remainingSeconds);
+  const display = formatCountdownSeconds(remainingSeconds);
 
   return (
     <div className="flex items-center gap-3">
@@ -56,11 +58,4 @@ export function TimerBar({
       ) : null}
     </div>
   );
-}
-
-function formatTimerSeconds(seconds: number): string {
-  const safeSeconds = Math.max(0, seconds);
-  const minutes = Math.floor(safeSeconds / 60);
-  const remainder = safeSeconds % 60;
-  return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
