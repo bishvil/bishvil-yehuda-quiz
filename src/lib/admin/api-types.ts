@@ -294,6 +294,7 @@ export interface AdminParticipantAnalyticsRow {
   latestFirstName: string;
   latestLastName: string;
   latestPhone: string;
+  latestEmail: string | null;
   namesSeen: string[];
   profileFields: AdminParticipantProfileFields;
   firstSeenAt: string;

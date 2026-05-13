@@ -209,7 +209,7 @@ function ParticipantsAnalytics({
             p.latestFirstName,
             p.latestLastName,
             p.latestPhone,
-            p.identityKey,
+            p.latestEmail,
             ...p.namesSeen,
             ...p.participations.flatMap((participation) => [
               participation.quizTitle,
@@ -281,7 +281,7 @@ function ParticipantsAnalytics({
         <input
           value={search}
           onChange={(event) => onSearch(event.target.value)}
-          placeholder="חיפוש לפי שם, טלפון, יחידה, צוות, חידון או קוד"
+          placeholder="חיפוש לפי שם, אימייל, טלפון, יחידה, צוות, חידון או קוד"
           className="w-full min-w-0 flex-1 rounded-md border border-bsy-stone-100 bg-white px-3 py-2 text-[14px] outline-none focus:border-bsy-forest"
         />
         <button
@@ -307,7 +307,7 @@ function ParticipantsAnalytics({
                 <div className="mt-0.5 truncate text-[12px] text-bsy-stone-700">
                   {row.namesSeen.length > 1
                     ? row.namesSeen.join(", ")
-                    : row.identityKey}
+                    : (row.latestEmail ?? row.latestPhone)}
                 </div>
               </div>
               <div className="shrink-0 text-left">
@@ -322,6 +322,7 @@ function ParticipantsAnalytics({
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
+              <MobileField label="אימייל" value={row.latestEmail} ltr />
               <MobileField label="טלפון" value={row.latestPhone} ltr />
               <MobileField
                 label="משחקים"
@@ -348,6 +349,7 @@ function ParticipantsAnalytics({
           <thead className="bg-bsy-stone-50 text-[11px] uppercase tracking-[0.14em] text-bsy-stone-700">
             <tr>
               <th className="px-3 py-2">שם</th>
+              <th className="px-3 py-2">אימייל</th>
               <th className="px-3 py-2">טלפון</th>
               <th className="px-3 py-2">שמות שנראו</th>
               <th className="px-3 py-2">יחידה</th>
@@ -366,6 +368,9 @@ function ParticipantsAnalytics({
               >
                 <td className="px-3 py-2 font-bold text-bsy-ink">
                   {row.displayName}
+                </td>
+                <td className="px-3 py-2" dir="ltr">
+                  {row.latestEmail ?? "—"}
                 </td>
                 <td className="px-3 py-2" dir="ltr">
                   {row.latestPhone}
@@ -559,14 +564,14 @@ function LeaderRow({
 function exportParticipantsCsv(rows: AdminParticipantAnalyticsRow[]) {
   const profileKeys = Array.from(
     new Set(rows.flatMap((row) => Object.keys(row.profileFields))),
-  ).filter((key) => !["firstName", "lastName", "phone"].includes(key));
+  ).filter((key) => !["firstName", "lastName", "phone", "email"].includes(key));
 
   const headers = [
     "שם לתצוגה",
     "שמות שנראו",
+    "אימייל",
     "טלפון אחרון",
     "ספק זיהוי",
-    "מזהה",
     "השתתפויות",
     "נראה לראשונה",
     "נראה לאחרונה",
@@ -582,9 +587,9 @@ function exportParticipantsCsv(rows: AdminParticipantAnalyticsRow[]) {
   const csvRows = rows.map((row) => [
     row.displayName,
     row.namesSeen.join(" | "),
+    row.latestEmail ?? "",
     row.latestPhone,
     row.identityProvider,
-    row.identityKey,
     String(row.participationCount),
     row.firstSeenAt,
     row.lastSeenAt,

@@ -237,6 +237,7 @@ function aggregateUniqueParticipants(
         latestFirstName: latest.firstName,
         latestLastName: latest.lastName,
         latestPhone: latest.phone,
+        latestEmail: latest.profileFields.email ?? null,
         namesSeen,
         profileFields: latest.profileFields,
         firstSeenAt: rows[rows.length - 1]!.joinedAt,
