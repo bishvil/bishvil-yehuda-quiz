@@ -1,9 +1,19 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { ComponentProps, ImgHTMLAttributes } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { JoinScreen } from "@/app/[pin]/join-screen";
 import type { ParticipantBrand } from "@/src/lib/participant/brands";
+
+const { routerReplaceMock } = vi.hoisted(() => ({
+  routerReplaceMock: vi.fn(),
+}));
 
 /** Inline fixture — mirrors the seeded yehuda system brand. */
 const YEHUDA_BRAND: ParticipantBrand = {
@@ -18,7 +28,7 @@ const YEHUDA_BRAND: ParticipantBrand = {
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
-    replace: vi.fn(),
+    replace: routerReplaceMock,
     back: vi.fn(),
     refresh: vi.fn(),
     prefetch: vi.fn(),
@@ -76,6 +86,11 @@ function fillRequiredFields() {
 }
 
 describe("JoinScreen", () => {
+  beforeEach(() => {
+    routerReplaceMock.mockClear();
+    vi.restoreAllMocks();
+  });
+
   it("prefills the PIN from a valid route param and enables submit after the other required fields are valid", () => {
     renderJoinScreen({ pin: "123456" });
 
@@ -112,5 +127,36 @@ describe("JoinScreen", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("הסתיים");
     expect(screen.getByRole("status")).not.toHaveTextContent("אינו זמין");
+  });
+
+  it("submits the edited PIN instead of the route PIN", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({
+        json: async () => ({
+          participantId: "participant-1",
+          sessionId: "session-1",
+          accessToken: "token",
+          tokenType: "bearer",
+        }),
+      } as Response);
+
+    renderJoinScreen({ pin: "123456" });
+
+    const cells = codeCells();
+    "654321".split("").forEach((digit, index) => {
+      fireEvent.keyDown(cells[index]!, { key: digit });
+    });
+    fillRequiredFields();
+
+    fireEvent.click(screen.getByRole("button", { name: /הצטרפות לחידון/ }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/session/654321/join",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(routerReplaceMock).toHaveBeenCalledWith("/654321/lobby");
   });
 });

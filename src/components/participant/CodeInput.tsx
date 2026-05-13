@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  type ClipboardEvent,
+  type FocusEvent,
+  type KeyboardEvent,
+} from "react";
 
 import { PARTICIPANT_PIN_LENGTH } from "@/src/lib/participant/pin";
 
@@ -39,12 +45,15 @@ export function CodeInput({
   }, [autoFocus]);
 
   function update(nextCells: string[]) {
-    const joined = nextCells.join("");
+    const firstBlank = nextCells.findIndex((cell) => cell === "");
+    const normalizedCells =
+      firstBlank === -1 ? nextCells : nextCells.slice(0, firstBlank);
+    const joined = normalizedCells.join("");
     onChange(joined);
     if (
       onComplete &&
       joined.length === PARTICIPANT_PIN_LENGTH &&
-      nextCells.every((cell) => cell !== "")
+      firstBlank === -1
     ) {
       onComplete(joined);
     }
@@ -62,6 +71,23 @@ export function CodeInput({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>, index: number) {
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault();
+      const next = [...cells];
+      next[index] = event.key;
+      update(next);
+      if (index < PARTICIPANT_PIN_LENGTH - 1) {
+        inputs.current[index + 1]?.focus();
+      }
+      return;
+    }
+    if (event.key === "Backspace" && cells[index]) {
+      event.preventDefault();
+      const next = [...cells];
+      next[index] = "";
+      update(next);
+      return;
+    }
     if (event.key === "Backspace" && !cells[index] && index > 0) {
       event.preventDefault();
       const next = [...cells];
@@ -79,6 +105,10 @@ export function CodeInput({
       event.preventDefault();
       inputs.current[index - 1]?.focus();
     }
+  }
+
+  function handleFocus(event: FocusEvent<HTMLInputElement>) {
+    event.currentTarget.select();
   }
 
   function handlePaste(event: ClipboardEvent<HTMLInputElement>) {
@@ -111,6 +141,7 @@ export function CodeInput({
             value={cell}
             onChange={(event) => handleCellChange(index, event.target.value)}
             onKeyDown={(event) => handleKeyDown(event, index)}
+            onFocus={handleFocus}
             onPaste={handlePaste}
             inputMode="numeric"
             autoComplete={index === 0 ? "one-time-code" : "off"}
