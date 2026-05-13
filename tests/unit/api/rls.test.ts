@@ -2,12 +2,13 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { createHmac } from "node:crypto";
 
-import {
-  cleanupFixtures,
-  getTestPostgres,
-  seedSyncFixtures,
-} from "./test-db";
+import { cleanupFixtures, getTestPostgres, seedSyncFixtures } from "./test-db";
 import type { Database } from "@/src/lib/supabase/database.types";
+
+const googleAuthUser = vi.hoisted(() => ({
+  email: "rls-participant@example.test",
+  sub: "rls-google-sub",
+}));
 
 vi.mock("@/src/lib/supabase/server", async () => {
   const actual = await vi.importActual<
@@ -15,14 +16,51 @@ vi.mock("@/src/lib/supabase/server", async () => {
   >("@/src/lib/supabase/server");
   return {
     ...actual,
-    createServerSupabaseClient: async () =>
-      createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    createServerSupabaseClient: async () => {
+      const client = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
           persistSession: false,
           autoRefreshToken: false,
           detectSessionInUrl: false,
+          storageKey: `rls-route-${googleAuthUser.sub}`,
         },
-      }),
+      });
+
+      const auth = client.auth as typeof client.auth & {
+        getUser: unknown;
+        signOut: unknown;
+      };
+      auth.getUser = async () => ({
+        data: {
+          user: {
+            id: `google-${googleAuthUser.sub}`,
+            app_metadata: {},
+            aud: "authenticated",
+            created_at: new Date(0).toISOString(),
+            email: googleAuthUser.email,
+            identities: [
+              {
+                provider: "google",
+                id: googleAuthUser.sub,
+                user_id: `google-${googleAuthUser.sub}`,
+                identity_id: `identity-${googleAuthUser.sub}`,
+                identity_data: { sub: googleAuthUser.sub },
+                created_at: new Date(0).toISOString(),
+                updated_at: new Date(0).toISOString(),
+              },
+            ],
+            user_metadata: {
+              given_name: "Rls",
+              family_name: "Participant",
+            },
+          },
+        },
+        error: null,
+      });
+      auth.signOut = async () => ({ error: null });
+
+      return client;
+    },
   };
 });
 
@@ -48,11 +86,9 @@ afterAll(async () => {
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  "<redacted-local-anon-jwt>";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "<redacted-local-anon-jwt>";
 const SUPABASE_SERVICE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  "<redacted-local-service-role-jwt>";
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "<redacted-local-service-role-jwt>";
 const SUPABASE_JWT_SECRET =
   process.env.SUPABASE_JWT_SECRET ??
   "super-secret-jwt-token-with-at-least-32-characters-long";
@@ -63,6 +99,7 @@ function makeTokenClient(accessToken: string) {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
+      storageKey: `rls-token-${accessToken.slice(0, 16)}`,
     },
     global: {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -76,12 +113,15 @@ function makeServiceClient() {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
+      storageKey: "rls-service",
     },
   });
 }
 
 async function joinWithRoute(phoneSuffix: string) {
   const fixtures = await seedSyncFixtures(sql, { gameMode: "async" });
+  googleAuthUser.email = `rls-${phoneSuffix}@example.test`;
+  googleAuthUser.sub = `rls-google-sub-${phoneSuffix}`;
 
   await sql`
     update public.sessions
@@ -100,12 +140,13 @@ async function joinWithRoute(phoneSuffix: string) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        firstName: "Rls",
-        lastName: "Participant",
         phone: `0501234${phoneSuffix}`,
+        identityProvider: "google",
       }),
     }) as Parameters<typeof POST>[0],
-    { params: Promise.resolve({ pin: fixtures.pin }) } as Parameters<typeof POST>[1],
+    { params: Promise.resolve({ pin: fixtures.pin }) } as Parameters<
+      typeof POST
+    >[1],
   );
 
   expect(response.status).toBe(200);
@@ -121,7 +162,11 @@ async function joinWithRoute(phoneSuffix: string) {
     participantId: body.participantId,
   });
 
-  return { ...fixtures, participantId: body.participantId, accessToken: body.accessToken };
+  return {
+    ...fixtures,
+    participantId: body.participantId,
+    accessToken: body.accessToken,
+  };
 }
 
 async function insertProgressAsService(args: {
@@ -161,8 +206,12 @@ async function expiredParticipantToken(args: {
       participant_id: args.participantId,
     },
   };
-  const encodedHeader = Buffer.from(JSON.stringify(header)).toString("base64url");
-  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const encodedHeader = Buffer.from(JSON.stringify(header)).toString(
+    "base64url",
+  );
+  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
+    "base64url",
+  );
   const signingInput = `${encodedHeader}.${encodedPayload}`;
   const signature = createHmac("sha256", SUPABASE_JWT_SECRET)
     .update(signingInput)
@@ -242,15 +291,17 @@ describe("RLS policies (ADR-0008 §Consequences)", () => {
     const participantB = await joinWithRoute("005");
     const clientA = makeTokenClient(participantA.accessToken);
 
-    const { error } = await clientA.from("participant_question_progress").insert({
-      session_id: participantB.sessionId,
-      participant_id: participantA.participantId,
-      question_id: participantB.questionId,
-      question_index: 1,
-      status: "answering",
-      started_at: new Date().toISOString(),
-      deadline_at: new Date(Date.now() + 60_000).toISOString(),
-    });
+    const { error } = await clientA
+      .from("participant_question_progress")
+      .insert({
+        session_id: participantB.sessionId,
+        participant_id: participantA.participantId,
+        question_id: participantB.questionId,
+        question_index: 1,
+        status: "answering",
+        started_at: new Date().toISOString(),
+        deadline_at: new Date(Date.now() + 60_000).toISOString(),
+      });
 
     expect(error).not.toBeNull();
   });

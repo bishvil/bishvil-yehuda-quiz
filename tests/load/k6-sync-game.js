@@ -52,13 +52,13 @@ export const options = {
     },
   },
   thresholds: {
-    "join_latency_ms": ["p(95)<3000", "p(99)<8000"],
-    "state_latency_ms": ["p(95)<800", "p(99)<2000"],
-    "answer_latency_ms": ["p(95)<1000"],
-    "join_errors": ["rate<0.05"],
-    "state_errors": ["rate<0.02"],
-    "answer_errors": ["rate<0.05"],
-    "http_req_failed": ["rate<0.05"],
+    join_latency_ms: ["p(95)<3000", "p(99)<8000"],
+    state_latency_ms: ["p(95)<800", "p(99)<2000"],
+    answer_latency_ms: ["p(95)<1000"],
+    join_errors: ["rate<0.05"],
+    state_errors: ["rate<0.02"],
+    answer_errors: ["rate<0.05"],
+    http_req_failed: ["rate<0.05"],
   },
 };
 
@@ -68,11 +68,12 @@ function pin() {
 
 function syntheticPhone(vu, iter) {
   // Israeli-format-like: starts with 05, total 10 digits.
-  const tail = String(900_000_000 + ((vu * 9301 + iter * 49297 + Date.now()) % 90_000_000)).slice(0, 8);
+  const tail = String(
+    900_000_000 + ((vu * 9301 + iter * 49297 + Date.now()) % 90_000_000),
+  ).slice(0, 8);
   return `05${tail}`;
 }
 
-// eslint-disable-next-line import/no-anonymous-default-export
 export default function syncGame() {
   const headers = { "Content-Type": "application/json" };
   let token;
@@ -139,9 +140,7 @@ export default function syncGame() {
               { headers: authHeaders, tags: { name: "answer" } },
             );
             answerLatency.add(answerRes.timings.duration);
-            answerErr.add(
-              answerRes.status >= 400 && answerRes.status !== 409,
-            );
+            answerErr.add(answerRes.status >= 400 && answerRes.status !== 409);
             answeredQuestionId = q.id;
           }
           continue;

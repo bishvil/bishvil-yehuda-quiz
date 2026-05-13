@@ -69,7 +69,9 @@ async function main() {
   console.log(`[smoke] qss bootstrapped for q1 = answering`);
 
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1024, height: 768 } });
+  const context = await browser.newContext({
+    viewport: { width: 1024, height: 768 },
+  });
   const page = await context.newPage();
 
   page.on("console", (msg) => {
@@ -106,7 +108,9 @@ async function main() {
     await page.waitForURL(/\/lobby|\/play/, { timeout: 20000 });
   } catch (err) {
     await page.screenshot({ path: "/tmp/smoke-no-nav.png" });
-    console.log(`[smoke] no nav, url=${page.url()} screenshot=/tmp/smoke-no-nav.png`);
+    console.log(
+      `[smoke] no nav, url=${page.url()} screenshot=/tmp/smoke-no-nav.png`,
+    );
     throw err;
   }
   console.log(`[smoke] joined, url=${page.url()}`);
@@ -145,9 +149,11 @@ async function main() {
   // Wait for the q2 prompt to appear.
   let q2At;
   try {
-    await page.locator('text="Load-test question 2"').waitFor({ timeout: 35000 });
+    await page
+      .locator('text="Load-test question 2"')
+      .waitFor({ timeout: 35000 });
     q2At = Date.now();
-  } catch (err) {
+  } catch {
     console.log(`[smoke] q2 NEVER appeared within 35s`);
     await browser.close();
     process.exit(1);
@@ -156,7 +162,9 @@ async function main() {
   const renderLatencyMs = q2At - triggerAt;
   const postTriggerFetches = stateFetches.filter((f) => f.at >= triggerAt);
   const firstFetchAfter = postTriggerFetches[0];
-  const fetchLatencyMs = firstFetchAfter ? firstFetchAfter.at - triggerAt : null;
+  const fetchLatencyMs = firstFetchAfter
+    ? firstFetchAfter.at - triggerAt
+    : null;
 
   await browser.close();
 
@@ -165,7 +173,9 @@ async function main() {
   console.log(`baseline fetches in 2s quiet:  ${baselineFetches}`);
   console.log(`fetches after trigger:         ${postTriggerFetches.length}`);
   console.log(`first /state after trigger:    ${fetchLatencyMs ?? "(none)"}ms`);
-  console.log(`q2 visible:                    ${renderLatencyMs}ms after trigger`);
+  console.log(
+    `q2 visible:                    ${renderLatencyMs}ms after trigger`,
+  );
   console.log("============================================================");
 
   if (renderLatencyMs > 5000) {
