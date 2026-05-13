@@ -7,7 +7,12 @@ export type Json =
   | Json[];
 
 export type GameModeEnum = "sync" | "async";
-export type SessionStatusEnum = "draft" | "scheduled" | "live" | "paused" | "ended";
+export type SessionStatusEnum =
+  | "draft"
+  | "scheduled"
+  | "live"
+  | "paused"
+  | "ended";
 export type ParticipantStatusEnum = "joined" | "in_progress" | "completed";
 export type QuestionTypeEnum =
   | "single"
@@ -84,6 +89,9 @@ export interface Database {
           first_name: string;
           last_name: string;
           phone: string;
+          identity_provider: string;
+          identity_key: string | null;
+          profile_fields: Json;
           unit: string | null;
           team: string | null;
           status: ParticipantStatusEnum;
@@ -97,13 +105,18 @@ export interface Database {
           first_name: string;
           last_name: string;
           phone: string;
+          identity_provider?: string;
+          identity_key?: string | null;
+          profile_fields?: Json;
           unit?: string | null;
           team?: string | null;
           status?: ParticipantStatusEnum;
           streak?: number;
           joined_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["session_participants"]["Insert"]>;
+        Update: Partial<
+          Database["public"]["Tables"]["session_participants"]["Insert"]
+        >;
         Relationships: [];
       };
       quizzes: {
@@ -281,7 +294,9 @@ export interface Database {
           deadline_at?: string | null;
           revealed_at?: string | null;
         };
-        Update: Partial<Database["public"]["Tables"]["question_session_state"]["Insert"]>;
+        Update: Partial<
+          Database["public"]["Tables"]["question_session_state"]["Insert"]
+        >;
         Relationships: [];
       };
       participant_question_progress: {
@@ -325,7 +340,9 @@ export interface Database {
           correct_count?: number;
           last_updated_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["participant_scores"]["Insert"]>;
+        Update: Partial<
+          Database["public"]["Tables"]["participant_scores"]["Insert"]
+        >;
         Relationships: [];
       };
     };

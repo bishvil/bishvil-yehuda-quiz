@@ -1,11 +1,7 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 
-import {
-  cleanupFixtures,
-  getTestPostgres,
-  seedSyncFixtures,
-} from "./test-db";
+import { cleanupFixtures, getTestPostgres, seedSyncFixtures } from "./test-db";
 import type { Database } from "@/src/lib/supabase/database.types";
 
 vi.mock("@/src/lib/supabase/server", async () => {
@@ -102,5 +98,26 @@ describe("POST /api/session/[pin]/join", () => {
         and phone = '+972501234567'
     `;
     expect(phoneCount?.count).toBe("1");
+
+    const [profileRow] = await sql<
+      {
+        identity_provider: string;
+        identity_key: string | null;
+        profile_fields: Record<string, unknown>;
+      }[]
+    >`
+      select identity_provider, identity_key, profile_fields
+      from public.session_participants
+      where id = ${fixtures.participantId}::uuid
+    `;
+    expect(profileRow).toMatchObject({
+      identity_provider: "phone",
+      identity_key: "+972501234567",
+    });
+    expect(profileRow?.profile_fields).toMatchObject({
+      firstName: "Retry",
+      lastName: "Participant",
+      phone: "+972501234567",
+    });
   });
 });

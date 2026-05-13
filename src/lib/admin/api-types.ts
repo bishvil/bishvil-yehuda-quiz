@@ -243,11 +243,16 @@ export interface AdminTeamListResponse {
   currentUserId: string;
 }
 
+export type AdminParticipantProfileFields = Record<string, string | null>;
+
 export interface AdminSessionResultPlayer {
   id: string;
   firstName: string;
   lastName: string;
   phone: string;
+  identityProvider: string;
+  identityKey: string | null;
+  profileFields: AdminParticipantProfileFields;
   unit: string | null;
   team: string | null;
   status: "joined" | "in_progress" | "completed";
@@ -280,6 +285,51 @@ export interface AdminSessionResultsResponse {
   };
   players: AdminSessionResultPlayer[];
   answers: AdminSessionResultAnswer[];
+}
+
+export interface AdminParticipantAnalyticsRow {
+  identityProvider: string;
+  identityKey: string;
+  displayName: string;
+  latestFirstName: string;
+  latestLastName: string;
+  latestPhone: string;
+  namesSeen: string[];
+  profileFields: AdminParticipantProfileFields;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  participationCount: number;
+  totalScore: number;
+  averageScore: number;
+  correctCount: number;
+  answerCount: number;
+  accuracyPct: number;
+  participations: AdminParticipantParticipation[];
+}
+
+export interface AdminParticipantParticipation {
+  participantId: string;
+  sessionId: string;
+  quizId: string;
+  quizTitle: string;
+  pin: string;
+  sessionStatus: SessionStatus;
+  gameMode: GameMode;
+  startedAt: string | null;
+  endedAt: string | null;
+  joinedAt: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  profileFields: AdminParticipantProfileFields;
+  totalScore: number;
+  correctCount: number;
+  answerCount: number;
+  accuracyPct: number;
+}
+
+export interface AdminParticipantAnalyticsResponse {
+  participants: AdminParticipantAnalyticsRow[];
 }
 
 export interface AdminApiErrorBody {

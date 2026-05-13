@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  jsonb,
   integer,
   pgTable,
   text,
@@ -21,11 +22,19 @@ export const sessionParticipants = pgTable(
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     phone: text("phone").notNull(),
+    identityProvider: text("identity_provider").notNull().default("phone"),
+    identityKey: text("identity_key"),
+    profileFields: jsonb("profile_fields")
+      .$type<Record<string, string | null>>()
+      .notNull()
+      .default(sql.raw("'{}'::jsonb")),
     unit: text("unit"),
     team: text("team"),
     status: participantStatusEnum("status").notNull().default("joined"),
     streak: integer("streak").notNull().default(0),
-    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+    joinedAt: timestamp("joined_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     displayName: text("display_name")
       .generatedAlwaysAs(
         sql`${sql.identifier("first_name")} || ' ' || left(${sql.identifier("last_name")}, 1) || '.'`,
@@ -36,6 +45,11 @@ export const sessionParticipants = pgTable(
     uniqueIndex("session_participants_session_id_phone_idx").on(
       table.sessionId,
       table.phone,
+    ),
+    uniqueIndex("session_participants_session_identity_idx").on(
+      table.sessionId,
+      table.identityProvider,
+      table.identityKey,
     ),
     uniqueIndex("session_participants_session_id_id_idx").on(
       table.sessionId,

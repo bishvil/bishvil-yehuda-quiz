@@ -3,6 +3,7 @@ import { type NextRequest } from "next/server";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/server";
+import type { Json } from "@/src/lib/supabase/database.types";
 
 interface AdminSessionResultsRouteContext {
   params: Promise<{ id: string }>;
@@ -13,6 +14,9 @@ interface AdminSessionResultPlayer {
   firstName: string;
   lastName: string;
   phone: string;
+  identityProvider: string;
+  identityKey: string | null;
+  profileFields: Record<string, string | null>;
   unit: string | null;
   team: string | null;
   status: "joined" | "in_progress" | "completed";
@@ -79,45 +83,57 @@ export async function GET(
     );
   }
 
-  const [{ data: participants }, { data: scores }, { data: answers }] = await Promise.all([
-    serviceSupabase
-      .from("session_participants")
-      .select(
-        "id, first_name, last_name, phone, unit, team, status, streak, joined_at",
-      )
-      .eq("session_id", sessionId),
-    serviceSupabase
-      .from("participant_scores")
-      .select("participant_id, total_score, correct_count")
-      .eq("session_id", sessionId),
-    serviceSupabase
-      .from("answers")
-      .select(
-        "question_id, participant_id, submitted_at, selected_ids, pin_lat, pin_lng, is_correct, score, time_bonus",
-      )
-      .eq("session_id", sessionId),
-  ]);
+  const [{ data: participants }, { data: scores }, { data: answers }] =
+    await Promise.all([
+      serviceSupabase
+        .from("session_participants")
+        .select(
+          "id, first_name, last_name, phone, identity_provider, identity_key, profile_fields, unit, team, status, streak, joined_at",
+        )
+        .eq("session_id", sessionId),
+      serviceSupabase
+        .from("participant_scores")
+        .select("participant_id, total_score, correct_count")
+        .eq("session_id", sessionId),
+      serviceSupabase
+        .from("answers")
+        .select(
+          "question_id, participant_id, submitted_at, selected_ids, pin_lat, pin_lng, is_correct, score, time_bonus",
+        )
+        .eq("session_id", sessionId),
+    ]);
 
   const scoreById = new Map(
     (scores ?? []).map((row) => [row.participant_id, row]),
   );
 
-  const players: AdminSessionResultPlayer[] = (participants ?? []).map((row) => {
-    const score = scoreById.get(row.id);
-    return {
-      id: row.id,
-      firstName: row.first_name,
-      lastName: row.last_name,
-      phone: row.phone,
-      unit: row.unit,
-      team: row.team,
-      status: row.status,
-      totalScore: score?.total_score ?? 0,
-      correctCount: score?.correct_count ?? 0,
-      streak: row.streak,
-      joinedAt: row.joined_at,
-    };
-  });
+  const players: AdminSessionResultPlayer[] = (participants ?? []).map(
+    (row) => {
+      const score = scoreById.get(row.id);
+      return {
+        id: row.id,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        phone: row.phone,
+        identityProvider: row.identity_provider ?? "phone",
+        identityKey: row.identity_key ?? row.phone,
+        profileFields: normalizeProfileFields(row.profile_fields, {
+          firstName: row.first_name,
+          lastName: row.last_name,
+          phone: row.phone,
+          unit: row.unit,
+          team: row.team,
+        }),
+        unit: row.unit,
+        team: row.team,
+        status: row.status,
+        totalScore: score?.total_score ?? 0,
+        correctCount: score?.correct_count ?? 0,
+        streak: row.streak,
+        joinedAt: row.joined_at,
+      };
+    },
+  );
 
   const flattenedAnswers: AdminSessionResultAnswer[] = (answers ?? []).map(
     (row) => ({
@@ -145,4 +161,21 @@ export async function GET(
     players,
     answers: flattenedAnswers,
   });
+}
+
+function normalizeProfileFields(
+  raw: Json | undefined,
+  fallback: Record<string, string | null>,
+): Record<string, string | null> {
+  if (!raw || Array.isArray(raw) || typeof raw !== "object") {
+    return fallback;
+  }
+
+  const fields: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === "string") fields[key] = value;
+    else if (value === null) fields[key] = null;
+  }
+
+  return { ...fallback, ...fields };
 }

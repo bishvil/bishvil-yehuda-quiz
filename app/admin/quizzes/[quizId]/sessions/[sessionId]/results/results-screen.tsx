@@ -8,6 +8,7 @@ import {
   isAdminApiError,
   listAdminQuestions,
   type AdminQuestionListItem,
+  type AdminSessionResultPlayer,
   type AdminSessionResultsResponse,
 } from "@/src/lib/admin/api-client";
 import {
@@ -69,6 +70,20 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
     [results],
   );
 
+  const sortedPlayers = useMemo(
+    () =>
+      results
+        ? [...results.players].sort((a, b) => {
+            if (b.totalScore !== a.totalScore)
+              return b.totalScore - a.totalScore;
+            if (b.correctCount !== a.correctCount)
+              return b.correctCount - a.correctCount;
+            return a.firstName.localeCompare(b.firstName, "he");
+          })
+        : [],
+    [results],
+  );
+
   const accuracy = useMemo(
     () => (results ? aggregateAccuracy(results.answers) : []),
     [results],
@@ -101,7 +116,7 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
           <p className="text-bsy-error">{errorMessage ?? "שגיאה בטעינה"}</p>
         ) : results && summary ? (
           <div className="flex flex-col gap-6">
-            <header className="flex flex-wrap items-center gap-4 rounded-md border border-bsy-stone-100 bg-white px-4 py-3">
+            <header className="grid gap-3 rounded-md border border-bsy-stone-100 bg-white px-4 py-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:gap-4">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.16em] text-bsy-stone-400">
                   PIN
@@ -117,6 +132,13 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
                 label="סטטוס"
                 value={SESSION_STATUS_LABELS[results.session.status]}
               />
+              <button
+                type="button"
+                onClick={() => exportSessionPlayersCsv(sortedPlayers)}
+                className="rounded-md bg-bsy-forest px-3 py-2 text-[13px] font-bold text-white sm:col-span-2 lg:ms-auto"
+              >
+                ייצוא CSV
+              </button>
             </header>
 
             <section>
@@ -154,6 +176,114 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
 
             <section>
               <h2 className="mb-3 font-[var(--font-display)] text-xl text-bsy-brown">
+                משתתפים
+              </h2>
+              {sortedPlayers.length === 0 ? (
+                <p className="text-[13px] text-bsy-stone-700">
+                  אין משתתפים במשחק.
+                </p>
+              ) : (
+                <>
+                  <ul className="grid gap-3 md:hidden">
+                    {sortedPlayers.map((player) => (
+                      <li
+                        key={`${player.id}:mobile`}
+                        className="rounded-md border border-bsy-stone-100 bg-white p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-[15px] font-bold text-bsy-ink">
+                              {player.firstName} {player.lastName}
+                            </div>
+                            <div
+                              className="mt-0.5 truncate text-[12px] text-bsy-stone-700"
+                              dir="ltr"
+                            >
+                              {player.phone}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-left">
+                            <div
+                              className="font-[var(--font-display)] text-[22px] leading-none text-bsy-brown"
+                              dir="ltr"
+                            >
+                              {player.totalScore.toLocaleString("he-IL")}
+                            </div>
+                            <div className="mt-1 text-[11px] text-bsy-stone-400">
+                              ניקוד
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
+                          <MobileField
+                            label="יחידה"
+                            value={player.profileFields.unit ?? player.unit}
+                          />
+                          <MobileField
+                            label="צוות"
+                            value={player.profileFields.team ?? player.team}
+                          />
+                          <MobileField label="סטטוס" value={player.status} />
+                          <MobileField
+                            label="נכונות"
+                            value={String(player.correctCount)}
+                            ltr
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="hidden overflow-x-auto rounded-md border border-bsy-stone-100 bg-white md:block">
+                    <table className="min-w-full border-collapse text-right text-[13px]">
+                      <thead className="bg-bsy-stone-50 text-[11px] uppercase tracking-[0.14em] text-bsy-stone-700">
+                        <tr>
+                          <th className="px-3 py-2">שם</th>
+                          <th className="px-3 py-2">טלפון</th>
+                          <th className="px-3 py-2">יחידה</th>
+                          <th className="px-3 py-2">צוות</th>
+                          <th className="px-3 py-2">סטטוס</th>
+                          <th className="px-3 py-2">ניקוד</th>
+                          <th className="px-3 py-2">נכונות</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedPlayers.map((player) => (
+                          <tr
+                            key={player.id}
+                            className="border-t border-bsy-stone-100"
+                          >
+                            <td className="px-3 py-2 font-bold text-bsy-ink">
+                              {player.firstName} {player.lastName}
+                            </td>
+                            <td className="px-3 py-2" dir="ltr">
+                              {player.phone}
+                            </td>
+                            <td className="px-3 py-2">
+                              {player.profileFields.unit ?? player.unit ?? "—"}
+                            </td>
+                            <td className="px-3 py-2">
+                              {player.profileFields.team ?? player.team ?? "—"}
+                            </td>
+                            <td className="px-3 py-2">{player.status}</td>
+                            <td className="px-3 py-2 font-mono" dir="ltr">
+                              {player.totalScore.toLocaleString("he-IL")}
+                            </td>
+                            <td className="px-3 py-2 font-mono" dir="ltr">
+                              {player.correctCount}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </section>
+
+            <section>
+              <h2 className="mb-3 font-[var(--font-display)] text-xl text-bsy-brown">
                 דיוק לפי תחנה
               </h2>
               {questions.length === 0 ? (
@@ -161,36 +291,36 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
               ) : (
                 <ul className="flex flex-col gap-2">
                   {orderedQuestions.map((question) => {
-                      const row = accuracyByQuestion.get(question.id);
-                      const pct = row?.accuracyPct ?? 0;
-                      const total = row?.total ?? 0;
-                      return (
-                        <li
-                          key={question.id}
-                          className="rounded-md border border-bsy-stone-100 bg-white px-4 py-3"
-                        >
-                          <div className="flex items-center justify-between gap-3 text-[13px]">
-                            <span className="flex items-center gap-2">
-                              <span className="font-mono text-bsy-stone-400">
-                                {String(question.ordinal).padStart(2, "0")}
-                              </span>
-                              <span className="line-clamp-1 text-bsy-ink">
-                                {question.prompt}
-                              </span>
+                    const row = accuracyByQuestion.get(question.id);
+                    const pct = row?.accuracyPct ?? 0;
+                    const total = row?.total ?? 0;
+                    return (
+                      <li
+                        key={question.id}
+                        className="rounded-md border border-bsy-stone-100 bg-white px-4 py-3"
+                      >
+                        <div className="flex items-center justify-between gap-3 text-[13px]">
+                          <span className="flex items-center gap-2">
+                            <span className="font-mono text-bsy-stone-400">
+                              {String(question.ordinal).padStart(2, "0")}
                             </span>
-                            <span className="font-mono text-bsy-brown">
-                              {pct}% · {total}
+                            <span className="line-clamp-1 text-bsy-ink">
+                              {question.prompt}
                             </span>
-                          </div>
-                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-bsy-stone-50">
-                            <div
-                              className="h-full bg-bsy-lime"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </li>
-                      );
-                    })}
+                          </span>
+                          <span className="font-mono text-bsy-brown">
+                            {pct}% · {total}
+                          </span>
+                        </div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-bsy-stone-50">
+                          <div
+                            className="h-full bg-bsy-lime"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
@@ -203,7 +333,7 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="text-[11px] uppercase tracking-[0.16em] text-bsy-stone-400">
         {label}
       </div>
@@ -215,4 +345,92 @@ function Stat({ label, value }: { label: string; value: number | string }) {
       </div>
     </div>
   );
+}
+
+function MobileField({
+  label,
+  value,
+  ltr = false,
+}: {
+  label: string;
+  value: string | null | undefined;
+  ltr?: boolean;
+}) {
+  return (
+    <div className="min-w-0 rounded-md bg-bsy-stone-50 px-2.5 py-2">
+      <div className="text-[10.5px] font-bold text-bsy-stone-400">{label}</div>
+      <div
+        className="mt-0.5 truncate text-[12.5px] text-bsy-stone-700"
+        dir={ltr ? "ltr" : "rtl"}
+      >
+        {value && value.length > 0 ? value : "—"}
+      </div>
+    </div>
+  );
+}
+
+function exportSessionPlayersCsv(players: AdminSessionResultPlayer[]) {
+  const profileKeys = Array.from(
+    new Set(players.flatMap((player) => Object.keys(player.profileFields))),
+  ).filter((key) => !["firstName", "lastName", "phone"].includes(key));
+
+  const headers = [
+    "שם פרטי",
+    "שם משפחה",
+    "טלפון",
+    "ספק זיהוי",
+    "מזהה",
+    "סטטוס",
+    "ניקוד",
+    "תשובות נכונות",
+    "רצף",
+    "תאריך הצטרפות",
+    ...profileKeys.map(profileLabel),
+  ];
+
+  const rows = players.map((player) => [
+    player.firstName,
+    player.lastName,
+    player.phone,
+    player.identityProvider,
+    player.identityKey ?? "",
+    player.status,
+    String(player.totalScore),
+    String(player.correctCount),
+    String(player.streak),
+    player.joinedAt,
+    ...profileKeys.map((key) => player.profileFields[key] ?? ""),
+  ]);
+
+  downloadCsv("session-participants.csv", [headers, ...rows]);
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsvCell(value: string) {
+  const normalized = value.replace(/\r?\n/g, " ");
+  return /[",\n]/.test(normalized)
+    ? `"${normalized.replace(/"/g, '""')}"`
+    : normalized;
+}
+
+function profileLabel(key: string) {
+  const labels: Record<string, string> = {
+    unit: "יחידה",
+    team: "צוות",
+  };
+  return labels[key] ?? key;
 }

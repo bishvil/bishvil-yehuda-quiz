@@ -17,6 +17,13 @@ const PLAYER = (
   firstName: "אורי",
   lastName: "כהן",
   phone: "0500000000",
+  identityProvider: "phone",
+  identityKey: "0500000000",
+  profileFields: {
+    firstName: "אורי",
+    lastName: "כהן",
+    phone: "0500000000",
+  },
   unit: null,
   team: null,
   status: "joined",

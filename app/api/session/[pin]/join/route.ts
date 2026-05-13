@@ -12,6 +12,7 @@ import {
   createServerSupabaseClient,
   createServiceRoleSupabaseClient,
 } from "@/src/lib/supabase/server";
+import type { Json } from "@/src/lib/supabase/database.types";
 
 interface ParticipantJoinRouteContext {
   params: Promise<{
@@ -45,7 +46,9 @@ export async function POST(
   context: ParticipantJoinRouteContext,
 ) {
   const { pin } = await context.params;
-  const parsedBody = participantJoinRequestSchema.safeParse(await request.json());
+  const parsedBody = participantJoinRequestSchema.safeParse(
+    await request.json(),
+  );
 
   if (!parsedBody.success) {
     return noStoreJson<ParticipantJoinResponseBody>(
@@ -98,6 +101,16 @@ export async function POST(
 
   const participantId = authData.user.id;
   const normalizedPhone = normalizePhone(parsedBody.data.phone);
+  const identityProvider = "phone";
+  const identityKey = normalizedPhone;
+  const profileFields = {
+    firstName: parsedBody.data.firstName,
+    lastName: parsedBody.data.lastName,
+    phone: normalizedPhone,
+    unit: parsedBody.data.unit ?? null,
+    team: parsedBody.data.team ?? null,
+  } satisfies Record<string, string | null>;
+
   const { data: participant, error: participantError } = await serviceSupabase
     .from("session_participants")
     .insert({
@@ -106,6 +119,9 @@ export async function POST(
       first_name: parsedBody.data.firstName,
       last_name: parsedBody.data.lastName,
       phone: normalizedPhone,
+      identity_provider: identityProvider,
+      identity_key: identityKey,
+      profile_fields: profileFields as Json,
       unit: parsedBody.data.unit ?? null,
       team: parsedBody.data.team ?? null,
     })
@@ -113,12 +129,34 @@ export async function POST(
     .maybeSingle();
 
   if (participantError || !participant) {
-    const { data: existingParticipant } = await serviceSupabase
+    let { data: existingParticipant } = await serviceSupabase
       .from("session_participants")
       .select("id, session_id")
       .eq("session_id", session.id)
-      .eq("phone", normalizedPhone)
+      .eq("identity_provider", identityProvider)
+      .eq("identity_key", identityKey)
       .maybeSingle();
+
+    if (!existingParticipant) {
+      const { data: phoneParticipant } = await serviceSupabase
+        .from("session_participants")
+        .select("id, session_id")
+        .eq("session_id", session.id)
+        .eq("phone", normalizedPhone)
+        .maybeSingle();
+      existingParticipant = phoneParticipant;
+    }
+
+    if (existingParticipant) {
+      await serviceSupabase
+        .from("session_participants")
+        .update({
+          identity_provider: identityProvider,
+          identity_key: identityKey,
+          profile_fields: profileFields as Json,
+        })
+        .eq("id", existingParticipant.id);
+    }
 
     if (!existingParticipant) {
       writeLog({
@@ -165,16 +203,14 @@ async function finishParticipantJoin(args: {
   refreshToken: string;
   participant: { id: string; session_id: string };
 }) {
-  const { error: metadataError } = await args.serviceSupabase.auth.admin.updateUserById(
-    args.authUserId,
-    {
+  const { error: metadataError } =
+    await args.serviceSupabase.auth.admin.updateUserById(args.authUserId, {
       app_metadata: {
         role: "participant",
         session_id: args.participant.session_id,
         participant_id: args.participant.id,
       },
-    },
-  );
+    });
 
   if (metadataError) {
     return noStoreJson<ParticipantJoinResponseBody>(

@@ -11,6 +11,7 @@ import { LOCKED_QUIZ_EDIT_HEADER } from "@/src/lib/admin/quiz-edit-override";
 import type {
   AdminApiErrorBody,
   AdminApiResult,
+  AdminParticipantAnalyticsResponse,
   AdminQuestionCreateRequest,
   AdminQuestionDeleteResponse,
   AdminQuestionListResponse,
@@ -251,6 +252,10 @@ export function getAdminSessionResults(sessionId: string) {
   return getJson<AdminSessionResultsResponse>(
     `/api/admin/sessions/${encodeURIComponent(sessionId)}/results`,
   );
+}
+
+export function listAdminParticipantAnalytics() {
+  return getJson<AdminParticipantAnalyticsResponse>("/api/admin/participants");
 }
 
 export function updateAdminSessionHost(
