@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { buildOAuthCallbackUrl } from "@/src/lib/auth/oauth-redirect";
+import { createBrowserSupabaseClient } from "@/src/lib/supabase/browser";
+
 type Segment = "host" | "admin";
 
 const SEGMENTS: { id: Segment; label: string }[] = [
@@ -26,10 +29,11 @@ export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [forgotState, setForgotState] = useState<
-    "idle" | "sending" | "sent"
-  >("idle");
+  const [forgotState, setForgotState] = useState<"idle" | "sending" | "sent">(
+    "idle",
+  );
   const router = useRouter();
 
   async function handleForgotPassword() {
@@ -72,8 +76,7 @@ export default function LoginForm() {
       }
 
       const msg =
-        ERROR_MESSAGES[res.status] ??
-        "אירעה שגיאה בכניסה — אנא נסו שוב";
+        ERROR_MESSAGES[res.status] ?? "אירעה שגיאה בכניסה — אנא נסו שוב";
       setError(msg);
     } catch {
       setError("שגיאת חיבור — אנא בדקו את החיבור לרשת ונסו שוב");
@@ -82,11 +85,30 @@ export default function LoginForm() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    if (googleLoading) return;
+
+    setError(null);
+    setGoogleLoading(true);
+
+    const supabase = createBrowserSupabaseClient();
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: buildOAuthCallbackUrl("/auth/oauth/callback", {
+          flow: "staff",
+        }),
+      },
+    });
+
+    if (oauthError) {
+      setError("לא הצלחנו לפתוח התחברות Google. נסו שוב בעוד רגע.");
+      setGoogleLoading(false);
+    }
+  }
+
   return (
-    <div
-      className="w-full"
-      style={{ maxWidth: "420px", margin: "0 auto" }}
-    >
+    <div className="w-full" style={{ maxWidth: "420px", margin: "0 auto" }}>
       {/* Segmented control */}
       <div
         role="group"
@@ -119,13 +141,9 @@ export default function LoginForm() {
               cursor: "pointer",
               transition: "background 220ms ease-out, color 220ms ease-out",
               background:
-                segment === id
-                  ? "var(--bsy-green-forest)"
-                  : "transparent",
+                segment === id ? "var(--bsy-green-forest)" : "transparent",
               color:
-                segment === id
-                  ? "var(--bsy-paper)"
-                  : "var(--bsy-stone-700)",
+                segment === id ? "var(--bsy-paper)" : "var(--bsy-stone-700)",
               WebkitAppearance: "none",
               appearance: "none",
               touchAction: "manipulation",
@@ -140,6 +158,77 @@ export default function LoginForm() {
 
       {/* Sign-in form */}
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={googleLoading || loading}
+          style={{
+            borderRadius: "var(--radius-pill)",
+            background: "var(--color-bg-elevated)",
+            color: "var(--bsy-ink)",
+            fontWeight: 700,
+            padding: "0.75rem 1rem",
+            fontSize: "1rem",
+            border: "2px solid var(--bsy-stone-200)",
+            cursor: googleLoading || loading ? "not-allowed" : "pointer",
+            opacity: googleLoading || loading ? 0.65 : 1,
+            touchAction: "manipulation",
+            WebkitTapHighlightColor: "transparent",
+            WebkitAppearance: "none",
+            appearance: "none",
+            width: "100%",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.65rem",
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "1.45rem",
+              height: "1.45rem",
+              borderRadius: "999px",
+              border: "1px solid var(--bsy-stone-200)",
+              color: "#4285f4",
+              fontWeight: 800,
+              fontFamily: "Arial, sans-serif",
+            }}
+          >
+            G
+          </span>
+          {googleLoading ? "פותח Google..." : "כניסה עם Google"}
+        </button>
+
+        <div
+          aria-hidden="true"
+          className="flex items-center gap-3"
+          style={{
+            color: "var(--bsy-stone-400)",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+          }}
+        >
+          <span
+            style={{
+              height: "1px",
+              flex: 1,
+              background: "var(--bsy-stone-100)",
+            }}
+          />
+          <span>או</span>
+          <span
+            style={{
+              height: "1px",
+              flex: 1,
+              background: "var(--bsy-stone-100)",
+            }}
+          />
+        </div>
+
         {/* Email field */}
         <div className="flex flex-col gap-1">
           <label
@@ -176,8 +265,7 @@ export default function LoginForm() {
               boxSizing: "border-box",
             }}
             onFocus={(e) =>
-              (e.currentTarget.style.borderColor =
-                "var(--bsy-green-forest)")
+              (e.currentTarget.style.borderColor = "var(--bsy-green-forest)")
             }
             onBlur={(e) =>
               (e.currentTarget.style.borderColor = "var(--bsy-stone-200)")
@@ -219,8 +307,7 @@ export default function LoginForm() {
               boxSizing: "border-box",
             }}
             onFocus={(e) =>
-              (e.currentTarget.style.borderColor =
-                "var(--bsy-green-forest)")
+              (e.currentTarget.style.borderColor = "var(--bsy-green-forest)")
             }
             onBlur={(e) =>
               (e.currentTarget.style.borderColor = "var(--bsy-stone-200)")
@@ -257,8 +344,7 @@ export default function LoginForm() {
             padding: "0.75rem 2rem",
             fontSize: "1.0625rem",
             border: "none",
-            cursor:
-              loading || !email || !password ? "not-allowed" : "pointer",
+            cursor: loading || !email || !password ? "not-allowed" : "pointer",
             opacity: loading || !email || !password ? 0.55 : 1,
             transition: "opacity 140ms ease-out",
             touchAction: "manipulation",
@@ -292,14 +378,11 @@ export default function LoginForm() {
                 color: "var(--bsy-green-forest)",
                 fontSize: "0.8125rem",
                 fontWeight: 600,
-                cursor:
-                  forgotState === "sending" ? "default" : "pointer",
+                cursor: forgotState === "sending" ? "default" : "pointer",
                 padding: 0,
               }}
             >
-              {forgotState === "sending"
-                ? "שולח קישור איפוס…"
-                : "שכחתי סיסמה"}
+              {forgotState === "sending" ? "שולח קישור איפוס…" : "שכחתי סיסמה"}
             </button>
           )}
         </div>

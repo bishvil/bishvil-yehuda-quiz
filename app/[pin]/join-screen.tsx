@@ -1,20 +1,30 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BrandBlock } from "@/src/components/participant/BrandBlock";
 import { CodeInput } from "@/src/components/participant/CodeInput";
 import { JoinFormField } from "@/src/components/participant/JoinFormField";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
+import { buildOAuthCallbackUrl } from "@/src/lib/auth/oauth-redirect";
 import type { ParticipantBrand } from "@/src/lib/participant/brands";
 import { joinSession } from "@/src/lib/participant/api-client";
 import {
   isValidParticipantPin,
   PARTICIPANT_PIN_LENGTH,
 } from "@/src/lib/participant/pin";
+import { createBrowserSupabaseClient } from "@/src/lib/supabase/browser";
 
 const TEAM_OPTIONS = ["צוות א׳", "צוות ב׳", "צוות ג׳", "צוות ד׳"] as const;
+const GOOGLE_JOIN_DRAFT_PREFIX = "bsy:participant-google-join:";
+
+interface JoinDraft {
+  code: string;
+  phone: string;
+  unit: string;
+  team: string;
+}
 
 interface JoinScreenProps {
   pin: string;
@@ -40,20 +50,18 @@ export function JoinScreen({
     isValidParticipantPin(pin) ? pin : "",
   );
   const [phone, setPhone] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [unit, setUnit] = useState("");
   const [team, setTeam] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const googleReturnHandledRef = useRef(false);
 
   const codeFilled = code.length === PARTICIPANT_PIN_LENGTH;
-  const requiredFilled =
-    phone.trim().length >= 6 &&
-    firstName.trim().length > 0 &&
-    lastName.trim().length > 0;
+  const requiredFilled = phone.trim().length >= 6;
   const sessionUnavailable = sessionStatus === "ended";
   const canSubmit = codeFilled && requiredFilled && !submitting;
+  const draftKey = `${GOOGLE_JOIN_DRAFT_PREFIX}${pin}`;
   const statusBanner =
     sessionStatus === "ended"
       ? {
@@ -68,39 +76,104 @@ export function JoinScreen({
         : sessionExpired
           ? {
               copy: "החיבור לחידון אבד — אנא הצטרפו מחדש עם אותו מספר נייד כדי להמשיך.",
-              className: "border-bsy-stone-300 bg-bsy-paper-warm text-bsy-stone-700",
+              className:
+                "border-bsy-stone-300 bg-bsy-paper-warm text-bsy-stone-700",
             }
           : null;
 
-  async function handleSubmit() {
-    if (!canSubmit) return;
-    setSubmitting(true);
-    setError(null);
+  const submitJoin = useCallback(
+    async function submitJoin(draft: JoinDraft) {
+      setSubmitting(true);
+      setGoogleLoading(false);
+      setError(null);
 
-    try {
-      const response = await joinSession(code, {
-        phone: phone.trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        unit: unit.trim() || undefined,
-        team: team || undefined,
-      });
+      try {
+        const response = await joinSession(draft.code, {
+          phone: draft.phone.trim(),
+          unit: draft.unit.trim() || undefined,
+          team: draft.team || undefined,
+          identityProvider: "google",
+        });
 
-      if ("error" in response) {
-        setError(translateJoinError(response.error, response.message));
+        if ("error" in response) {
+          setError(translateJoinError(response.error, response.message));
+          setSubmitting(false);
+          return;
+        }
+
+        router.replace(`/${draft.code}/lobby`);
+      } catch (caught) {
+        setError(
+          caught instanceof Error
+            ? `אירעה שגיאה — ${caught.message}`
+            : "אירעה שגיאה. נסו שוב.",
+        );
         setSubmitting(false);
+      }
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    if (
+      googleReturnHandledRef.current ||
+      searchParams?.get("google") !== "connected"
+    ) {
+      return;
+    }
+
+    googleReturnHandledRef.current = true;
+    const draft = readJoinDraft(draftKey);
+
+    queueMicrotask(() => {
+      if (!draft) {
+        setError(
+          "החיבור ל-Google הושלם. מלאו את הפרטים ולחצו שוב על הצטרפות עם Google.",
+        );
         return;
       }
 
-      router.replace(`/${code}/lobby`);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? `אירעה שגיאה — ${caught.message}`
-          : "אירעה שגיאה. נסו שוב.",
-      );
-      setSubmitting(false);
+      setCode(draft.code);
+      setPhone(draft.phone);
+      setUnit(draft.unit);
+      setTeam(draft.team);
+      window.sessionStorage.removeItem(draftKey);
+      void submitJoin(draft);
+    });
+  }, [draftKey, searchParams, submitJoin]);
+
+  async function handleGoogleJoin() {
+    if (!canSubmit || googleLoading) return;
+
+    setError(null);
+    setGoogleLoading(true);
+    const draft = getCurrentDraft();
+    window.sessionStorage.setItem(draftKey, JSON.stringify(draft));
+
+    const supabase = createBrowserSupabaseClient();
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: buildOAuthCallbackUrl("/auth/oauth/callback", {
+          flow: "participant",
+          pin: draft.code,
+        }),
+      },
+    });
+
+    if (oauthError) {
+      setError("לא הצלחנו לפתוח התחברות Google. נסו שוב בעוד רגע.");
+      setGoogleLoading(false);
     }
+  }
+
+  function getCurrentDraft(): JoinDraft {
+    return {
+      code,
+      phone,
+      unit,
+      team,
+    };
   }
 
   return (
@@ -119,10 +192,10 @@ export function JoinScreen({
         <section className="rounded-[20px] border border-bsy-stone-100 bg-white px-6 pb-6 pt-6 shadow-[0_2px_6px_rgba(74,63,38,0.08)]">
           <header className="mb-5 text-center">
             <h2 className="m-0 mb-1 font-[var(--font-display)] text-[26px] text-bsy-brown">
-              הצטרפות לחידון
+              כניסה לחידון
             </h2>
             <p className="mx-auto max-w-xs text-sm leading-relaxed text-bsy-stone-700">
-              הזינו את קוד החידון ומלאו פרטים קצרים לזיהוי בלוח התוצאות
+              הזינו קוד חידון ומספר נייד, והמשיכו עם Google
             </p>
             <p className="mt-1 text-[12px] text-bsy-stone-400">{quizTitle}</p>
           </header>
@@ -155,28 +228,8 @@ export function JoinScreen({
               value={phone}
               onChange={setPhone}
               placeholder="050-1234567"
-              helpText="נשתמש בו כדי לזהות אתכם בלוח התוצאות"
+              helpText="נשמור אותו כפרטי קשר לצד חשבון Google"
             />
-            <div className="grid grid-cols-2 gap-3">
-              <JoinFormField
-                id="join-first-name"
-                label="שם פרטי"
-                type="text"
-                required
-                value={firstName}
-                onChange={setFirstName}
-                placeholder="כפי שירשם בלוח"
-              />
-              <JoinFormField
-                id="join-last-name"
-                label="שם משפחה"
-                type="text"
-                required
-                value={lastName}
-                onChange={setLastName}
-                placeholder="כפי שירשם בלוח"
-              />
-            </div>
             <JoinFormField
               id="join-unit"
               label="גדוד / פלוגה"
@@ -212,11 +265,15 @@ export function JoinScreen({
               variant="primary"
               block
               withArrow
-              disabled={!canSubmit || sessionUnavailable}
-              onClick={handleSubmit}
+              disabled={!canSubmit || sessionUnavailable || googleLoading}
+              onClick={handleGoogleJoin}
               type="button"
             >
-              {submitting ? "מצטרפים…" : "הצטרפות לחידון"}
+              {googleLoading
+                ? "פותחים Google..."
+                : submitting
+                  ? "מצטרפים..."
+                  : "הצטרפות עם Google"}
             </PrimaryButton>
           </div>
 
@@ -246,6 +303,31 @@ export function JoinScreen({
       </div>
     </main>
   );
+}
+
+function readJoinDraft(key: string): JoinDraft | null {
+  const raw = window.sessionStorage.getItem(key);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<JoinDraft>;
+    if (
+      typeof parsed.code !== "string" ||
+      !isValidParticipantPin(parsed.code) ||
+      typeof parsed.phone !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      code: parsed.code,
+      phone: parsed.phone,
+      unit: typeof parsed.unit === "string" ? parsed.unit : "",
+      team: typeof parsed.team === "string" ? parsed.team : "",
+    };
+  } catch {
+    return null;
+  }
 }
 
 function translateJoinError(code: string, fallback: string): string {

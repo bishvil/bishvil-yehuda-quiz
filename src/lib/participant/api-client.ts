@@ -4,9 +4,7 @@
  * passed manually. The participant token also rides along on the websocket
  * via the supabase browser client (see realtime hook).
  */
-import type {
-  ParticipantStateResponse,
-} from "@/src/lib/sessions/participant-payload";
+import type { ParticipantStateResponse } from "@/src/lib/sessions/participant-payload";
 
 export interface QuizInfoResponse {
   pin: string;
@@ -20,11 +18,10 @@ export interface QuizInfoResponse {
 }
 
 export interface JoinRequestBody {
-  firstName: string;
-  lastName: string;
   phone: string;
   unit?: string;
   team?: string;
+  identityProvider: "google";
 }
 
 export interface JoinSuccessResponse {
@@ -90,7 +87,9 @@ const JSON_HEADERS: HeadersInit = {
   "Content-Type": "application/json",
 };
 
-export async function fetchQuizInfo(pin: string): Promise<QuizInfoResponse | null> {
+export async function fetchQuizInfo(
+  pin: string,
+): Promise<QuizInfoResponse | null> {
   const response = await fetch(`/api/quiz/${encodeURIComponent(pin)}/info`, {
     cache: "no-store",
   });
@@ -164,7 +163,9 @@ export async function submitAnswer(
   return (await response.json()) as SubmitAnswerResponse;
 }
 
-export async function advanceParticipant(pin: string): Promise<AdvanceResponse> {
+export async function advanceParticipant(
+  pin: string,
+): Promise<AdvanceResponse> {
   const response = await fetch(
     `/api/participant/${encodeURIComponent(pin)}/next`,
     { method: "POST", credentials: "include" },

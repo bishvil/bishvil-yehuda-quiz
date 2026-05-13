@@ -42,10 +42,6 @@ export const sessionParticipants = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("session_participants_session_id_phone_idx").on(
-      table.sessionId,
-      table.phone,
-    ),
     uniqueIndex("session_participants_session_identity_idx").on(
       table.sessionId,
       table.identityProvider,

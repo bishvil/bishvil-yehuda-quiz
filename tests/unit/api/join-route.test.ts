@@ -1,65 +1,58 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
-import { createClient } from "@supabase/supabase-js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { cleanupFixtures, getTestPostgres, seedSyncFixtures } from "./test-db";
-import type { Database } from "@/src/lib/supabase/database.types";
+const { browserAuthMock, insertPayloads, serviceFromMock, updateUserByIdMock } =
+  vi.hoisted(() => ({
+    browserAuthMock: {
+      getUser: vi.fn(),
+      signOut: vi.fn(),
+      signInAnonymously: vi.fn(),
+      refreshSession: vi.fn(),
+    },
+    insertPayloads: [] as Array<Record<string, unknown>>,
+    serviceFromMock: vi.fn(),
+    updateUserByIdMock: vi.fn(),
+  }));
 
-vi.mock("@/src/lib/supabase/server", async () => {
-  const actual = await vi.importActual<
-    typeof import("@/src/lib/supabase/server")
-  >("@/src/lib/supabase/server");
-  return {
-    ...actual,
-    createServerSupabaseClient: async () =>
-      createClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321",
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-      ),
-  };
-});
+vi.mock("@/src/lib/supabase/server", () => ({
+  createServerSupabaseClient: async () => ({
+    auth: browserAuthMock,
+  }),
+  createServiceRoleSupabaseClient: async () => ({
+    auth: {
+      admin: {
+        updateUserById: updateUserByIdMock,
+      },
+    },
+    from: serviceFromMock,
+  }),
+}));
 
-const sql = getTestPostgres();
-const cleanupTargets: Array<{
-  sessionId: string;
-  questionId: string;
-  participantId: string;
-}> = [];
-
-afterAll(async () => {
-  for (const target of cleanupTargets) {
-    await sql`
-      delete from auth.users
-      where raw_app_meta_data->>'participant_id' = ${target.participantId}
-        and id <> ${target.participantId}::uuid
-    `;
-    await cleanupFixtures(
-      sql,
-      target.sessionId,
-      target.questionId,
-      target.participantId,
-    );
-  }
-  await sql.end();
-});
+vi.mock("@/src/lib/auth/claims", () => ({
+  decodeParticipantAccessTokenUnsafe: () => ({
+    app_metadata: {
+      role: "participant",
+      session_id: "session-1",
+      participant_id: "auth-user-1",
+    },
+  }),
+  hasExpectedParticipantScope: () => true,
+}));
 
 async function callJoinPost(
-  pin: string,
-  phone: string,
+  body: Record<string, unknown>,
 ): Promise<{ status: number; body: unknown }> {
   const { POST } = await import("@/app/api/session/[pin]/join/route");
-  const request = new Request(`http://localhost:3000/api/session/${pin}/join`, {
+  const request = new Request("http://localhost:3000/api/session/123456/join", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      firstName: "Retry",
-      lastName: "Participant",
-      phone,
-    }),
+    body: JSON.stringify(body),
   });
 
   const response = await POST(
     request as Parameters<typeof POST>[0],
-    { params: Promise.resolve({ pin }) } as Parameters<typeof POST>[1],
+    { params: Promise.resolve({ pin: "123456" }) } as Parameters<
+      typeof POST
+    >[1],
   );
 
   return {
@@ -69,54 +62,112 @@ async function callJoinPost(
 }
 
 describe("POST /api/session/[pin]/join", () => {
-  it("returns the existing participant for normalized duplicate phone joins", async () => {
-    const fixtures = await seedSyncFixtures(sql, { gameMode: "async" });
-    cleanupTargets.push(fixtures);
-
-    await sql`
-      update public.session_participants
-      set phone = '+972501234567'
-      where id = ${fixtures.participantId}::uuid
-    `;
-
-    const result = await callJoinPost(fixtures.pin, "0501234567");
-
-    expect(result.status).toBe(200);
-    const body = result.body as {
-      participantId: string;
-      sessionId: string;
-      accessToken: string;
-    };
-    expect(body.participantId).toBe(fixtures.participantId);
-    expect(body.sessionId).toBe(fixtures.sessionId);
-    expect(body.accessToken.length).toBeGreaterThan(20);
-
-    const [phoneCount] = await sql<{ count: string }[]>`
-      select count(*)::text
-      from public.session_participants
-      where session_id = ${fixtures.sessionId}::uuid
-        and phone = '+972501234567'
-    `;
-    expect(phoneCount?.count).toBe("1");
-
-    const [profileRow] = await sql<
-      {
-        identity_provider: string;
-        identity_key: string | null;
-        profile_fields: Record<string, unknown>;
-      }[]
-    >`
-      select identity_provider, identity_key, profile_fields
-      from public.session_participants
-      where id = ${fixtures.participantId}::uuid
-    `;
-    expect(profileRow).toMatchObject({
-      identity_provider: "phone",
-      identity_key: "+972501234567",
+  beforeEach(() => {
+    vi.clearAllMocks();
+    insertPayloads.length = 0;
+    browserAuthMock.getUser.mockResolvedValue({
+      data: {
+        user: {
+          id: "google-user-1",
+          email: "dana@example.com",
+          identities: [
+            {
+              provider: "google",
+              id: "google-identity-id",
+              identity_id: "google-identity-uuid",
+              identity_data: { sub: "google-sub-123" },
+            },
+          ],
+          user_metadata: {
+            given_name: "Dana",
+            family_name: "Cohen",
+          },
+        },
+      },
+      error: null,
     });
-    expect(profileRow?.profile_fields).toMatchObject({
+    browserAuthMock.signOut.mockResolvedValue({ error: null });
+    browserAuthMock.signInAnonymously.mockResolvedValue({
+      data: {
+        user: { id: "auth-user-1" },
+        session: {
+          refresh_token: "refresh-token",
+        },
+      },
+      error: null,
+    });
+    browserAuthMock.refreshSession.mockResolvedValue({
+      data: {
+        session: {
+          access_token: "access-token",
+        },
+      },
+      error: null,
+    });
+    updateUserByIdMock.mockResolvedValue({ error: null });
+    serviceFromMock.mockImplementation((table: string) => {
+      if (table === "sessions") {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: () => ({
+                maybeSingle: async () => ({
+                  data: { id: "session-1" },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+
+      if (table === "session_participants") {
+        return {
+          insert: (payload: Record<string, unknown>) => {
+            insertPayloads.push(payload);
+            return {
+              select: () => ({
+                maybeSingle: async () => ({
+                  data: { id: "auth-user-1", session_id: "session-1" },
+                  error: null,
+                }),
+              }),
+            };
+          },
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+  });
+
+  it("rejects legacy phone-only joins because participants must use Google identity", async () => {
+    const result = await callJoinPost({
       firstName: "Retry",
       lastName: "Participant",
+      phone: "0501234567",
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.body).toMatchObject({ error: "INVALID_REQUEST" });
+  });
+
+  it("uses the Google provider subject as the participant identity key", async () => {
+    const result = await callJoinPost({
+      phone: "0501234567",
+      identityProvider: "google",
+    });
+
+    expect(result.status).toBe(200);
+    expect(insertPayloads[0]).toMatchObject({
+      first_name: "Dana",
+      last_name: "Cohen",
+      phone: "+972501234567",
+      identity_provider: "google",
+      identity_key: "google-sub-123",
+    });
+    expect(insertPayloads[0]?.profile_fields).toMatchObject({
+      email: "dana@example.com",
       phone: "+972501234567",
     });
   });

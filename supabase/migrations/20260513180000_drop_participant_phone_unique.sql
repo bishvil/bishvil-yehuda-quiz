@@ -1,0 +1,1 @@
+drop index if exists public.session_participants_session_id_phone_idx;

@@ -41,6 +41,13 @@ type ParticipantJoinResponseBody =
   | ParticipantJoinSuccessBody
   | ParticipantJoinErrorBody;
 
+interface GoogleParticipantProfile {
+  email: string;
+  identityKey: string;
+  firstName: string;
+  lastName: string;
+}
+
 export async function POST(
   request: NextRequest,
   context: ParticipantJoinRouteContext,
@@ -54,7 +61,8 @@ export async function POST(
     return noStoreJson<ParticipantJoinResponseBody>(
       {
         error: "INVALID_REQUEST",
-        message: "Participant name, phone, and optional unit/team are invalid.",
+        message:
+          "Participant phone, Google identity, and optional unit/team are invalid.",
       },
       { status: 400 },
     );
@@ -80,6 +88,22 @@ export async function POST(
     );
   }
 
+  const normalizedPhone = normalizePhone(parsedBody.data.phone);
+  const identityProvider = parsedBody.data.identityProvider;
+  const googleProfile = await readGoogleProfileAndClearSession(
+    browserScopedSupabase,
+  );
+
+  if (!googleProfile) {
+    return noStoreJson<ParticipantJoinResponseBody>(
+      {
+        error: "AUTH_FAILED",
+        message: "Google authentication is required to join with Google.",
+      },
+      { status: 401 },
+    );
+  }
+
   const { data: authData, error: authError } =
     await browserScopedSupabase.auth.signInAnonymously();
 
@@ -100,13 +124,15 @@ export async function POST(
   }
 
   const participantId = authData.user.id;
-  const normalizedPhone = normalizePhone(parsedBody.data.phone);
-  const identityProvider = "phone";
-  const identityKey = normalizedPhone;
+  const resolvedFirstName = googleProfile.firstName;
+  const resolvedLastName = googleProfile.lastName;
+  const googleEmail = googleProfile.email;
+  const identityKey = googleProfile.identityKey;
   const profileFields = {
-    firstName: parsedBody.data.firstName,
-    lastName: parsedBody.data.lastName,
+    firstName: resolvedFirstName,
+    lastName: resolvedLastName,
     phone: normalizedPhone,
+    email: googleEmail,
     unit: parsedBody.data.unit ?? null,
     team: parsedBody.data.team ?? null,
   } satisfies Record<string, string | null>;
@@ -116,8 +142,8 @@ export async function POST(
     .insert({
       id: participantId,
       session_id: session.id,
-      first_name: parsedBody.data.firstName,
-      last_name: parsedBody.data.lastName,
+      first_name: resolvedFirstName,
+      last_name: resolvedLastName,
       phone: normalizedPhone,
       identity_provider: identityProvider,
       identity_key: identityKey,
@@ -129,23 +155,13 @@ export async function POST(
     .maybeSingle();
 
   if (participantError || !participant) {
-    let { data: existingParticipant } = await serviceSupabase
+    const { data: existingParticipant } = await serviceSupabase
       .from("session_participants")
       .select("id, session_id")
       .eq("session_id", session.id)
       .eq("identity_provider", identityProvider)
       .eq("identity_key", identityKey)
       .maybeSingle();
-
-    if (!existingParticipant) {
-      const { data: phoneParticipant } = await serviceSupabase
-        .from("session_participants")
-        .select("id, session_id")
-        .eq("session_id", session.id)
-        .eq("phone", normalizedPhone)
-        .maybeSingle();
-      existingParticipant = phoneParticipant;
-    }
 
     if (existingParticipant) {
       await serviceSupabase
@@ -194,6 +210,81 @@ export async function POST(
     refreshToken: authData.session.refresh_token,
     participant,
   });
+}
+
+async function readGoogleProfileAndClearSession(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+): Promise<GoogleParticipantProfile | null> {
+  const { data, error } = await supabase.auth.getUser();
+  const email = data.user?.email?.trim().toLowerCase() ?? null;
+  const googleIdentity =
+    data.user?.identities?.find((identity) => identity.provider === "google") ??
+    null;
+
+  if (error || !email || !googleIdentity) {
+    return null;
+  }
+
+  const identityKey = readGoogleIdentityKey(googleIdentity);
+
+  if (!identityKey) {
+    writeLog({
+      level: "warn",
+      message:
+        "Google identity is missing provider subject; falling back to email identity key",
+      context: { userId: data.user?.id ?? null },
+    });
+  }
+
+  await supabase.auth.signOut();
+  return {
+    email,
+    identityKey: identityKey ?? email,
+    ...deriveGoogleParticipantName(data.user?.user_metadata, email),
+  };
+}
+
+function readGoogleIdentityKey(identity: {
+  id: string;
+  identity_id?: string;
+  identity_data?: Record<string, unknown>;
+}): string | null {
+  return (
+    readMetadataString(identity.identity_data?.sub) ??
+    readMetadataString(identity.identity_id) ??
+    readMetadataString(identity.id)
+  );
+}
+
+function deriveGoogleParticipantName(
+  metadata: unknown,
+  email: string,
+): { firstName: string; lastName: string } {
+  const record =
+    typeof metadata === "object" && metadata !== null
+      ? (metadata as Record<string, unknown>)
+      : {};
+  const givenName = readMetadataString(record.given_name);
+  const familyName = readMetadataString(record.family_name);
+
+  if (givenName && familyName) {
+    return { firstName: givenName, lastName: familyName };
+  }
+
+  const fullName =
+    readMetadataString(record.full_name) ?? readMetadataString(record.name);
+  const parts = fullName?.split(/\s+/).filter(Boolean) ?? [];
+
+  return {
+    firstName: givenName ?? parts[0] ?? email.split("@")[0] ?? "משתתף",
+    lastName: familyName ?? (parts.slice(1).join(" ") || "Google"),
+  };
+}
+
+function readMetadataString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
 }
 
 async function finishParticipantJoin(args: {
