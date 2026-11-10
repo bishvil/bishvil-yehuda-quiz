@@ -238,10 +238,19 @@ describe("new question capabilities against real Postgres + API", () => {
     await answer(f, { selectedIds: ["a"] });
     claims = { userId: SEED_ADMIN_ID, role: "admin" };
     const { GET } = await import("@/app/api/admin/results/route");
-    const body = await (await GET()).json();
-    expect(
-      body.sessions.find((s: { id: string }) => s.id === f.sessionId),
-    ).toMatchObject({ status: "live", gameMode: "async" });
+    let result: { id: string; status: string; gameMode: string } | undefined;
+    let offset: number | null = 0;
+    while (offset !== null && !result) {
+      const response = await GET(
+        new Request(`http://localhost/api/admin/results?offset=${offset}`),
+      );
+      const body = await response.json();
+      result = body.sessions.find(
+        (row: { id: string }) => row.id === f.sessionId,
+      );
+      offset = body.nextOffset;
+    }
+    expect(result).toMatchObject({ status: "live", gameMode: "async" });
   });
   it("rejects stale location readings and records an admin override without requiring device GPS", async () => {
     const f = await fixture("single", {

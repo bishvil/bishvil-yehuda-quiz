@@ -16,6 +16,9 @@ Before continuing work, read
   or repairing migrations against production.
 - Fetch and compare both repositories before continuing: the client's `main`
   contains a merge commit and can differ from the developer's `main`.
+- The user authorizes autonomous PR merges after appropriate checks pass.
+  Deliver fixes to both repositories and verify the deployment; respect required
+  checks and branch rules.
 - Keep credentials and authentication storage states out of the repository.
 
 Use `CLAUDE.md`, project design guidance and repository QA documentation for

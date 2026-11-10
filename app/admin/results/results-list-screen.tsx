@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminTopBar } from "@/src/components/admin/AdminTopBar";
 import {
@@ -19,6 +19,24 @@ import {
 import type { ResultsListRow } from "@/app/api/admin/results/route";
 
 type Top = ResultsListRow["topThree"][number];
+interface ResultsPage {
+  sessions: ResultsListRow[];
+  nextOffset: number | null;
+}
+
+const resultsActionClass =
+  "min-h-11 rounded-full border border-bsy-stone-200 bg-white px-5 py-2 text-[13px] font-bold text-bsy-forest transition-colors hover:bg-bsy-stone-50 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bsy-forest";
+
+function appendUniqueSessions(
+  current: ResultsListRow[],
+  incoming: ResultsListRow[],
+) {
+  return Array.from(
+    new Map(
+      [...current, ...incoming].map((session) => [session.id, session]),
+    ).values(),
+  );
+}
 
 const RANK_TONE: Array<{ dot: string; ring: string; label: string }> = [
   {
@@ -55,6 +73,44 @@ export function ResultsListScreen() {
   const [error, setError] = useState<string | null>(null);
   const [participantError, setParticipantError] = useState<string | null>(null);
   const [participantSearch, setParticipantSearch] = useState("");
+  const [initialAttempt, setInitialAttempt] = useState(0);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const loadMorePending = useRef(false);
+  const mounted = useRef(true);
+
+  async function loadMore() {
+    if (nextOffset === null || loadMorePending.current) return;
+    loadMorePending.current = true;
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const response = await fetch(`/api/admin/results?offset=${nextOffset}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("read failed");
+      const body = (await response.json()) as ResultsPage;
+      if (!mounted.current) return;
+      setSessions((current) => appendUniqueSessions(current, body.sessions));
+      setNextOffset(body.nextOffset ?? null);
+    } catch {
+      if (mounted.current)
+        setLoadMoreError(
+          "לא הצלחנו לטעון משחקים נוספים. התוצאות שכבר נטענו נשמרו. נסו שוב.",
+        );
+    } finally {
+      loadMorePending.current = false;
+      if (mounted.current) setLoadingMore(false);
+    }
+  }
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,20 +118,21 @@ export function ResultsListScreen() {
       try {
         const res = await fetch("/api/admin/results", { cache: "no-store" });
         if (!res.ok) throw new Error("read failed");
-        const body = (await res.json()) as { sessions: ResultsListRow[] };
+        const body = (await res.json()) as ResultsPage;
         if (cancelled) return;
-        setSessions(body.sessions);
+        setSessions(appendUniqueSessions([], body.sessions));
+        setNextOffset(body.nextOffset ?? null);
         setStatus("ready");
       } catch {
         if (cancelled) return;
-        setError("לא הצלחנו לקרוא את התוצאות. נסו לרענן את העמוד.");
+        setError("לא הצלחנו לקרוא את התוצאות. נסו שוב.");
         setStatus("error");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialAttempt]);
 
   useEffect(() => {
     if (activeView !== "participants" || participantStatus !== "loading")
@@ -134,9 +191,25 @@ export function ResultsListScreen() {
           status === "loading" ? (
             <p className="text-[13px] text-bsy-stone-700">טוען…</p>
           ) : status === "error" ? (
-            <p className="text-[13px] text-red-700">
-              שגיאה בטעינת התוצאות: {error}
-            </p>
+            <div
+              role="alert"
+              className="rounded-xl border border-bsy-stone-100 bg-white p-5"
+            >
+              <p className="text-[13px] text-bsy-error">
+                שגיאה בטעינת התוצאות: {error}
+              </p>
+              <button
+                type="button"
+                className={`${resultsActionClass} mt-3`}
+                onClick={() => {
+                  setStatus("loading");
+                  setError(null);
+                  setInitialAttempt((attempt) => attempt + 1);
+                }}
+              >
+                ניסיון נוסף
+              </button>
+            </div>
           ) : sessions.length === 0 ? (
             <div className="rounded-[12px] border border-bsy-stone-100 bg-[color:var(--bsy-paper-card)] p-8 text-center">
               <p className="m-0 text-[14px] text-bsy-stone-700">
@@ -144,13 +217,43 @@ export function ResultsListScreen() {
               </p>
             </div>
           ) : (
-            <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {sessions.map((s) => (
-                <li key={s.id}>
-                  <ResultsCard row={s} />
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul
+                className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+                aria-label="תוצאות משחקים"
+              >
+                {sessions.map((s) => (
+                  <li key={s.id}>
+                    <ResultsCard row={s} />
+                  </li>
+                ))}
+              </ul>
+              <p role="status" className="sr-only">
+                {sessions.length} משחקים נטענו
+              </p>
+              {nextOffset !== null ? (
+                <div className="mt-6 flex flex-col items-center gap-3">
+                  {loadMoreError ? (
+                    <p role="alert" className="text-[13px] text-bsy-error">
+                      {loadMoreError}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={resultsActionClass}
+                    disabled={loadingMore}
+                    aria-busy={loadingMore}
+                    onClick={() => void loadMore()}
+                  >
+                    {loadingMore
+                      ? "טוען משחקים נוספים…"
+                      : loadMoreError
+                        ? "ניסיון נוסף לטעינת משחקים נוספים"
+                        : "טעינת משחקים נוספים"}
+                  </button>
+                </div>
+              ) : null}
+            </>
           )
         ) : (
           <ParticipantsAnalytics
@@ -410,9 +513,11 @@ function ParticipantsAnalytics({
 }
 
 function ResultsCard({ row }: { row: ResultsListRow }) {
-  const ended = row.endedAt ? new Date(row.endedAt) : null;
-  const dateText = ended
-    ? ended.toLocaleString("he-IL", {
+  const timestamp = row.endedAt ?? row.startedAt ?? row.createdAt;
+  const date = timestamp ? new Date(timestamp) : null;
+  const validDate = date && !Number.isNaN(date.getTime()) ? date : null;
+  const dateText = validDate
+    ? validDate.toLocaleString("he-IL", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -429,16 +534,22 @@ function ResultsCard({ row }: { row: ResultsListRow }) {
   return (
     <AdminCard>
       <div className="flex flex-col gap-1">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <CardEyebrow tone="forest">
             {row.status && row.status !== "ended"
-              ? "תוצאות ביניים · משחק פתוח"
+              ? row.gameMode === "async"
+                ? "תוצאות ביניים · משחק אסינכרוני"
+                : "תוצאות ביניים · משחק פתוח"
               : "תוצאות משחק"}
           </CardEyebrow>
-          {dateText ? (
-            <span className="shrink-0 text-[11px] text-bsy-stone-400" dir="ltr">
+          {dateText && validDate ? (
+            <time
+              dateTime={validDate.toISOString()}
+              className="shrink-0 text-[11px] text-bsy-stone-400"
+              dir="ltr"
+            >
               {dateText}
-            </span>
+            </time>
           ) : null}
         </div>
         <CardTitle size="md" clamp={2}>
