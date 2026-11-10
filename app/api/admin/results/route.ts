@@ -13,6 +13,8 @@ export interface ResultsListRow {
   gameMode?: string;
   startedAt: string | null;
   createdAt?: string;
+  lastPlayedAt?: string | null;
+  lastJoinedAt?: string | null;
   participantCount: number;
   averageScore: number;
   topThree: {
@@ -68,6 +70,9 @@ export async function GET(request: Request) {
     started_at: string | null;
     created_at: string;
     quizzes: { title: string; brand_id: string } | null;
+    answers: { submitted_at: string }[];
+    participant_question_progress: { started_at: string | null }[];
+    session_participants: { joined_at: string }[];
   }
 
   interface ScoreRow {
@@ -81,7 +86,7 @@ export async function GET(request: Request) {
   const { data: sessionData, error: sessionError } = await supabase
     .from("sessions")
     .select(
-      "id, pin, quiz_id, status, game_mode, ended_at, started_at, created_at, quizzes(title, brand_id)",
+      "id, pin, quiz_id, status, game_mode, ended_at, started_at, created_at, quizzes(title, brand_id), answers!answers_session_id_sessions_id_fk(submitted_at), participant_question_progress!participant_question_progress_session_id_sessions_id_fk(started_at), session_participants!session_participants_session_id_sessions_id_fk(joined_at)",
     )
     // Legacy async games accepted answers while still globally scheduled.
     // Preserve their stored status and expose their history without rewriting it.
@@ -90,6 +95,21 @@ export async function GET(request: Request) {
     )
     .order("created_at", { ascending: false })
     .order("id", { ascending: true })
+    // Limit embedded rows per parent: one request, independent latest dates
+    // for every session, without downloading complete answer/progress history.
+    .order("submitted_at", { referencedTable: "answers", ascending: false })
+    .limit(1, { referencedTable: "answers" })
+    .order("started_at", {
+      referencedTable: "participant_question_progress",
+      ascending: false,
+      nullsFirst: false,
+    })
+    .limit(1, { referencedTable: "participant_question_progress" })
+    .order("joined_at", {
+      referencedTable: "session_participants",
+      ascending: false,
+    })
+    .limit(1, { referencedTable: "session_participants" })
     .range(offset, offset + pageSize);
 
   if (sessionError) {
@@ -158,6 +178,14 @@ export async function GET(request: Request) {
     const participantCount = participantCounts.get(row.id) ?? 0;
     const averageScore =
       participantCount > 0 ? Math.round(total / participantCount) : 0;
+    const answeredAt = row.answers[0]?.submitted_at ?? null;
+    const openedAt = row.participant_question_progress[0]?.started_at ?? null;
+    const lastPlayedAt =
+      answeredAt && openedAt
+        ? Date.parse(answeredAt) >= Date.parse(openedAt)
+          ? answeredAt
+          : openedAt
+        : (answeredAt ?? openedAt);
 
     return {
       id: row.id,
@@ -170,6 +198,8 @@ export async function GET(request: Request) {
       gameMode: row.game_mode,
       startedAt: row.started_at,
       createdAt: row.created_at,
+      lastPlayedAt,
+      lastJoinedAt: row.session_participants[0]?.joined_at ?? null,
       participantCount,
       averageScore,
       topThree: sorted.slice(0, 3).map((s) => ({

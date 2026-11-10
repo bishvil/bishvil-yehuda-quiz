@@ -512,12 +512,30 @@ function ParticipantsAnalytics({
   );
 }
 
+function resultCardDate(
+  row: ResultsListRow,
+): { date: Date; label: string } | null {
+  const candidates = [
+    { timestamp: row.lastPlayedAt, label: "פעילות אחרונה" },
+    { timestamp: row.lastJoinedAt, label: "הצטרפות אחרונה" },
+    ...(row.status === "ended" || row.status === undefined
+      ? [{ timestamp: row.endedAt, label: "סיום המשחק" }]
+      : []),
+    { timestamp: row.startedAt, label: "תחילת המשחק" },
+    { timestamp: row.createdAt, label: "יצירת המשחק" },
+  ];
+  for (const { timestamp, label } of candidates) {
+    if (!timestamp) continue;
+    const date = new Date(timestamp);
+    if (!Number.isNaN(date.getTime())) return { date, label };
+  }
+  return null;
+}
+
 function ResultsCard({ row }: { row: ResultsListRow }) {
-  const timestamp = row.endedAt ?? row.startedAt ?? row.createdAt;
-  const date = timestamp ? new Date(timestamp) : null;
-  const validDate = date && !Number.isNaN(date.getTime()) ? date : null;
-  const dateText = validDate
-    ? validDate.toLocaleString("he-IL", {
+  const cardDate = resultCardDate(row);
+  const dateText = cardDate
+    ? cardDate.date.toLocaleString("he-IL", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -542,14 +560,13 @@ function ResultsCard({ row }: { row: ResultsListRow }) {
                 : "תוצאות ביניים · משחק פתוח"
               : "תוצאות משחק"}
           </CardEyebrow>
-          {dateText && validDate ? (
-            <time
-              dateTime={validDate.toISOString()}
-              className="shrink-0 text-[11px] text-bsy-stone-400"
-              dir="ltr"
-            >
-              {dateText}
-            </time>
+          {dateText && cardDate ? (
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] text-bsy-stone-700">
+              <span>{cardDate.label}</span>
+              <time dateTime={cardDate.date.toISOString()} dir="ltr">
+                {dateText}
+              </time>
+            </div>
           ) : null}
         </div>
         <CardTitle size="md" clamp={2}>
