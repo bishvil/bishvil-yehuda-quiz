@@ -24,6 +24,7 @@ interface Props {
 }
 
 export function ResultsScreen({ quizId, sessionId }: Props) {
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [results, setResults] = useState<AdminSessionResultsResponse | null>(
     null,
   );
@@ -58,7 +59,7 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [quizId, sessionId]);
+  }, [quizId, sessionId, refreshVersion]);
 
   const summary = useMemo(() => {
     if (!results) return null;
@@ -139,8 +140,125 @@ export function ResultsScreen({ quizId, sessionId }: Props) {
               >
                 ייצוא CSV
               </button>
+              <button
+                type="button"
+                className="rounded-md border px-3 py-2"
+                onClick={() => setRefreshVersion((version) => version + 1)}
+              >
+                רענון תוצאות
+              </button>
             </header>
 
+            {results.players.some(
+              (player) => player.locationLockedQuestionId,
+            ) ? (
+              <section className="rounded-md border p-4">
+                <h2 className="text-lg">משתתפים הממתינים לפתיחה לפי מיקום</h2>
+                {results.players
+                  .filter((player) => player.locationLockedQuestionId)
+                  .map((player) => (
+                    <div
+                      key={player.id}
+                      className="mt-2 flex items-center justify-between gap-3"
+                    >
+                      <span>
+                        {player.firstName} {player.lastName}
+                      </span>
+                      <button
+                        type="button"
+                        className="rounded border px-3 py-2"
+                        onClick={async () => {
+                          const response = await fetch(
+                            `/api/admin/sessions/${sessionId}/unlock`,
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                participantId: player.id,
+                                questionId: player.locationLockedQuestionId,
+                              }),
+                            },
+                          );
+                          if (!response.ok) {
+                            setErrorMessage(
+                              "פתיחת התחנה נכשלה. נסו לרענן את התוצאות.",
+                            );
+                            return;
+                          }
+                          setResults((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  players: current.players.map((row) =>
+                                    row.id === player.id
+                                      ? {
+                                          ...row,
+                                          locationLockedQuestionId: null,
+                                        }
+                                      : row,
+                                  ),
+                                }
+                              : current,
+                          );
+                        }}
+                      >
+                        פתיחת התחנה על ידי מפעיל
+                      </button>
+                    </div>
+                  ))}
+              </section>
+            ) : null}
+            {results.answers.some((answer) => answer.textAnswer) ? (
+              <section className="rounded-md border p-4">
+                <h2 className="text-lg">תשובות פתוחות</h2>
+                <button
+                  type="button"
+                  className="rounded border px-3 py-2"
+                  onClick={() =>
+                    downloadCsv("open-answers.csv", [
+                      ["משתתף", "שאלה", "תשובה", "נכונה", "ניקוד"],
+                      ...results.answers
+                        .filter((answer) => answer.textAnswer)
+                        .map((answer) => [
+                          results.players.find(
+                            (player) => player.id === answer.participantId,
+                          )?.firstName ?? "",
+                          questions.find((q) => q.id === answer.questionId)
+                            ?.prompt ?? "",
+                          answer.textAnswer ?? "",
+                          answer.isCorrect ? "כן" : "לא",
+                          String(answer.score),
+                        ]),
+                    ])
+                  }
+                >
+                  ייצוא תשובות פתוחות
+                </button>
+                {results.answers
+                  .filter((answer) => answer.textAnswer)
+                  .map((answer) => (
+                    <p
+                      key={`${answer.participantId}-${answer.questionId}`}
+                      className="whitespace-pre-wrap"
+                    >
+                      {
+                        results.players.find(
+                          (player) => player.id === answer.participantId,
+                        )?.firstName
+                      }{" "}
+                      ·{" "}
+                      {
+                        questions.find((q) => q.id === answer.questionId)
+                          ?.prompt
+                      }
+                      : {answer.textAnswer} —{" "}
+                      {answer.isCorrect ? "נכונה" : "שגויה"} ({answer.score}{" "}
+                      נקודות)
+                    </p>
+                  ))}
+              </section>
+            ) : null}
+            {errorMessage ? <p role="alert">{errorMessage}</p> : null}
             <section>
               <h2 className="mb-3 font-[var(--font-display)] text-xl text-bsy-brown">
                 מובילים

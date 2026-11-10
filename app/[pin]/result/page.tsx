@@ -36,6 +36,7 @@ interface ResultPageData {
   customLogoLabel: string | null;
   quizTitle: string;
   questionCount: number;
+  maxTotalScore: number;
   myScore: number;
   myCorrectCount: number;
   myStreak: number;
@@ -68,6 +69,7 @@ export default async function ParticipantResultPage({
       quizTitle={data.quizTitle}
       questionCount={data.questionCount}
       maxScorePerQuestion={maxScorePerQuestion}
+      maxTotalScore={data.maxTotalScore}
       myScore={data.myScore}
       myCorrectCount={data.myCorrectCount}
       myStreak={data.myStreak}
@@ -84,15 +86,19 @@ async function loadResultPageData(pin: string): Promise<ResultPageData | null> {
 
   const { data: quiz } = await serviceSupabase
     .from("quizzes")
-    .select("title, brand_id, custom_logo, custom_logo_label, custom_logo_active")
+    .select(
+      "title, brand_id, custom_logo, custom_logo_label, custom_logo_active",
+    )
     .eq("id", session.quiz_id)
     .maybeSingle();
   if (!quiz) return null;
 
-  const { count: questionCount } = await serviceSupabase
+  const { data: scoredQuestions, error: questionsError } = await serviceSupabase
     .from("questions")
-    .select("id", { count: "exact", head: true })
-    .eq("quiz_id", session.quiz_id);
+    .select("id, points")
+    .eq("quiz_id", session.quiz_id)
+    .neq("type", "content");
+  if (questionsError) throw new Error("Could not load result questions.");
 
   const browserScopedSupabase = await createServerSupabaseClient();
   const claims = await getAuthenticatedClaims(browserScopedSupabase);
@@ -102,13 +108,15 @@ async function loadResultPageData(pin: string): Promise<ResultPageData | null> {
       : null;
 
   // Fetch the leaderboard joined with display-safe participant rows.
-  const { data: scoreRows } = await serviceSupabase
+  const { data: scoreRows, error: scoresError } = await serviceSupabase
     .from("participant_scores")
     .select(
       "participant_id, total_score, correct_count, session_participants!inner(first_name, last_name, streak)",
     )
     .eq("session_id", session.id)
     .order("total_score", { ascending: false });
+
+  if (scoresError) throw new Error("Could not load result scores.");
 
   type ScoreRow = {
     participant_id: string;
@@ -150,11 +158,7 @@ async function loadResultPageData(pin: string): Promise<ResultPageData | null> {
     }));
 
   // If the user isn't in the top N, splice them in at their actual rank.
-  if (
-    meParticipantId &&
-    myRank !== null &&
-    !board.some((row) => row.isMe)
-  ) {
+  if (meParticipantId && myRank !== null && !board.some((row) => row.isMe)) {
     const meRow = rankedRows[myRank - 1];
     if (meRow) {
       board.push({
@@ -178,7 +182,11 @@ async function loadResultPageData(pin: string): Promise<ResultPageData | null> {
     customLogo: effectiveLogo,
     customLogoLabel: effectiveLogo ? quiz.custom_logo_label : null,
     quizTitle: quiz.title,
-    questionCount: questionCount ?? 0,
+    questionCount: scoredQuestions?.length ?? 0,
+    maxTotalScore: (scoredQuestions ?? []).reduce(
+      (sum, q) => sum + q.points,
+      0,
+    ),
     myScore,
     myCorrectCount,
     myStreak,

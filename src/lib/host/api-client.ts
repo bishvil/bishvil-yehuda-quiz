@@ -48,7 +48,7 @@ export interface HostBeginAnsweringResponse {
   questionIndex: number;
   status: "answering";
   startedAt: string;
-  deadlineAt: string;
+  deadlineAt: string | null;
 }
 
 export interface HostRevealResponse {
@@ -86,13 +86,20 @@ async function postHostJson<T>(
   body?: unknown,
 ): Promise<HostApiResult<T>> {
   const init: RequestInit = body
-    ? { ...FETCH_INIT, method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) }
+    ? {
+        ...FETCH_INIT,
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(body),
+      }
     : { ...FETCH_INIT, method: "POST" };
   const response = await fetch(path, init);
   return (await response.json()) as HostApiResult<T>;
 }
 
-export async function fetchHostLive(pin: string): Promise<HostLiveResponse | null> {
+export async function fetchHostLive(
+  pin: string,
+): Promise<HostLiveResponse | null> {
   const response = await fetch(
     `/api/host/${encodeURIComponent(pin)}/live`,
     FETCH_INIT,
@@ -140,10 +147,15 @@ export function revealHostQuestion(pin: string, questionId: string) {
 }
 
 export function nextHostQuestion(pin: string) {
-  return postHostJson<HostNextResponse>(`/api/host/${encodeURIComponent(pin)}/question/next`);
+  return postHostJson<HostNextResponse>(
+    `/api/host/${encodeURIComponent(pin)}/question/next`,
+  );
 }
 
 export function beginAnsweringHostQuestion(pin: string, questionId: string) {
-  return postHostJson<HostBeginAnsweringResponse>(`/api/host/${encodeURIComponent(pin)}/question/begin-answering`, { questionId });
+  return postHostJson<HostBeginAnsweringResponse>(
+    `/api/host/${encodeURIComponent(pin)}/question/begin-answering`,
+    { questionId },
+  );
 }
 export const isHostApiError = isError;

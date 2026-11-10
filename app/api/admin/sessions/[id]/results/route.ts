@@ -23,6 +23,7 @@ interface AdminSessionResultPlayer {
   totalScore: number;
   correctCount: number;
   streak: number;
+  locationLockedQuestionId?: string | null;
   joinedAt: string;
 }
 
@@ -30,6 +31,7 @@ interface AdminSessionResultAnswer {
   questionId: string;
   participantId: string;
   submittedAt: string;
+  textAnswer?: string | null;
   selectedIds: string[] | null;
   pinLat: string | null;
   pinLng: string | null;
@@ -83,25 +85,47 @@ export async function GET(
     );
   }
 
-  const [{ data: participants }, { data: scores }, { data: answers }] =
-    await Promise.all([
-      serviceSupabase
-        .from("session_participants")
-        .select(
-          "id, first_name, last_name, phone, identity_provider, identity_key, profile_fields, unit, team, status, streak, joined_at",
-        )
-        .eq("session_id", sessionId),
-      serviceSupabase
-        .from("participant_scores")
-        .select("participant_id, total_score, correct_count")
-        .eq("session_id", sessionId),
-      serviceSupabase
-        .from("answers")
-        .select(
-          "question_id, participant_id, submitted_at, selected_ids, pin_lat, pin_lng, is_correct, score, time_bonus",
-        )
-        .eq("session_id", sessionId),
-    ]);
+  const [
+    { data: participants, error: participantsError },
+    { data: scores, error: scoresError },
+    { data: answers, error: answersError },
+    { data: progressRows, error: progressError },
+  ] = await Promise.all([
+    serviceSupabase
+      .from("session_participants")
+      .select(
+        "id, first_name, last_name, phone, identity_provider, identity_key, profile_fields, unit, team, status, streak, joined_at",
+      )
+      .eq("session_id", sessionId),
+    serviceSupabase
+      .from("participant_scores")
+      .select("participant_id, total_score, correct_count")
+      .eq("session_id", sessionId),
+    serviceSupabase
+      .from("answers")
+      .select(
+        "text_answer, question_id, participant_id, submitted_at, selected_ids, pin_lat, pin_lng, is_correct, score, time_bonus",
+      )
+      .eq("session_id", sessionId),
+    serviceSupabase
+      .from("participant_question_progress")
+      .select("participant_id, question_id, question_index, started_at")
+      .eq("session_id", sessionId)
+      .order("question_index", { ascending: false }),
+  ]);
+  if (participantsError || scoresError || answersError || progressError) {
+    return privateNoStoreJson(
+      { error: "READ_FAILED", message: "Failed to read session results." },
+      { status: 500 },
+    );
+  }
+  const latestByParticipant = new Map<
+    string,
+    { question_id: string; started_at: string | null }
+  >();
+  for (const row of progressRows ?? [])
+    if (!latestByParticipant.has(row.participant_id))
+      latestByParticipant.set(row.participant_id, row);
 
   const scoreById = new Map(
     (scores ?? []).map((row) => [row.participant_id, row]),
@@ -130,6 +154,10 @@ export async function GET(
         totalScore: score?.total_score ?? 0,
         correctCount: score?.correct_count ?? 0,
         streak: row.streak,
+        locationLockedQuestionId:
+          latestByParticipant.get(row.id)?.started_at === null
+            ? latestByParticipant.get(row.id)?.question_id
+            : null,
         joinedAt: row.joined_at,
       };
     },
@@ -140,6 +168,7 @@ export async function GET(
       questionId: row.question_id,
       participantId: row.participant_id,
       submittedAt: row.submitted_at,
+      textAnswer: row.text_answer ?? null,
       selectedIds: row.selected_ids,
       pinLat: row.pin_lat,
       pinLng: row.pin_lng,

@@ -2,7 +2,14 @@ import { formatKm } from "@/src/lib/format/distance";
 import { formatAnswerSeconds } from "@/src/lib/time/answer-duration";
 
 interface FeedbackCardProps {
-  isCorrect: boolean;
+  isCorrect: boolean | null;
+  outcome?:
+    | "correct"
+    | "partial"
+    | "incorrect"
+    | "unanswered"
+    | "timeout"
+    | "pending";
   explanation?: string | null;
   /**
    * Earned score for this question (shown when provided alongside totalPoints).
@@ -39,6 +46,7 @@ interface FeedbackCardProps {
  */
 export function FeedbackCard({
   isCorrect,
+  outcome,
   explanation,
   score,
   totalPoints,
@@ -47,6 +55,19 @@ export function FeedbackCard({
   correctCount,
   totalCorrect,
 }: FeedbackCardProps) {
+  const resolvedOutcome =
+    outcome ??
+    (isCorrect === null ? "unanswered" : isCorrect ? "correct" : "incorrect");
+  const title = {
+    correct: "מצוין!",
+    partial: "נכון חלקית",
+    incorrect: "לא מדויק",
+    unanswered: "לא נשלחה תשובה",
+    timeout: "הזמן הסתיים ללא תשובה",
+    pending: "התשובה ממתינה לבדיקה",
+  }[resolvedOutcome];
+  const positive = resolvedOutcome === "correct";
+  const negative = resolvedOutcome === "incorrect";
   const hasScore = score != null && totalPoints != null;
   const answerTime = formatAnswerSeconds(answerSeconds);
   const hasDistance = distanceKm != null;
@@ -56,9 +77,11 @@ export function FeedbackCard({
     <div
       className={[
         "mt-4 flex items-start gap-3 rounded-md border p-3 text-[13px] leading-relaxed",
-        isCorrect
+        positive
           ? "border-bsy-lime bg-bsy-lime/15 text-bsy-stone-700"
-          : "border-bsy-error/30 bg-bsy-error/[0.06] text-bsy-stone-700",
+          : negative
+            ? "border-bsy-error/30 bg-bsy-error/[0.06] text-bsy-stone-700"
+            : "border-bsy-stone-200 bg-bsy-stone-50 text-bsy-stone-700",
       ].join(" ")}
       role="status"
     >
@@ -66,14 +89,24 @@ export function FeedbackCard({
         aria-hidden="true"
         className={[
           "inline-flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold",
-          isCorrect ? "bg-bsy-forest text-white" : "bg-bsy-error text-white",
+          positive
+            ? "bg-bsy-forest text-white"
+            : negative
+              ? "bg-bsy-error text-white"
+              : "bg-bsy-stone-200 text-bsy-stone-700",
         ].join(" ")}
       >
-        {isCorrect ? "✓" : "✕"}
+        {positive
+          ? "✓"
+          : negative
+            ? "✕"
+            : resolvedOutcome === "partial"
+              ? "≈"
+              : "—"}
       </span>
       <div>
         <p className="m-0 font-[var(--font-display)] text-base text-bsy-brown">
-          {isCorrect ? "מצוין!" : "לא מדויק"}
+          {title}
         </p>
         {hasScore ? (
           <p className="m-0 mt-1 text-[13px] font-bold text-bsy-stone-700">

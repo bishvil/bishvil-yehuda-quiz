@@ -30,6 +30,8 @@ interface PublicQuestionSuccessBody {
       center?: { lat: number; lng: number };
       zoom?: number;
       toleranceKm: number;
+      baseStyle?: "satellite" | "streets";
+      labelLevel?: "none" | "major" | "medium" | "all";
       styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
     };
   } | null;
@@ -79,7 +81,7 @@ export async function GET(
   const { data: question } = await serviceSupabase
     .from("questions")
     .select(
-      "type, prompt, options, map, image_url, image_alt, image_width, image_height, time_seconds, points",
+      "settings, type, prompt, options, map, image_url, image_alt, image_width, image_height, time_seconds, points",
     )
     .eq("quiz_id", session.quiz_id)
     .eq("ordinal", ordinal)
@@ -95,6 +97,21 @@ export async function GET(
     );
   }
 
+  if (
+    session.game_mode === "async" &&
+    question.settings &&
+    typeof question.settings === "object" &&
+    !Array.isArray(question.settings) &&
+    question.settings.locationGate
+  ) {
+    return publicCachedJson<PublicQuestionResponseBody>(
+      {
+        error: "QUESTION_NOT_FOUND",
+        message: "Open this station through your participant state.",
+      },
+      { status: 404, cacheControl: PUBLIC_QUESTION_CONTENT_CACHE_HEADER },
+    );
+  }
   const parsedContent = validateStoredQuestionContent({
     type: question.type,
     options: question.options,
@@ -139,6 +156,8 @@ export async function GET(
           zoom: parsedMap.geo.zoom,
           toleranceKm: parsedMap.geo.toleranceKm,
           styleHint: parsedMap.geo.styleHint,
+          baseStyle: parsedMap.geo.baseStyle,
+          labelLevel: parsedMap.geo.labelLevel,
         },
       }
     : null;

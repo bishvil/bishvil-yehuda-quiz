@@ -47,7 +47,10 @@ export type SubmitMapAnswerBody =
   | { questionId: string; pin: { x: number; y: number } }
   | { questionId: string; pin: { lat: number; lng: number } };
 
-export type SubmitAnswerBody = SubmitChoiceAnswerBody | SubmitMapAnswerBody;
+export type SubmitAnswerBody =
+  | SubmitChoiceAnswerBody
+  | SubmitMapAnswerBody
+  | { questionId: string; textAnswer: string };
 
 export interface SubmitAnswerSuccessResponse {
   status: "submitted" | "already_submitted";
@@ -165,10 +168,16 @@ export async function submitAnswer(
 
 export async function advanceParticipant(
   pin: string,
+  questionId?: string,
 ): Promise<AdvanceResponse> {
   const response = await fetch(
     `/api/participant/${encodeURIComponent(pin)}/next`,
-    { method: "POST", credentials: "include" },
+    {
+      method: "POST",
+      credentials: "include",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ questionId }),
+    },
   );
   return (await response.json()) as AdvanceResponse;
 }

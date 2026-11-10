@@ -16,9 +16,7 @@ const SEED_GEO_MAP = {
   },
 } as const;
 
-function withOverrides(
-  overrides: Partial<EditableQuestion>,
-): EditableQuestion {
+function withOverrides(overrides: Partial<EditableQuestion>): EditableQuestion {
   return { ...makeBlankQuestion(1), ...overrides };
 }
 
@@ -180,6 +178,17 @@ describe("normalizeQuestionForType — Wave-2 review M3", () => {
       "map",
     ];
     const sources: Record<QuestionType, EditableQuestion> = {
+      open: withOverrides({
+        type: "open",
+        options: null,
+        correctIds: [],
+        settings: { acceptedAnswers: ["ירושלים"] },
+      }),
+      content: withOverrides({
+        type: "content",
+        options: null,
+        correctIds: [],
+      }),
       single: withOverrides({ type: "single", correctIds: ["a"] }),
       multi: withOverrides({ type: "multi", correctIds: ["a", "b"] }),
       truefalse: withOverrides({

@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 
+import { LocationGateEditor } from "./LocationGateEditor";
 import { TypePill } from "./TypePill";
 import { QuestionImageUploader } from "./upload/QuestionImageUploader";
 import { QuestionVideoUploader } from "./upload/QuestionVideoUploader";
@@ -127,7 +128,7 @@ export function QuestionEditor({
         </div>
       ) : null}
 
-      {question.type === "image" ? (
+      {question.type === "image" || question.type === "content" ? (
         <div
           className={[
             "flex flex-col gap-1.5",
@@ -265,6 +266,50 @@ export function QuestionEditor({
         </Field>
       ) : null}
 
+      {question.type === "open" ? (
+        <Field
+          label="תשובות קבילות (תשובה בכל שורה)"
+          help="הבדיקה מתעלמת מניקוד, רווחים עודפים והבדלי אותיות גדולות באנגלית."
+        >
+          <textarea
+            rows={4}
+            value={(question.settings?.acceptedAnswers ?? []).join("\n")}
+            disabled={readOnly}
+            className="rounded-md border p-3"
+            onChange={(event) =>
+              update({
+                settings: {
+                  ...question.settings,
+                  acceptedAnswers: event.target.value.split("\n"),
+                },
+              })
+            }
+          />
+        </Field>
+      ) : null}
+      {question.type !== "content" ? (
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            disabled={readOnly}
+            checked={question.settings?.timeLimitEnabled === false}
+            onChange={(event) =>
+              update({
+                settings: {
+                  ...question.settings,
+                  timeLimitEnabled: !event.target.checked,
+                },
+              })
+            }
+          />
+          ללא הגבלת זמן
+        </label>
+      ) : null}
+      <LocationGateEditor
+        question={question}
+        update={update}
+        readOnly={readOnly}
+      />
       <div className="grid grid-cols-2 gap-3">
         <NumberField
           label="זמן (שניות)"
@@ -272,16 +317,20 @@ export function QuestionEditor({
           min={5}
           max={600}
           onChange={(timeSeconds) => update({ timeSeconds })}
-          disabled={readOnly}
+          disabled={
+            readOnly ||
+            question.type === "content" ||
+            question.settings?.timeLimitEnabled === false
+          }
         />
         <NumberField
           label="נקודות"
           value={question.points}
-          min={0}
+          min={1}
           max={10000}
           step={50}
           onChange={(points) => update({ points })}
-          disabled={readOnly}
+          disabled={readOnly || question.type === "content"}
         />
       </div>
 
@@ -352,6 +401,8 @@ function readMapGeoDraft(q: EditableQuestion): MapQuestionGeoDraft | null {
     center: geo.center,
     zoom: geo.zoom,
     styleHint: geo.styleHint,
+    baseStyle: geo.baseStyle,
+    labelLevel: geo.labelLevel,
   };
 }
 
@@ -366,6 +417,8 @@ function writeMapGeoDraft(
         center: next.center,
         zoom: next.zoom,
         styleHint: next.styleHint,
+        baseStyle: next.baseStyle,
+        labelLevel: next.labelLevel,
       },
     },
   };

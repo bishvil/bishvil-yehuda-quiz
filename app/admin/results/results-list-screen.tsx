@@ -426,7 +426,11 @@ function ResultsCard({ row }: { row: ResultsListRow }) {
     <AdminCard>
       <div className="flex flex-col gap-1">
         <div className="flex items-baseline justify-between gap-3">
-          <CardEyebrow tone="forest">תוצאות משחק</CardEyebrow>
+          <CardEyebrow tone="forest">
+            {row.status && row.status !== "ended"
+              ? "תוצאות ביניים · משחק פתוח"
+              : "תוצאות משחק"}
+          </CardEyebrow>
           {dateText ? (
             <span className="shrink-0 text-[11px] text-bsy-stone-400" dir="ltr">
               {dateText}
@@ -453,7 +457,7 @@ function ResultsCard({ row }: { row: ResultsListRow }) {
         <CardEyebrow tone="forest">דירוג</CardEyebrow>
         {!hasFinishers ? (
           <p className="m-0 text-[13px] text-bsy-stone-700">
-            אין משתתפים שסיימו את המשחק.
+            עדיין אין תוצאות ניקוד להצגה.
           </p>
         ) : (
           <ol className="m-0 flex list-none flex-col gap-1.5 p-0">

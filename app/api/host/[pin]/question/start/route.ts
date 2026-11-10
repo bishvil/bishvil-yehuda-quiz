@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
+import { hasTimeLimit } from "@/src/lib/schemas/question-settings";
 import { computeMediaPaddedDeadline } from "@/src/lib/sessions/deadline";
 import { loadHostContext } from "@/src/lib/sessions/host-context";
 import { canTransitionQuestion } from "@/src/lib/sessions/state-machine";
@@ -63,7 +64,8 @@ export async function POST(
     return privateNoStoreJson<HostQuestionStartResponseBody>(
       {
         error: "SESSION_NOT_LIVE",
-        message: "Async sessions are self-paced — questions cannot be started by the host.",
+        message:
+          "Async sessions are self-paced — questions cannot be started by the host.",
       },
       { status: 409 },
     );
@@ -92,7 +94,7 @@ export async function POST(
   const { data: question } = await serviceSupabase
     .from("questions")
     .select(
-      "id, ordinal, time_seconds, media_lead_seconds, quiz_id, video_url, video_embed_url",
+      "id, ordinal, time_seconds, settings, type, media_lead_seconds, quiz_id, video_url, video_embed_url",
     )
     .eq("id", parsed.data.questionId)
     .maybeSingle();
@@ -112,7 +114,10 @@ export async function POST(
     .eq("question_id", question.id)
     .maybeSingle();
 
-  if (existingState && !canTransitionQuestion(existingState.status, "answering")) {
+  if (
+    existingState &&
+    !canTransitionQuestion(existingState.status, "answering")
+  ) {
     return privateNoStoreJson<HostQuestionStartResponseBody>(
       {
         error: "INVALID_TRANSITION",
@@ -126,13 +131,16 @@ export async function POST(
 
   const startedAt = new Date();
   const hasVideo = Boolean(question.video_url || question.video_embed_url);
-  const status: "answering" | "presenting" = hasVideo ? "presenting" : "answering";
+  const status: "answering" | "presenting" = hasVideo
+    ? "presenting"
+    : "answering";
   const deadlineAt = hasVideo
     ? null
     : computeMediaPaddedDeadline(
         startedAt,
         question.time_seconds,
         question.media_lead_seconds,
+        hasTimeLimit(question.type, question.settings),
       );
   const startedAtIso = startedAt.toISOString();
   const deadlineAtIso = deadlineAt?.toISOString() ?? null;

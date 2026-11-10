@@ -364,6 +364,7 @@ export function HostScreen({
             <aside className="flex min-h-0 flex-col gap-4">
               {canControl && !needsSpotlight ? (
                 <HostTimerPanel
+                  timeLimitEnabled={question?.timeLimitEnabled}
                   remainingSeconds={countdown.remainingSeconds}
                   fraction={countdown.fraction}
                   isWarning={countdown.isWarning}
@@ -451,6 +452,7 @@ export function HostScreen({
                 />
                 {canControl && !needsSpotlight ? (
                   <HostTimerPanel
+                    timeLimitEnabled={question?.timeLimitEnabled}
                     variant="compact"
                     remainingSeconds={countdown.remainingSeconds}
                     fraction={countdown.fraction}

@@ -48,6 +48,7 @@ import {
 } from "react-map-gl/maplibre";
 import type { Map as MapLibreMap } from "maplibre-gl";
 
+import { isSettlementLayer, settlementFilter } from "./settlement-labels";
 import {
   buildHebrewLabelExpression,
   buildSegmentFeatureCollection,
@@ -122,6 +123,8 @@ export interface InteractiveMapProps {
   onMove?: (view: MapViewState) => void;
   /** When true, place/road/city labels remain visible for admin authoring. */
   showLabels?: boolean;
+  baseStyle?: "satellite" | "streets";
+  labelLevel?: "none" | "major" | "medium" | "all";
   /** Imperative camera target for editor search/focus affordances. */
   flyTo?: Partial<MapViewState> & { durationMs?: number };
   /** Set true if the consumer wants to read the underlying MapLibre instance. */
@@ -169,6 +172,12 @@ const InteractiveMapImpl = forwardRef<
   InteractiveMapProps
 >(function InteractiveMapImpl(props, ref) {
   const mapRef = useRef<MapRef | null>(null);
+  const localizedLayerIds = useRef(new Set<string>());
+  const styleFingerprint = useRef("");
+  const originalVisibility = useRef(
+    new globalThis.Map<string, "visible" | "none">(),
+  );
+  const originalFilters = useRef(new globalThis.Map<string, unknown>());
 
   useImperativeHandle(
     ref,
@@ -190,12 +199,16 @@ const InteractiveMapImpl = forwardRef<
   ]);
 
   const mapStyle = useMemo(
-    () => resolveStyle(props.styleHint),
-    [props.styleHint],
+    () =>
+      resolveStyle(
+        props.styleHint,
+        props.baseStyle,
+        props.labelLevel ?? (props.showLabels ? "all" : "none"),
+      ),
+    [props.styleHint, props.baseStyle, props.labelLevel, props.showLabels],
   );
 
-  const showMaptilerWarning =
-    props.isAdmin === true && !process.env.NEXT_PUBLIC_MAPTILER_KEY;
+  const showMaptilerWarning = false;
 
   const handleClick = useCallback(
     (event: MapLayerMouseEvent) => {
@@ -219,31 +232,101 @@ const InteractiveMapImpl = forwardRef<
   );
 
   /**
-   * QA-20: hide every symbol layer (place names, POI, road labels,
-   * country labels) on the active style. We deliberately apply this on
-   * BOTH `load` and `styledata` so it survives async style swaps when
-   * the consumer toggles `styleHint`. Raster-only styles (e.g. the
-   * `israel-hiking` hint) ship no symbol layers so this is a no-op for
-   * them — labels baked into the raster cannot be hidden via the
-   * MapLibre style API; that limitation is mitigated upstream by
-   * picking a label-free raster source (see `resolveStyle` above).
+   * Hide labels by default, or show settlement names at the author's chosen
+   * detail level. Cache each style's original filters and visibility so
+   * repeated styledata/idle events and level switches never compound filters.
    */
   const applySymbolLayerVisibility = useCallback(
     (map: MapLibreMap) => {
       try {
-        if (!map.isStyleLoaded()) return;
         const style = map.getStyle();
         if (!style?.layers) return;
+        const fingerprint = JSON.stringify({
+          sources: Object.fromEntries(
+            Object.entries(style.sources).filter(
+              ([id]) => id !== "quiz-satellite",
+            ),
+          ),
+          layers: style.layers
+            .filter((layer) => layer.id !== "quiz-satellite-layer")
+            .map((layer) => [layer.id, layer.type]),
+        });
+        if (styleFingerprint.current !== fingerprint) {
+          styleFingerprint.current = fingerprint;
+          originalFilters.current.clear();
+          originalVisibility.current.clear();
+          localizedLayerIds.current.clear();
+        }
+        const level = props.labelLevel ?? (props.showLabels ? "all" : "none");
+        const satellite =
+          (props.baseStyle ?? "satellite") === "satellite" && level !== "none";
+        if (satellite && !map.getSource("quiz-satellite")) {
+          map.addSource("quiz-satellite", {
+            type: "raster",
+            tiles: [
+              "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            ],
+            tileSize: 256,
+            attribution: "Tiles © Esri, Maxar, Earthstar Geographics",
+          });
+          map.addLayer(
+            {
+              id: "quiz-satellite-layer",
+              type: "raster",
+              source: "quiz-satellite",
+            },
+            style.layers.find((layer) => layer.type === "symbol")?.id,
+          );
+        }
         for (const layer of style.layers) {
+          if (layer.type !== "symbol") {
+            if (!originalVisibility.current.has(layer.id))
+              originalVisibility.current.set(
+                layer.id,
+                map.getLayoutProperty(layer.id, "visibility") === "none"
+                  ? "none"
+                  : "visible",
+              );
+            const visibility =
+              layer.id === "quiz-satellite-layer"
+                ? satellite
+                  ? "visible"
+                  : "none"
+                : satellite
+                  ? "none"
+                  : originalVisibility.current.get(layer.id)!;
+            if (map.getLayoutProperty(layer.id, "visibility") !== visibility)
+              map.setLayoutProperty(layer.id, "visibility", visibility);
+          }
           if (layer.type === "symbol") {
-            map.setLayoutProperty(
-              layer.id,
-              "visibility",
-              props.showLabels ? "visible" : "none",
+            const visible = level !== "none" && isSettlementLayer(layer);
+            const visibility = visible ? "visible" : "none";
+            if (map.getLayoutProperty(layer.id, "visibility") !== visibility)
+              map.setLayoutProperty(layer.id, "visibility", visibility);
+            if (!originalFilters.current.has(layer.id))
+              originalFilters.current.set(
+                layer.id,
+                map.getFilter(layer.id) ?? null,
+              );
+            const filter = settlementFilter(
+              level,
+              originalFilters.current.get(layer.id),
             );
-            if (props.showLabels) {
+            if (
+              JSON.stringify(map.getFilter(layer.id) ?? null) !==
+              JSON.stringify(filter)
+            )
+              map.setFilter(
+                layer.id,
+                filter as Parameters<MapLibreMap["setFilter"]>[1],
+              );
+            if (visible) {
               const textField = map.getLayoutProperty(layer.id, "text-field");
-              if (textField !== undefined) {
+              if (
+                textField !== undefined &&
+                !localizedLayerIds.current.has(layer.id)
+              ) {
+                localizedLayerIds.current.add(layer.id);
                 map.setLayoutProperty(
                   layer.id,
                   "text-field",
@@ -257,7 +340,7 @@ const InteractiveMapImpl = forwardRef<
         // Style may be mid-swap; the next `styledata` event will retry.
       }
     },
-    [props.showLabels],
+    [props.showLabels, props.labelLevel, props.baseStyle],
   );
 
   const handleLoad = useCallback(() => {
@@ -330,6 +413,7 @@ const InteractiveMapImpl = forwardRef<
         onMove={props.onMove ? handleMove : undefined}
         onLoad={handleLoad}
         onStyleData={handleStyleData}
+        onIdle={handleStyleData}
         style={{ width: "100%", flex: 1 }}
         aria-label={props.ariaLabel}
       >

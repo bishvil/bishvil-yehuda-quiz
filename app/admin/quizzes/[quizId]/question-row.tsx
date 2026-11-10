@@ -69,9 +69,10 @@ export function QuestionRow({
           </span>
         </div>
         <div className="text-[11px] text-bsy-stone-400">
-          {question.type === "map"
-            ? `נקודה על מפה · ${question.timeSeconds} שניות`
-            : `${optionsCount} תשובות · ${question.timeSeconds} שניות · ${correctCount} נכונות`}
+          {question.type === "content"
+            ? "קטע מידע · ללא ניקוד"
+            : `${question.type === "map" ? "נקודה על מפה" : question.type === "open" ? "תשובה פתוחה" : `${optionsCount} תשובות · ${correctCount} נכונות`} · ${question.settings?.timeLimitEnabled === false ? "ללא הגבלת זמן" : `${question.timeSeconds} שניות`}`}
+          {question.settings?.locationGate ? " · פתיחה לפי מיקום" : ""}
         </div>
       </button>
     </div>

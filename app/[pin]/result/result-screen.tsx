@@ -16,6 +16,7 @@ interface ResultScreenProps {
   quizTitle: string;
   questionCount: number;
   maxScorePerQuestion: number;
+  maxTotalScore?: number;
   myScore: number;
   myCorrectCount: number;
   myStreak: number;
@@ -31,17 +32,19 @@ export function ResultScreen({
   quizTitle,
   questionCount,
   maxScorePerQuestion,
+  maxTotalScore: configuredMaxTotalScore,
   myScore,
   myCorrectCount,
   myStreak,
   myRank,
   leaderboard,
 }: ResultScreenProps) {
-  const maxTotalScore = Math.max(1, questionCount * maxScorePerQuestion);
+  const maxTotalScore = Math.max(
+    1,
+    configuredMaxTotalScore ?? questionCount * maxScorePerQuestion,
+  );
   const accuracyPercent =
-    questionCount > 0
-      ? Math.round((myCorrectCount / questionCount) * 100)
-      : 0;
+    questionCount > 0 ? Math.round((myCorrectCount / questionCount) * 100) : 0;
   const headlineSubtitle = brand.tagline;
 
   return (

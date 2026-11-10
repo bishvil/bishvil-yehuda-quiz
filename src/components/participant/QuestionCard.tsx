@@ -43,7 +43,7 @@ export function QuestionCard({
 }: QuestionCardProps) {
   const eyebrow = buildEyebrow(type);
   const hasVideo = Boolean(videoUrl ?? videoEmbedUrl);
-  const imageSrc = type === "image" ? imageUrl : null;
+  const imageSrc = type === "image" || type === "content" ? imageUrl : null;
 
   return (
     <div className="rounded-md border border-bsy-stone-100 bg-white p-5 shadow-[0_1px_2px_rgba(74,63,38,0.06)]">
@@ -72,7 +72,7 @@ export function QuestionCard({
         </div>
       ) : null}
       {children}
-      <h3 className="m-0 font-[var(--font-display)] text-[22px] leading-snug text-bsy-brown">
+      <h3 className="m-0 whitespace-pre-wrap font-[var(--font-display)] text-[22px] leading-snug text-bsy-brown">
         {prompt}
       </h3>
     </div>

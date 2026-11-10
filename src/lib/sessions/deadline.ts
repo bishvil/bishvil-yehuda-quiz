@@ -8,7 +8,9 @@ export function computeMediaPaddedDeadline(
   startedAt: Date,
   timeSeconds: number,
   mediaLeadSeconds: number | null | undefined,
-): Date {
+  timeLimitEnabled: boolean = true,
+): Date | null {
+  if (!timeLimitEnabled) return null;
   const totalSeconds = timeSeconds + (mediaLeadSeconds ?? 0);
   return new Date(startedAt.getTime() + totalSeconds * 1000);
 }

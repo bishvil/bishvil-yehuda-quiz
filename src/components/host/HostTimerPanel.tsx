@@ -1,6 +1,7 @@
 import { formatCountdownSeconds } from "@/src/lib/time/timer-display";
 
 interface HostTimerPanelProps {
+  timeLimitEnabled?: boolean;
   remainingSeconds: number;
   fraction: number;
   isWarning: boolean;
@@ -16,6 +17,7 @@ interface HostTimerPanelProps {
  * view on mobile (compact variant).
  */
 export function HostTimerPanel({
+  timeLimitEnabled = true,
   remainingSeconds,
   fraction,
   isWarning,
@@ -25,6 +27,19 @@ export function HostTimerPanel({
 }: HostTimerPanelProps) {
   const percent = Math.min(100, Math.max(0, fraction * 100));
   const display = formatCountdownSeconds(remainingSeconds);
+
+  if (!timeLimitEnabled)
+    return (
+      <div className="rounded-md border border-bsy-stone-100 bg-white p-4 text-center">
+        <p className="font-bold">ללא הגבלת זמן</p>
+        {typeof responseCount === "number" &&
+        typeof totalPlayers === "number" ? (
+          <p>
+            {responseCount} מתוך {totalPlayers} השיבו
+          </p>
+        ) : null}
+      </div>
+    );
 
   if (variant === "compact") {
     return (

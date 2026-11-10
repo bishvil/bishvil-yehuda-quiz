@@ -8,6 +8,8 @@ import {
   DEFAULT_JOIN_FIELDS,
 } from "@/src/lib/constants";
 
+import { questionSettingsSchema } from "@/src/lib/schemas/question-settings";
+
 const brandIdSchema = z.string().min(1);
 
 // Allow https everywhere; additionally allow the configured Supabase origin
@@ -88,6 +90,8 @@ const mapSchema = z.object({
       .optional(),
     zoom: z.number().min(1).max(18).optional(),
     toleranceKm: z.number().min(0.05).max(500),
+    baseStyle: z.enum(["satellite", "streets"]).optional(),
+    labelLevel: z.enum(["none", "major", "medium", "all"]).optional(),
     styleHint: z
       .enum(["maptiler-streets", "israel-hiking", "osm-liberty"])
       .optional(),
@@ -110,6 +114,7 @@ export const adminQuestionCreateSchema = z.object({
   imageHeight: z.number().int().positive().nullable().optional(),
   imagePath: z.string().min(1).nullable().optional(),
   explanation: z.string().min(1).nullable().optional(),
+  settings: questionSettingsSchema.optional(),
   timeSeconds: z.number().int().min(1).default(DEFAULT_QUESTION_TIME_SECONDS),
   points: z.number().int().min(1).default(DEFAULT_QUESTION_POINTS),
   // Video fields — all optional/nullable so auto-save partial patches work.
@@ -168,8 +173,14 @@ export const adminBrandCreateSchema = z.object({
   name: z.string().trim().min(1),
   tagline: z.string().trim().optional(),
   logoUrl: z.string().url(),
-  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  primaryColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
 });
 
 /**
@@ -179,8 +190,16 @@ export const adminBrandUpdateSchema = z.object({
   name: z.string().trim().min(1).optional(),
   tagline: z.string().trim().nullable().optional(),
   logoUrl: z.string().url().optional(),
-  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
-  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  primaryColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
 });
 
 /**
@@ -193,4 +212,6 @@ export const adminBrandSystemUpdateSchema = adminBrandUpdateSchema;
 
 export type AdminBrandCreate = z.infer<typeof adminBrandCreateSchema>;
 export type AdminBrandUpdate = z.infer<typeof adminBrandUpdateSchema>;
-export type AdminBrandSystemUpdate = z.infer<typeof adminBrandSystemUpdateSchema>;
+export type AdminBrandSystemUpdate = z.infer<
+  typeof adminBrandSystemUpdateSchema
+>;
