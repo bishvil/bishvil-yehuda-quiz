@@ -5,6 +5,30 @@ Verified on 2026-11-10. The client repository is
 Its `main` commit is `24fc42d3e0b071c34d1e96a46c975e163a425b19`, an ancestor of
 the tested feature branch. No client-only changes were found in that comparison.
 
+## Two-repository ownership
+
+The user requires the code to remain in both repositories. Keep the existing
+GitHub connection for `NehoraiHadad` and add effective access to the client
+repository. The local checkout has two named remotes:
+
+| Remote | Repository | Role |
+| --- | --- | --- |
+| `origin` | `NehoraiHadad/bishvil-yehuda-quiz` | Developer-owned development copy |
+| `client` | `bishvil/bishvil-yehuda-quiz` | Client-owned code and deployment copy |
+
+Push the same validated feature branch to each remote and verify both remote
+heads. Keep production release control on the client's deployment branch, with
+migrations completed before the application deployment. Successful delivery to
+`origin` alone is not successful synchronization to both repositories.
+
+```sh
+git push origin feat/quiz-completion-gps-20261110
+git push client feat/quiz-completion-gps-20261110
+```
+
+The second command remains blocked by the access restriction below. The
+client's deployment settings and main branch have not been changed.
+
 ## Access and deployment evidence
 
 - The connected GitHub identity is `NehoraiHadad`. The collaborator listing
