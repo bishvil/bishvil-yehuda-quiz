@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
+import { hasTimeLimit } from "@/src/lib/schemas/question-settings";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { loadHostContext } from "@/src/lib/sessions/host-context";
@@ -43,7 +44,8 @@ const requestSchema = z.object({
 /**
  * `locked → revealed` (sync mode only — async auto-reveals on lock per
  * ADR-0007 §2.4). The host route also lazy-expires the question if the
- * deadline has passed but the row is still `answering`.
+ * deadline has passed but the row is still `answering`. Untimed current
+ * stations may be closed and revealed atomically by the host.
  */
 export async function POST(
   request: NextRequest,
@@ -64,6 +66,16 @@ export async function POST(
     );
   }
 
+  if (session.status !== "live") {
+    return privateNoStoreJson<HostRevealResponseBody>(
+      {
+        error: "INVALID_TRANSITION",
+        message: "Session must be live to reveal a question.",
+      },
+      { status: 409 },
+    );
+  }
+
   const parsed = requestSchema.safeParse(await request.json());
   if (!parsed.success) {
     return privateNoStoreJson<HostRevealResponseBody>(
@@ -72,9 +84,14 @@ export async function POST(
     );
   }
 
-  await lazyExpireSyncQuestionState(serviceSupabase, session.id, parsed.data.questionId, {
-    autoReveal: false,
-  });
+  await lazyExpireSyncQuestionState(
+    serviceSupabase,
+    session.id,
+    parsed.data.questionId,
+    {
+      autoReveal: false,
+    },
+  );
 
   const { data: state } = await serviceSupabase
     .from("question_session_state")
@@ -105,7 +122,30 @@ export async function POST(
     );
   }
 
-  if (!canTransitionQuestion(state.status, "revealed")) {
+  // An untimed station has no expiry to close answering. The host may
+  // atomically close and reveal the current station, even with missing answers.
+  let manualClose = false;
+  if (
+    state.status === "answering" &&
+    session.current_question_id === state.question_id
+  ) {
+    const { data: question, error: questionError } = await serviceSupabase
+      .from("questions")
+      .select("type, settings")
+      .eq("id", state.question_id)
+      .eq("quiz_id", session.quiz_id)
+      .maybeSingle();
+    if (questionError)
+      return privateNoStoreJson<HostRevealResponseBody>(
+        { error: "WRITE_FAILED", message: "Could not verify question timing." },
+        { status: 500 },
+      );
+    manualClose = Boolean(
+      question && !hasTimeLimit(question.type, question.settings),
+    );
+  }
+
+  if (!canTransitionQuestion(state.status, "revealed") && !manualClose) {
     return privateNoStoreJson<HostRevealResponseBody>(
       {
         error: "INVALID_TRANSITION",
@@ -124,7 +164,7 @@ export async function POST(
     .update({ status: "revealed", revealed_at: revealedAt })
     .eq("session_id", session.id)
     .eq("question_id", state.question_id)
-    .eq("status", "locked")
+    .eq("status", state.status)
     .select("session_id, question_id, status, revealed_at")
     .maybeSingle();
 

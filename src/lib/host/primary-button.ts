@@ -22,6 +22,7 @@ export interface HostPrimaryDecisionInput {
   sessionStatus: SessionStatusEnum;
   questionStatus: QuestionStatusEnum | null;
   deadlinePassed: boolean;
+  timeLimitEnabled?: boolean;
   hasNextQuestion: boolean;
   isLastQuestion: boolean;
 }
@@ -33,6 +34,7 @@ export function decideHostPrimaryButton(
     sessionStatus,
     questionStatus,
     deadlinePassed,
+    timeLimitEnabled = true,
     hasNextQuestion,
     isLastQuestion,
   } = input;
@@ -109,14 +111,19 @@ export function decideHostPrimaryButton(
     };
   }
 
-  const canReveal = questionStatus === "locked" || deadlinePassed;
+  const manualClose = questionStatus === "answering" && !timeLimitEnabled;
+  const canReveal =
+    questionStatus === "locked" || deadlinePassed || manualClose;
 
   return {
     action: "reveal",
-    label: "חשיפת התשובה ←",
-    disabled: !canReveal,
-    hint: canReveal
-      ? "החשיפה תציג את התשובה הנכונה לכל המשתתפים."
-      : "ניתן לחשוף לאחר תום הזמן או לאחר שכל המשתתפים יענו.",
+    label: manualClose ? "סיום המענה וחשיפת התשובה ←" : "חשיפת התשובה ←",
+    disabled: !canReveal || sessionStatus === "paused",
+    hint:
+      sessionStatus === "paused"
+        ? "החידון מושהה — חזרו אליו לפני חשיפת התשובה."
+        : canReveal
+          ? "החשיפה תציג את התשובה הנכונה לכל המשתתפים."
+          : "ניתן לחשוף לאחר תום הזמן או לאחר שכל המשתתפים יענו.",
   };
 }

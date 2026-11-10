@@ -31,3 +31,24 @@ describe("decideHostPrimaryButton — presenting", () => {
   });
 });
 
+describe("manual close for untimed stations", () => {
+  it.each([
+    ["live", false, false],
+    ["live", true, true],
+    ["paused", false, true],
+  ] as const)(
+    "%s with timeLimitEnabled=%s has disabled=%s",
+    (sessionStatus, timeLimitEnabled, disabled) => {
+      const decision = decideHostPrimaryButton({
+        sessionStatus,
+        timeLimitEnabled,
+        questionStatus: "answering",
+        deadlinePassed: false,
+        hasNextQuestion: true,
+        isLastQuestion: false,
+      });
+      expect(decision.action).toBe("reveal");
+      expect(decision.disabled).toBe(disabled);
+    },
+  );
+});

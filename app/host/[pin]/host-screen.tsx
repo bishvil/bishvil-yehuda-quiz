@@ -107,6 +107,7 @@ export function HostScreen({
       sessionStatus,
       questionStatus,
       deadlinePassed,
+      timeLimitEnabled: question?.timeLimitEnabled,
       hasNextQuestion,
       isLastQuestion,
     });
@@ -114,6 +115,7 @@ export function HostScreen({
     sessionStatus,
     questionStatus,
     deadlinePassed,
+    question?.timeLimitEnabled,
     hasNextQuestion,
     isLastQuestion,
   ]);
@@ -303,6 +305,7 @@ export function HostScreen({
     sessionStatus,
     questionStatus,
     remainingSeconds: countdown.remainingSeconds,
+    timeLimitEnabled: question?.timeLimitEnabled,
   });
 
   return (
@@ -837,6 +840,7 @@ interface LifecycleBannerArgs {
   sessionStatus: "draft" | "scheduled" | "live" | "paused" | "ended";
   questionStatus: QuestionStatusEnum | null;
   remainingSeconds: number;
+  timeLimitEnabled?: boolean;
 }
 
 interface LifecycleBanner {
@@ -854,6 +858,7 @@ function lifecycleBanner({
   sessionStatus,
   questionStatus,
   remainingSeconds,
+  timeLimitEnabled = true,
 }: LifecycleBannerArgs): LifecycleBanner | null {
   if (sessionStatus === "scheduled" || sessionStatus === "draft") {
     return {
@@ -878,7 +883,9 @@ function lifecycleBanner({
     if (questionStatus === "answering") {
       const safe = Math.max(0, Math.round(remainingSeconds));
       return {
-        message: `השאלה הנוכחית פעילה. ${safe} שניות נותרו.`,
+        message: timeLimitEnabled
+          ? `השאלה הנוכחית פעילה. ${safe} שניות נותרו.`
+          : "השאלה פעילה ללא הגבלת זמן. תוכלו לסיים את המענה ולחשוף את התשובה כשהקבוצה מוכנה.",
         tone: "border-bsy-lime/40 bg-bsy-lime/15 text-bsy-forest",
       };
     }
