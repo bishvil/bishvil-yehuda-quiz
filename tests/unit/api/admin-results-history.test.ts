@@ -3,6 +3,7 @@ import {
   cleanupFixtures,
   getTestPostgres,
   seedSyncFixtures,
+  seedAdditionalQuestion,
   SEED_ADMIN_ID,
   SEED_QUIZ_ID,
   SEED_HOST_ID,
@@ -19,11 +20,14 @@ vi.mock("@/src/lib/auth/server-auth", async () => ({
 const sql = getTestPostgres();
 const fixtures: Awaited<ReturnType<typeof seedSyncFixtures>>[] = [];
 const extraSessions: string[] = [];
+const extraQuestions: string[] = [];
 afterAll(async () => {
   for (const id of extraSessions)
     await sql`delete from public.sessions where id=${id}::uuid`;
   for (const f of fixtures)
     await cleanupFixtures(sql, f.sessionId, f.questionId, f.participantId);
+  for (const id of extraQuestions)
+    await sql`delete from public.questions where id=${id}::uuid`;
   await sql.end();
 });
 async function results(offset?: number) {
@@ -79,6 +83,62 @@ describe("historical async results", () => {
       ).toBe(visible);
     },
   );
+  it("dates reused games by their latest saved answer rather than May lifecycle or score-cache repair", async () => {
+    const f = await seedSyncFixtures(sql, { gameMode: "async" });
+    fixtures.push(f);
+    const extra = await seedAdditionalQuestion(sql);
+    extraQuestions.push(extra.questionId);
+    await sql`update public.sessions set created_at='2026-05-17T09:10:00Z',started_at='2026-05-17T09:10:00Z' where id=${f.sessionId}::uuid`;
+    await sql`update public.session_participants set joined_at='2026-11-08T09:00:00Z' where id=${f.participantId}::uuid`;
+    await sql`insert into public.answers(session_id,question_id,participant_id,selected_ids,is_correct,score,time_bonus,submitted_at) values
+      (${f.sessionId}::uuid,${f.questionId}::uuid,${f.participantId}::uuid,array['a'],true,800,0,'2026-05-17T09:20:00Z'),
+      (${f.sessionId}::uuid,${extra.questionId}::uuid,${f.participantId}::uuid,array['a'],true,800,0,'2026-11-08T10:05:00Z')`;
+    await sql`insert into public.participant_question_progress(session_id,participant_id,question_id,question_index,status,started_at) values
+      (${f.sessionId}::uuid,${f.participantId}::uuid,${f.questionId}::uuid,1,'answering',null),
+      (${f.sessionId}::uuid,${f.participantId}::uuid,${extra.questionId}::uuid,2,'revealed','2026-11-08T10:00:00Z')`;
+    await sql`insert into public.participant_scores(session_id,participant_id,total_score,correct_count,last_updated_at) values(${f.sessionId}::uuid,${f.participantId}::uuid,1600,2,'2026-11-10T10:00:00Z')`;
+    const body = await (await results()).json();
+    expect(
+      body.sessions.find((row: { id: string }) => row.id === f.sessionId),
+    ).toMatchObject({
+      lastPlayedAt: "2026-11-08T10:05:00+00:00",
+      lastJoinedAt: "2026-11-08T09:00:00+00:00",
+      createdAt: "2026-05-17T09:10:00+00:00",
+      averageScore: 1600,
+    });
+  });
+  it("uses an actual question opening for information or unanswered play without inventing answers", async () => {
+    const f = await seedSyncFixtures(sql, { gameMode: "async" });
+    fixtures.push(f);
+    await sql`insert into public.participant_question_progress(session_id,participant_id,question_id,question_index,status,started_at) values(${f.sessionId}::uuid,${f.participantId}::uuid,${f.questionId}::uuid,1,'revealed','2026-11-08T10:20:00Z')`;
+    const body = await (await results()).json();
+    expect(
+      body.sessions.find((row: { id: string }) => row.id === f.sessionId),
+    ).toMatchObject({ lastPlayedAt: "2026-11-08T10:20:00+00:00" });
+    const [stored] =
+      await sql`select count(*)::integer as count from public.answers where session_id=${f.sessionId}::uuid`;
+    expect(stored?.count).toBe(0);
+  });
+  it("keeps sessions with no played activity and limits related timestamps independently per session", async () => {
+    const a = await seedSyncFixtures(sql, { gameMode: "async" }),
+      b = await seedSyncFixtures(sql, { gameMode: "async" });
+    fixtures.push(a, b);
+    await sql`update public.session_participants set joined_at='2026-11-08T10:00:00Z' where id=${a.participantId}::uuid`;
+    await sql`update public.session_participants set joined_at='2026-11-09T10:00:00Z' where id=${b.participantId}::uuid`;
+    const body = await (await results()).json();
+    expect(
+      body.sessions.find((row: { id: string }) => row.id === a.sessionId),
+    ).toMatchObject({
+      lastPlayedAt: null,
+      lastJoinedAt: "2026-11-08T10:00:00+00:00",
+    });
+    expect(
+      body.sessions.find((row: { id: string }) => row.id === b.sessionId),
+    ).toMatchObject({
+      lastPlayedAt: null,
+      lastJoinedAt: "2026-11-09T10:00:00+00:00",
+    });
+  });
   it("makes records older than the first 50 reports reachable through pagination", async () => {
     const ids = Array.from({ length: 55 }, () => crypto.randomUUID());
     extraSessions.push(...ids);

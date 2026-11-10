@@ -176,16 +176,97 @@ describe("legacy async result cards", () => {
     expect(within(list).getByText("1750")).toBeInTheDocument();
     expect(within(list).queryByText("0")).not.toBeInTheDocument();
   });
-  it.each([
-    [
-      { endedAt: "2026-05-12T09:00:00Z", startedAt: "2026-05-11T09:00:00Z" },
-      "2026-05-12T09:00:00.000Z",
-    ],
-    [{ startedAt: "2026-05-11T09:00:00Z" }, "2026-05-11T09:00:00.000Z"],
-    [{}, "2026-05-10T09:30:00.000Z"],
-  ])(
-    "uses ended, started, then created time for dated historic cards (%j)",
-    async (overrides, expected) => {
+  const dateCases: Array<{
+    name: string;
+    overrides: Partial<ResultsListRow>;
+    expected: string;
+    label: string;
+  }> = [
+    {
+      name: "actual November activity for a game created and ended in May",
+      overrides: {
+        status: "ended",
+        createdAt: "2026-05-10T09:30:00Z",
+        endedAt: "2026-05-17T09:00:00Z",
+        lastPlayedAt: "2026-11-08T12:30:00Z",
+        lastJoinedAt: "2026-11-09T12:30:00Z",
+      },
+      expected: "2026-11-08T12:30:00.000Z",
+      label: "פעילות אחרונה",
+    },
+    {
+      name: "participant join when there is no saved play activity",
+      overrides: {
+        lastPlayedAt: null,
+        lastJoinedAt: "2026-11-08T11:30:00Z",
+        endedAt: "2026-05-17T09:00:00Z",
+      },
+      expected: "2026-11-08T11:30:00.000Z",
+      label: "הצטרפות אחרונה",
+    },
+    {
+      name: "start for an active game whose endedAt is an expiry timestamp",
+      overrides: {
+        status: "live",
+        endedAt: "2026-05-17T09:00:00Z",
+        startedAt: "2026-05-11T09:00:00Z",
+      },
+      expected: "2026-05-11T09:00:00.000Z",
+      label: "תחילת המשחק",
+    },
+    {
+      name: "creation for a scheduled game whose endedAt is an expiry timestamp",
+      overrides: { endedAt: "2026-05-17T09:00:00Z" },
+      expected: "2026-05-10T09:30:00.000Z",
+      label: "יצירת המשחק",
+    },
+    {
+      name: "actual end for an ended game without activity or join data",
+      overrides: {
+        status: "ended",
+        endedAt: "2026-05-12T09:00:00Z",
+        startedAt: "2026-05-11T09:00:00Z",
+      },
+      expected: "2026-05-12T09:00:00.000Z",
+      label: "סיום המשחק",
+    },
+    {
+      name: "end for a legacy response with no status",
+      overrides: { status: undefined, endedAt: "2026-05-12T09:00:00Z" },
+      expected: "2026-05-12T09:00:00.000Z",
+      label: "סיום המשחק",
+    },
+    {
+      name: "valid join after an invalid activity timestamp",
+      overrides: {
+        lastPlayedAt: "invalid",
+        lastJoinedAt: "2026-11-08T11:30:00Z",
+      },
+      expected: "2026-11-08T11:30:00.000Z",
+      label: "הצטרפות אחרונה",
+    },
+    {
+      name: "valid start after invalid optional and end timestamps",
+      overrides: {
+        status: "ended",
+        lastPlayedAt: "invalid",
+        lastJoinedAt: "invalid",
+        endedAt: "invalid",
+        startedAt: "2026-05-11T09:00:00Z",
+      },
+      expected: "2026-05-11T09:00:00.000Z",
+      label: "תחילת המשחק",
+    },
+    {
+      name: "creation after an invalid start timestamp",
+      overrides: { startedAt: "invalid" },
+      expected: "2026-05-10T09:30:00.000Z",
+      label: "יצירת המשחק",
+    },
+  ];
+  it.each(dateCases)(
+    "shows a labeled, valid date: $name",
+    async ({ overrides, expected, label }) => {
       vi.stubGlobal(
         "fetch",
         vi.fn(async () => page([session(overrides)])),
@@ -194,7 +275,33 @@ describe("legacy async result cards", () => {
       await screen.findByText("משחק ראשון");
       const time = container.querySelector("time");
       expect(time).toHaveAttribute("datetime", expected);
+      expect(screen.getByText(label, { exact: true })).toBeVisible();
       expect(time).not.toHaveTextContent("Invalid Date");
+      if (overrides.status && overrides.status !== "ended") {
+        expect(
+          screen.queryByText("סיום המשחק", { exact: true }),
+        ).not.toBeInTheDocument();
+      }
     },
   );
+  it("does not invent a date if no valid timestamp is available", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        page([
+          session({
+            lastPlayedAt: "invalid",
+            lastJoinedAt: "invalid",
+            createdAt: "invalid",
+            startedAt: null,
+            endedAt: null,
+          }),
+        ]),
+      ),
+    );
+    const { container } = render(<ResultsListScreen />);
+    await screen.findByText("משחק ראשון");
+    expect(container.querySelector("time")).toBeNull();
+    expect(screen.queryByText("Invalid Date")).not.toBeInTheDocument();
+  });
 });
