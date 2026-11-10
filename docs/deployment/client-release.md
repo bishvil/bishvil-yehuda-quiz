@@ -1,5 +1,15 @@
 # Client release path
 
+## Current release update — 2026-11-10
+
+The user reports production deployment. Client PR #1 is independently confirmed
+merged at `f2e9c7920b5d6d90712ca3a86bf4695d4894cdbf`, with a successful Vercel
+status. Cloud Supabase migration history remains unverified. Start with the
+[latest handoff](../handoffs/2026-11-10-production.md) for current facts; the
+original access investigation below is historical.
+
+## Original investigation
+
 Verified on 2026-11-10. The client repository is
 [bishvil/bishvil-yehuda-quiz](https://github.com/bishvil/bishvil-yehuda-quiz).
 Its `main` commit is `24fc42d3e0b071c34d1e96a46c975e163a425b19`, an ancestor of
@@ -28,10 +38,10 @@ git push client feat/quiz-completion-gps-20261110
 ```
 
 Both pushes succeeded after the GitHub connection was changed to `bishvil`.
-The same branch is available in both repositories, with a draft PR in each:
+The same branch was pushed to both repositories, initially with a draft PR in each:
 [developer PR](https://github.com/NehoraiHadad/bishvil-yehuda-quiz/pull/1) and
-[client PR](https://github.com/bishvil/bishvil-yehuda-quiz/pull/1). The client's
-deployment settings and main branch have not been changed.
+[client PR](https://github.com/bishvil/bishvil-yehuda-quiz/pull/1). The assistant did not change production settings. The user subsequently merged
+the client PR; see the current release update above.
 
 ## Access and deployment evidence
 
@@ -40,7 +50,7 @@ deployment settings and main branch have not been changed.
   integration's branch creation both returned HTTP 403. Permission metadata did
   not establish effective integration access.
 - After the user changed the GitHub connection, the verified app identity became
-  `bishvil` (`bishvil.go@gmail.com`), with administrative access to the client
+  `bishvil`, with administrative access to the client
   repository. The connected app did not list the developer's private repository.
 - Git transport was verified separately: the feature branch was pushed to the
   client repository, the developer remote still accepted pushes, and both remote
@@ -67,8 +77,8 @@ The feature branch contains four ordered SQL migrations under
 3. `20261110090200_unlock_station.sql`
 4. `20261110090300_atomic_question_reorder.sql`
 
-They were applied and tested on local Postgres. They have not been applied to
-client production. The enum migration must commit before the capability
+They were applied and tested on local Postgres. Their application to client
+production has not been independently verified. The enum migration must commit before the capability
 migration. See [release verification](../qa/2026-11-10-question-capabilities.md)
 and [UI verification](../qa/2026-11-10-ui-polish.md).
 
