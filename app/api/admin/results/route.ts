@@ -12,6 +12,7 @@ export interface ResultsListRow {
   status?: string;
   gameMode?: string;
   startedAt: string | null;
+  createdAt?: string;
   participantCount: number;
   averageScore: number;
   topThree: {
@@ -23,21 +24,39 @@ export interface ResultsListRow {
 
 interface ResultsListBody {
   sessions: ResultsListRow[];
+  nextOffset: number | null;
 }
 
 interface ResultsListErrorBody {
-  error: "READ_FAILED";
+  error: "READ_FAILED" | "INVALID_REQUEST";
   message: string;
 }
 
 /**
- * Cross-quiz results for ended sessions and open async sessions, with stats for
+ * Cross-quiz results for ended sessions and non-draft async sessions, with stats for
  * the `/admin/results` page. The detailed per-session drill-down still
  * lives at `/admin/quizzes/[quizId]/sessions/[sessionId]/results`.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireRole("admin");
   if (!auth.ok) return auth.response;
+
+  const offsetValue = new URL(request.url).searchParams.get("offset") ?? "0";
+  const offset = Number(offsetValue);
+  const pageSize = 50;
+  if (
+    !/^\d+$/.test(offsetValue) ||
+    !Number.isSafeInteger(offset) ||
+    offset > Number.MAX_SAFE_INTEGER - pageSize
+  ) {
+    return privateNoStoreJson<ResultsListErrorBody>(
+      {
+        error: "INVALID_REQUEST",
+        message: "Page offset must be a non-negative integer.",
+      },
+      { status: 400 },
+    );
+  }
 
   interface EndedSessionRow {
     id: string;
@@ -47,6 +66,7 @@ export async function GET() {
     status: string;
     game_mode: string;
     started_at: string | null;
+    created_at: string;
     quizzes: { title: string; brand_id: string } | null;
   }
 
@@ -61,11 +81,16 @@ export async function GET() {
   const { data: sessionData, error: sessionError } = await supabase
     .from("sessions")
     .select(
-      "id, pin, quiz_id, status, game_mode, ended_at, started_at, quizzes(title, brand_id)",
+      "id, pin, quiz_id, status, game_mode, ended_at, started_at, created_at, quizzes(title, brand_id)",
     )
-    .or("status.eq.ended,and(game_mode.eq.async,status.in.(live,paused))")
+    // Legacy async games accepted answers while still globally scheduled.
+    // Preserve their stored status and expose their history without rewriting it.
+    .or(
+      "status.eq.ended,and(game_mode.eq.async,status.in.(scheduled,live,paused))",
+    )
     .order("created_at", { ascending: false })
-    .limit(50);
+    .order("id", { ascending: true })
+    .range(offset, offset + pageSize);
 
   if (sessionError) {
     return privateNoStoreJson<ResultsListErrorBody>(
@@ -74,7 +99,9 @@ export async function GET() {
     );
   }
 
-  const rows = (sessionData ?? []) as unknown as EndedSessionRow[];
+  const fetched = (sessionData ?? []) as unknown as EndedSessionRow[];
+  const nextOffset = fetched.length > pageSize ? offset + pageSize : null;
+  const rows = fetched.slice(0, pageSize);
   const sessionIds = rows.map((r) => r.id);
 
   // Pull `participant_scores` joined with `session_participants` for the
@@ -142,6 +169,7 @@ export async function GET() {
       status: row.status,
       gameMode: row.game_mode,
       startedAt: row.started_at,
+      createdAt: row.created_at,
       participantCount,
       averageScore,
       topThree: sorted.slice(0, 3).map((s) => ({
@@ -154,5 +182,5 @@ export async function GET() {
     };
   });
 
-  return privateNoStoreJson<ResultsListBody>({ sessions });
+  return privateNoStoreJson<ResultsListBody>({ sessions, nextOffset });
 }
