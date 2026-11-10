@@ -241,6 +241,11 @@ export async function GET(
 
     const reveal = isRevealed
       ? {
+          acceptedAnswer:
+            currentQuestion.type === "open"
+              ? (readQuestionSettings(currentQuestion.settings)
+                  .acceptedAnswers?.[0] ?? null)
+              : null,
           correctIds: currentQuestion.correct_ids,
           explanation: currentQuestion.explanation,
           mapGeoTarget: extractMapGeoTarget(currentQuestion.map),
@@ -461,6 +466,11 @@ export async function GET(
   const reveal =
     isRevealed && !questionPayload.locationLocked
       ? {
+          acceptedAnswer:
+            question.type === "open"
+              ? (readQuestionSettings(question.settings).acceptedAnswers?.[0] ??
+                null)
+              : null,
           correctIds: question.correct_ids,
           explanation: question.explanation,
           mapGeoTarget: extractMapGeoTarget(question.map),

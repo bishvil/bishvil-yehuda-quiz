@@ -61,14 +61,14 @@ export function ResultsListScreen() {
     (async () => {
       try {
         const res = await fetch("/api/admin/results", { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error("read failed");
         const body = (await res.json()) as { sessions: ResultsListRow[] };
         if (cancelled) return;
         setSessions(body.sessions);
         setStatus("ready");
-      } catch (err) {
+      } catch {
         if (cancelled) return;
-        setError((err as Error).message);
+        setError("לא הצלחנו לקרוא את התוצאות. נסו לרענן את העמוד.");
         setStatus("error");
       }
     })();
@@ -83,15 +83,19 @@ export function ResultsListScreen() {
 
     let cancelled = false;
     void (async () => {
-      const body = await listAdminParticipantAnalytics();
-      if (cancelled) return;
-      if (isAdminApiError(body)) {
-        setParticipantError(body.message);
+      try {
+        const body = await listAdminParticipantAnalytics();
+        if (cancelled) return;
+        if (isAdminApiError(body)) throw new Error("read failed");
+        setParticipants(body.participants);
+        setParticipantStatus("ready");
+      } catch {
+        if (cancelled) return;
+        setParticipantError(
+          "לא הצלחנו לקרוא את נתוני המשתתפים. נסו לרענן את העמוד.",
+        );
         setParticipantStatus("error");
-        return;
       }
-      setParticipants(body.participants);
-      setParticipantStatus("ready");
     })();
 
     return () => {
@@ -105,7 +109,7 @@ export function ResultsListScreen() {
 
       <section className="mx-auto max-w-6xl px-4 py-6 md:px-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex rounded-md border border-bsy-stone-100 bg-white p-1">
+          <div className="inline-flex rounded-full border border-bsy-stone-100 bg-white p-1">
             <ViewButton
               active={activeView === "sessions"}
               onClick={() => setActiveView("sessions")}
@@ -136,7 +140,7 @@ export function ResultsListScreen() {
           ) : sessions.length === 0 ? (
             <div className="rounded-[12px] border border-bsy-stone-100 bg-[color:var(--bsy-paper-card)] p-8 text-center">
               <p className="m-0 text-[14px] text-bsy-stone-700">
-                עדיין אין משחקים שהסתיימו.
+                עדיין אין תוצאות משחקים להצגה.
               </p>
             </div>
           ) : (
@@ -176,7 +180,7 @@ function ViewButton({
       type="button"
       onClick={onClick}
       className={[
-        "rounded px-4 py-2 text-[13px] font-bold",
+        "min-h-11 rounded-full px-4 py-2 text-[13px] font-bold",
         active
           ? "bg-bsy-forest text-white"
           : "text-bsy-stone-700 hover:bg-bsy-stone-50",

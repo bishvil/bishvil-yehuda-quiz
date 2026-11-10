@@ -132,6 +132,7 @@ export interface ParticipantAnswerPayload {
 }
 
 export interface ParticipantQuestionRevealPayload {
+  acceptedAnswer?: string | null;
   correctIds: string[] | null;
   explanation: string | null;
   /**

@@ -14,6 +14,11 @@ export interface AdminQuizListItem {
   id: string;
   title: string;
   brandId: string;
+  brandName?: string;
+  brandLogoUrl?: string | null;
+  brandPrimary?: string;
+  /** Canonical brand slug (or UUID for brands without a slug), used by filters. */
+  brandKey?: string;
   defaultGameMode: GameMode;
   customLogoActive: boolean;
   archivedAt: string | null;

@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
+import { loadPersonalAnswerReview } from "@/src/lib/participant/load-answer-review";
+import type { PersonalAnswerReview } from "@/src/lib/participant/answer-review";
 import { ResultScreen } from "./result-screen";
 import { getAuthenticatedClaims } from "@/src/lib/auth/server-auth";
 import { findAnySessionByPin } from "@/src/lib/sessions/lookup";
@@ -42,6 +44,7 @@ interface ResultPageData {
   myStreak: number;
   myRank: number | null;
   leaderboard: LeaderboardRowDto[];
+  review: PersonalAnswerReview[];
 }
 
 export default async function ParticipantResultPage({
@@ -75,6 +78,7 @@ export default async function ParticipantResultPage({
       myStreak={data.myStreak}
       myRank={data.myRank}
       leaderboard={data.leaderboard}
+      review={data.review}
     />
   );
 }
@@ -106,6 +110,18 @@ async function loadResultPageData(pin: string): Promise<ResultPageData | null> {
     claims?.role === "participant" && claims.sessionId === session.id
       ? claims.userId
       : null;
+
+  if (!meParticipantId) notFound();
+  const reviewResult = await loadPersonalAnswerReview(
+    serviceSupabase,
+    session,
+    meParticipantId,
+  );
+  if (!reviewResult.ok) {
+    if (reviewResult.status === 409) redirect(`/${pin}/play`);
+    if (reviewResult.status === 403) notFound();
+    throw new Error("Could not load your answer review.");
+  }
 
   // Fetch the leaderboard joined with display-safe participant rows.
   const { data: scoreRows, error: scoresError } = await serviceSupabase
@@ -192,5 +208,6 @@ async function loadResultPageData(pin: string): Promise<ResultPageData | null> {
     myStreak,
     myRank,
     leaderboard: board,
+    review: reviewResult.review,
   };
 }

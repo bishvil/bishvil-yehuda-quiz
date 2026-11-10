@@ -77,9 +77,15 @@ export function HostQuestionCard({
         </div>
       ) : null}
       {children}
-      <h3 className="m-0 font-[var(--font-display)] text-[24px] leading-tight text-bsy-brown md:text-[32px] lg:text-[36px]">
-        {prompt}
-      </h3>
+      {type === "content" ? (
+        <div className="whitespace-pre-wrap text-base leading-relaxed text-bsy-ink md:text-xl md:leading-relaxed">
+          {prompt}
+        </div>
+      ) : (
+        <h3 className="m-0 font-[var(--font-display)] text-[24px] leading-tight text-bsy-brown md:text-[32px] lg:text-[36px]">
+          {prompt}
+        </h3>
+      )}
     </div>
   );
 }

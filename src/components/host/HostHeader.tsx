@@ -1,6 +1,9 @@
 import Image from "next/image";
 
-import { resolveActiveLogo, type ParticipantBrand } from "@/src/lib/participant/brands";
+import {
+  resolveActiveLogo,
+  type ParticipantBrand,
+} from "@/src/lib/participant/brands";
 import type { SessionStatusEnum } from "@/src/lib/supabase/database.types";
 
 import { HostStatusPill } from "./HostStatusPill";
@@ -15,6 +18,7 @@ interface HostHeaderProps {
   totalPlayers: number;
   questionOrdinal: number | null;
   totalQuestions: number;
+  showAnswerCount?: boolean;
 }
 
 /**
@@ -32,11 +36,12 @@ export function HostHeader({
   totalPlayers,
   questionOrdinal,
   totalQuestions,
+  showAnswerCount = true,
 }: HostHeaderProps) {
   const active = resolveActiveLogo({ brand, customLogo, customLogoLabel });
 
   return (
-    <header className="flex items-center justify-between gap-3 border-b border-bsy-stone-100 bg-bsy-paper-warm px-4 py-3 md:px-6">
+    <header className="flex shrink-0 items-center justify-between gap-3 border-b border-bsy-stone-100 bg-bsy-paper-warm px-4 py-3 md:px-6">
       <div className="flex items-center gap-3 overflow-hidden">
         <Image
           src={active.logoUrl}
@@ -63,8 +68,12 @@ export function HostHeader({
 
         <div className="hidden items-center gap-4 text-[13px] text-bsy-stone-700 sm:flex">
           <CounterChip
-            value={`${responseCount}/${totalPlayers}`}
-            label="ענו"
+            value={
+              showAnswerCount
+                ? `${responseCount}/${totalPlayers}`
+                : `${totalPlayers}`
+            }
+            label={showAnswerCount ? "ענו" : "משתתפים"}
           />
           <CounterChip
             value={
@@ -83,9 +92,13 @@ export function HostHeader({
               className="font-[var(--font-display)] text-sm text-bsy-brown"
               dir="ltr"
             >
-              {responseCount}/{totalPlayers}
+              {showAnswerCount
+                ? `${responseCount}/${totalPlayers}`
+                : totalPlayers}
             </span>
-            <span className="text-[10px] text-bsy-stone-400">ענו</span>
+            <span className="text-[10px] text-bsy-stone-400">
+              {showAnswerCount ? "ענו" : "משתתפים"}
+            </span>
           </span>
         </div>
       </div>

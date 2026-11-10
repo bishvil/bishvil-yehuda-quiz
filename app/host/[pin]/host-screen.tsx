@@ -28,7 +28,10 @@ import {
 import { decideHostPrimaryButton } from "@/src/lib/host/controls";
 import { useHostState } from "@/src/lib/hooks/useHostState";
 import type { ParticipantBrand } from "@/src/lib/participant/brands";
-import type { QuestionStatusEnum } from "@/src/lib/supabase/database.types";
+import type {
+  QuestionStatusEnum,
+  QuestionTypeEnum,
+} from "@/src/lib/supabase/database.types";
 import { useServerCountdown } from "@/src/lib/time/countdown";
 
 interface HostScreenProps {
@@ -108,6 +111,7 @@ export function HostScreen({
       questionStatus,
       deadlinePassed,
       timeLimitEnabled: question?.timeLimitEnabled,
+      questionType: question?.type,
       hasNextQuestion,
       isLastQuestion,
     });
@@ -116,6 +120,7 @@ export function HostScreen({
     questionStatus,
     deadlinePassed,
     question?.timeLimitEnabled,
+    question?.type,
     hasNextQuestion,
     isLastQuestion,
   ]);
@@ -284,6 +289,7 @@ export function HostScreen({
     totalPlayers: state.totalPlayers,
     questionOrdinal: question?.ordinal ?? null,
     totalQuestions: state.totalQuestions,
+    showAnswerCount: question !== null && question.type !== "content",
   };
 
   const canControl = state.canControl;
@@ -292,6 +298,7 @@ export function HostScreen({
     ? (state.reveal?.correctIds ?? [])
     : null;
   const isMapQuestion = question?.type === "map";
+  const isContentStation = question?.type === "content";
   const hasOptions = !isMapQuestion && Array.isArray(question?.options);
   const participantPins = state.mapAnswers ?? null;
 
@@ -306,10 +313,11 @@ export function HostScreen({
     questionStatus,
     remainingSeconds: countdown.remainingSeconds,
     timeLimitEnabled: question?.timeLimitEnabled,
+    questionType: question?.type,
   });
 
   return (
-    <main className="flex min-h-screen flex-col bg-bsy-paper">
+    <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-bsy-paper">
       <HostHeader {...headerProps} />
 
       {banner ? (
@@ -318,7 +326,7 @@ export function HostScreen({
           role="status"
           data-testid="host-lifecycle-banner"
           className={[
-            "mx-4 mt-3 rounded-md border px-4 py-2 text-[13px] md:mx-6",
+            "mx-4 mt-3 shrink-0 rounded-md border px-4 py-2 text-[13px] md:mx-6",
             banner.tone,
           ].join(" ")}
         >
@@ -327,10 +335,17 @@ export function HostScreen({
       ) : null}
 
       {/* Desktop projector layout */}
-      <div className="hidden flex-1 flex-col px-6 pb-6 pt-4 md:flex">
+      <div className="hidden min-h-0 flex-1 flex-col px-6 pb-4 pt-4 md:flex">
         {question && sessionStatus !== "ended" ? (
-          <div className="grid flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
-            <div className="flex min-h-0 flex-col gap-4">
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] grid-rows-[minmax(0,1fr)] gap-4">
+            <div
+              role="region"
+              aria-label={
+                isContentStation ? "תחנת המידע" : "השאלה ותשובות הקבוצה"
+              }
+              tabIndex={0}
+              className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain pb-1 [&>*]:shrink-0 focus-visible:outline-2 focus-visible:outline-bsy-forest"
+            >
               <HostQuestionCard
                 type={question.type}
                 prompt={question.prompt}
@@ -364,8 +379,8 @@ export function HostScreen({
                 <ExplanationCard explanation={state.reveal.explanation} />
               ) : null}
             </div>
-            <aside className="flex min-h-0 flex-col gap-4">
-              {canControl && !needsSpotlight ? (
+            <aside className="flex min-h-0 flex-col gap-4 overflow-hidden">
+              {canControl && !needsSpotlight && !isContentStation ? (
                 <HostTimerPanel
                   timeLimitEnabled={question?.timeLimitEnabled}
                   remainingSeconds={countdown.remainingSeconds}
@@ -378,7 +393,7 @@ export function HostScreen({
               <div className="flex min-h-0 flex-1">
                 <HostPlayerList
                   players={state.players}
-                  hideAnsweredDot={!question}
+                  hideAnsweredDot={!question || isContentStation}
                 />
               </div>
               {!canControl && state.participantProgress ? (
@@ -399,7 +414,7 @@ export function HostScreen({
         )}
 
         {error ? <ErrorBanner message={error} /> : null}
-        <footer className="mt-4 rounded-md border border-bsy-stone-100 bg-white px-5 py-4">
+        <footer className="sticky bottom-0 z-20 mt-4 shrink-0 rounded-md border border-bsy-stone-100 bg-white px-5 py-4 shadow-[0_-4px_12px_rgba(74,63,38,0.04)]">
           <HostControlBar
             primary={primary}
             sessionStatus={sessionStatus}
@@ -415,8 +430,8 @@ export function HostScreen({
       </div>
 
       {/* Mobile field layout */}
-      <div className="flex flex-1 flex-col md:hidden">
-        <nav className="flex items-center gap-2 border-b border-bsy-stone-100 bg-bsy-paper-warm px-3 py-2">
+      <div className="flex min-h-0 flex-1 flex-col md:hidden">
+        <nav className="flex shrink-0 items-center gap-2 border-b border-bsy-stone-100 bg-bsy-paper-warm px-3 py-2">
           <TabButton
             active={mobileTab === "live"}
             onClick={() => setMobileTab("live")}
@@ -437,7 +452,7 @@ export function HostScreen({
         </nav>
 
         {mobileTab === "live" ? (
-          <section className="flex flex-1 flex-col gap-3 px-3 py-3">
+          <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3 [&>*]:shrink-0">
             {question && sessionStatus !== "ended" ? (
               <>
                 <HostQuestionCard
@@ -453,7 +468,7 @@ export function HostScreen({
                   videoMimeType={question.videoMimeType}
                   videoPosterUrl={question.videoPosterUrl}
                 />
-                {canControl && !needsSpotlight ? (
+                {canControl && !needsSpotlight && !isContentStation ? (
                   <HostTimerPanel
                     timeLimitEnabled={question?.timeLimitEnabled}
                     variant="compact"
@@ -497,13 +512,13 @@ export function HostScreen({
             <PlayersSummary
               answered={state.responseCount}
               waiting={Math.max(0, state.totalPlayers - state.responseCount)}
-              hasQuestion={Boolean(question)}
+              hasQuestion={Boolean(question) && !isContentStation}
               questionOrdinal={question?.ordinal ?? null}
             />
             <div className="min-h-0 flex-1">
               <HostPlayerList
                 players={state.players}
-                hideAnsweredDot={!question}
+                hideAnsweredDot={!question || isContentStation}
               />
             </div>
             {!canControl && state.participantProgress ? (
@@ -515,7 +530,7 @@ export function HostScreen({
           </section>
         )}
 
-        <footer className="sticky bottom-0 border-t border-bsy-stone-100 bg-bsy-paper/95 px-3 py-3">
+        <footer className="sticky bottom-0 z-20 shrink-0 border-t border-bsy-stone-100 bg-bsy-paper/95 px-3 py-3">
           <HostControlBar
             primary={primary}
             sessionStatus={sessionStatus}
@@ -529,9 +544,7 @@ export function HostScreen({
           />
         </footer>
       </div>
-      {/* Video spotlight — rendered once outside both layouts, z-50 overlays both.
-          The host control bar (inside <footer>) remains interactive because the
-          footer sits outside the dimmed overlay region and above it via z-index. */}
+      {/* The video spotlight has its own confirmation action, rendered once above both layouts. */}
       {needsSpotlight && question ? (
         <VideoQuestionSpotlight
           mode="host_gated"
@@ -543,7 +556,11 @@ export function HostScreen({
           videoPosterUrl={question.videoPosterUrl}
           mediaLeadSeconds={question.mediaLeadSeconds}
           onConfirm={handlePrimary}
-          hintText="סיימו את הצפייה, ואז התחילו מענה לכל המשתתפים יחד"
+          hintText={
+            isContentStation
+              ? "סיימו את הצפייה, ואז פתחו את תחנת המידע לקבוצה"
+              : "סיימו את הצפייה, ואז התחילו מענה לכל המשתתפים יחד"
+          }
         />
       ) : null}
     </main>
@@ -576,13 +593,13 @@ function DesktopIdleState({
 }: DesktopIdleStateProps) {
   if (sessionStatus === "ended") {
     return (
-      <div className="grid flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] grid-rows-[minmax(0,1fr)] gap-4">
         <HostEndedSummary
           totalQuestions={totalQuestions}
           players={players}
           variant="desktop"
         />
-        <aside className="flex min-h-0 flex-col">
+        <aside className="flex min-h-0 flex-col overflow-hidden">
           <HostPlayerList players={players} hideAnsweredDot />
         </aside>
       </div>
@@ -590,8 +607,8 @@ function DesktopIdleState({
   }
 
   return (
-    <div className="grid flex-1 grid-cols-[minmax(0,1fr)_320px] gap-4">
-      <div className="flex flex-col items-center justify-center rounded-md border border-bsy-stone-100 bg-white p-12 text-center">
+    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] grid-rows-[minmax(0,1fr)] gap-4">
+      <div className="flex min-h-0 flex-col items-center justify-center overflow-y-auto rounded-md border border-bsy-stone-100 bg-white p-8 text-center">
         <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-bsy-forest">
           {idleEyebrow(sessionStatus)}
         </p>
@@ -602,7 +619,7 @@ function DesktopIdleState({
           {idleBody(sessionStatus)}
         </p>
       </div>
-      <aside className="flex min-h-0 flex-col">
+      <aside className="flex min-h-0 flex-col overflow-hidden">
         <HostPlayerList players={players} hideAnsweredDot />
       </aside>
     </div>
@@ -666,7 +683,7 @@ function HostEndedSummary({
     <div
       className={[
         "flex flex-col rounded-md border border-bsy-stone-100 bg-white text-right",
-        variant === "desktop" ? "p-8" : "p-5",
+        variant === "desktop" ? "min-h-0 overflow-y-auto p-8" : "p-5",
       ].join(" ")}
       dir="rtl"
     >
@@ -700,7 +717,12 @@ function HostEndedSummary({
                 className="flex items-center justify-between gap-3 rounded-md bg-bsy-paper-warm px-3 py-2 text-[13px]"
               >
                 <span className="font-bold text-bsy-stone-700">
-                  {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}{" "}
+                  <span
+                    className="me-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-bsy-lime/30 font-mono text-bsy-forest"
+                    aria-label={`מקום ${index + 1}`}
+                  >
+                    {index + 1}
+                  </span>
                   {player.displayName}
                 </span>
                 <span className="font-mono font-bold text-bsy-forest">
@@ -780,8 +802,15 @@ function PlayersSummary({
   hasQuestion,
   questionOrdinal,
 }: PlayersSummaryProps) {
+  if (!hasQuestion) {
+    return (
+      <p className="m-0 shrink-0 rounded-md border border-bsy-stone-100 bg-white px-3 py-3 text-center text-sm text-bsy-stone-700">
+        {answered + waiting} משתתפים מחוברים
+      </p>
+    );
+  }
   return (
-    <dl className="grid grid-cols-2 gap-2 rounded-md border border-bsy-stone-100 bg-white px-3 py-2 text-center">
+    <dl className="grid shrink-0 grid-cols-2 gap-2 rounded-md border border-bsy-stone-100 bg-white px-3 py-2 text-center">
       <div>
         <dt className="text-[11px] uppercase tracking-wide text-bsy-stone-400">
           {hasQuestion ? `ענו על תחנה ${questionOrdinal ?? ""}` : "מחוברים"}
@@ -824,8 +853,9 @@ function TabButton({ active, onClick, children }: TabButtonProps) {
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={[
-        "flex-1 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors",
+        "min-h-11 flex-1 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bsy-forest",
         active
           ? "bg-bsy-forest text-bsy-paper"
           : "bg-white text-bsy-stone-700 border border-bsy-stone-100",
@@ -841,6 +871,7 @@ interface LifecycleBannerArgs {
   questionStatus: QuestionStatusEnum | null;
   remainingSeconds: number;
   timeLimitEnabled?: boolean;
+  questionType?: QuestionTypeEnum;
 }
 
 interface LifecycleBanner {
@@ -859,6 +890,7 @@ function lifecycleBanner({
   questionStatus,
   remainingSeconds,
   timeLimitEnabled = true,
+  questionType,
 }: LifecycleBannerArgs): LifecycleBanner | null {
   if (sessionStatus === "scheduled" || sessionStatus === "draft") {
     return {
@@ -880,12 +912,24 @@ function lifecycleBanner({
     };
   }
   if (sessionStatus === "live") {
+    if (questionStatus === "presenting") {
+      return {
+        message:
+          questionType === "content"
+            ? "צפו בסרטון יחד. לאחר הצפייה, פתחו את תחנת המידע לקבוצה."
+            : "צפו בסרטון יחד. לאחר הצפייה, התחילו את המענה כשהקבוצה מוכנה.",
+        tone: "border-bsy-lime/40 bg-bsy-lime/15 text-bsy-forest",
+      };
+    }
     if (questionStatus === "answering") {
       const safe = Math.max(0, Math.round(remainingSeconds));
       return {
-        message: timeLimitEnabled
-          ? `השאלה הנוכחית פעילה. ${safe} שניות נותרו.`
-          : "השאלה פעילה ללא הגבלת זמן. תוכלו לסיים את המענה ולחשוף את התשובה כשהקבוצה מוכנה.",
+        message:
+          questionType === "content"
+            ? "תחנת המידע פתוחה לקריאה ואינה דורשת תשובה. סיימו את התחנה כשהקבוצה מוכנה להמשיך."
+            : timeLimitEnabled
+              ? `השאלה הנוכחית פעילה. ${safe} שניות נותרו.`
+              : "השאלה פעילה ללא הגבלת זמן. תוכלו לסיים את המענה ולחשוף את התשובה כשהקבוצה מוכנה.",
         tone: "border-bsy-lime/40 bg-bsy-lime/15 text-bsy-forest",
       };
     }

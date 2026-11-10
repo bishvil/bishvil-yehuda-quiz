@@ -51,6 +51,8 @@ export interface EditableQuestion {
   /** Supabase storage path for future orphan cleanup — admin-only, never sent to participants. */
   imagePath: string | null;
   explanation: string | null;
+  /** Local-only draft: choose a GPS point before launching. */
+  locationGatePending?: boolean;
   settings?: import("@/src/lib/schemas/question-settings").QuestionSettings;
   timeSeconds: number;
   points: number;
@@ -220,6 +222,13 @@ export function validateQuestions(
         field: "video",
         message:
           "יש להזין את משך הסרטון בשניות כדי שהמערכת תוכל לאכוף את הצפייה לפני הצגת התשובות.",
+      });
+    }
+    if (q.locationGatePending) {
+      findings.push({
+        questionClientId: q.clientId,
+        field: "map",
+        message: "בחרו מיקום לפתיחת התחנה או בטלו את הפתיחה לפי GPS",
       });
     }
     if (

@@ -7,6 +7,7 @@ import type {
   AdminSessionResultAnswer,
   AdminSessionResultPlayer,
 } from "@/src/lib/admin/api-client";
+import type { QuestionType } from "@/src/lib/constants";
 import { PARTICIPANT_LEADERBOARD_LIMIT } from "@/src/lib/constants";
 
 export interface PerQuestionAccuracy {
@@ -65,4 +66,32 @@ export function summarizeResponses(
     finishedPlayers: players.filter((p) => p.status === "completed").length,
     totalAnswers: answers.length,
   };
+}
+
+/** Content has no score; no responses is different from zero correct responses. */
+export function describeQuestionAccuracy(
+  questionType: QuestionType,
+  accuracy?: PerQuestionAccuracy,
+): { accuracyPct: number | null; label: string } {
+  if (questionType === "content") {
+    return { accuracyPct: null, label: "תוכן בלבד · ללא מדד דיוק" };
+  }
+  if (!accuracy || accuracy.total === 0) {
+    return { accuracyPct: null, label: "טרם נענתה" };
+  }
+  return {
+    accuracyPct: accuracy.accuracyPct,
+    label: `${accuracy.accuracyPct}% · ${accuracy.correct} מתוך ${accuracy.total} תשובות נכונות`,
+  };
+}
+
+export function participantStatusLabel(
+  status: AdminSessionResultPlayer["status"],
+): string {
+  const labels: Record<AdminSessionResultPlayer["status"], string> = {
+    joined: "הצטרף/ה",
+    in_progress: "במהלך המשחק",
+    completed: "הושלם",
+  };
+  return labels[status];
 }

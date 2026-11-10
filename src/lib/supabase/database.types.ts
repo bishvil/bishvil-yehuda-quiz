@@ -358,6 +358,14 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      reorder_quiz_questions: {
+        Args: {
+          p_quiz_id: string;
+          p_ordinals: Json;
+          p_allow_locked_edit?: boolean;
+        };
+        Returns: number;
+      };
       unlock_quiz_station: {
         Args: {
           p_session_id: string;

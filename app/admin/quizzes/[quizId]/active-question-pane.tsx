@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { QuestionEditor } from "@/src/components/admin/QuestionEditor";
 import { QUESTION_TYPE_LABELS } from "@/src/lib/constants";
 import type { EditableQuestion } from "@/src/lib/admin/quiz-editor";
@@ -23,6 +24,19 @@ export function ActiveQuestionPane({
   onQuestionChange,
   onQuestionDelete,
 }: ActiveQuestionPaneProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (
+      mobileView !== "edit" ||
+      !window.matchMedia?.("(max-width: 767px)").matches
+    )
+      return;
+    const frame = requestAnimationFrame(() => {
+      headingRef.current?.scrollIntoView({ block: "start" });
+      headingRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeQuestion?.clientId, mobileView]);
   return (
     <aside
       className={[
@@ -34,11 +48,15 @@ export function ActiveQuestionPane({
         <button
           type="button"
           onClick={() => onMobileViewChange("list")}
-          className="text-[13px] font-bold text-bsy-forest md:hidden"
+          className="min-h-11 rounded-full border border-bsy-stone-200 px-4 py-2 text-[13px] font-bold text-bsy-forest md:hidden"
         >
           → חזרה
         </button>
-        <h2 className="font-[var(--font-display)] text-xl text-bsy-brown">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="scroll-mt-24 font-[var(--font-display)] text-xl text-bsy-brown focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-bsy-forest"
+        >
           {activeQuestion
             ? `תחנה ${activeQuestion.ordinal}`
             : "אין תחנות עדיין"}

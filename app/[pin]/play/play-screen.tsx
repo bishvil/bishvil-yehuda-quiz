@@ -309,6 +309,12 @@ export function PlayScreen({
         questionId={question.id}
         gate={question.locationGate}
         onUnlock={refetch}
+        quizTitle={state.session.quizTitle}
+        index={question.index}
+        total={question.total}
+        brand={brand}
+        customLogo={customLogo}
+        customLogoLabel={customLogoLabel}
       />
     );
   }
@@ -353,6 +359,12 @@ export function PlayScreen({
           question.timeLimitEnabled === false ? null : (
             <TimerLane question={question} isRevealed={isRevealed} />
           )}
+          {question.type !== "content" &&
+          question.timeLimitEnabled === false ? (
+            <span className="rounded-full border border-bsy-stone-200 bg-white px-3 py-1 text-[12px] font-bold text-bsy-forest">
+              ללא הגבלת זמן
+            </span>
+          ) : null}
         </div>
         <ProgressBar
           current={question.index}
@@ -470,6 +482,13 @@ export function PlayScreen({
                 : null
             }
           />
+        ) : null}
+
+        {isRevealed && question.type === "open" && reveal?.acceptedAnswer ? (
+          <div className="rounded-md border border-bsy-stone-200 bg-white p-4 text-sm leading-7">
+            <p className="font-bold text-bsy-forest">תשובה קבילה</p>
+            <p>{reveal.acceptedAnswer}</p>
+          </div>
         ) : null}
 
         {submitError ? (

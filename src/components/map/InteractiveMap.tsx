@@ -25,6 +25,8 @@
  */
 
 import "maplibre-gl/dist/maplibre-gl.css";
+import "./map-accessibility.css";
+import { buildRadiusArea } from "@/src/lib/maps/radius";
 
 import {
   forwardRef,
@@ -109,6 +111,8 @@ export interface InteractiveMapProps {
   onMapClick?: (point: LatLng) => void;
   /** Stable list of markers; placement order does not matter. */
   markers?: InteractiveMarker[];
+  /** Visual radius preview; never used for authoritative location validation. */
+  radiusArea?: { center: LatLng; radiusM: number };
   /** Optional dashed line segments (used by reveal). Each entry is [from, to]. */
   segments?: Array<[LatLng, LatLng]>;
   /** When true, click handlers are no-ops (post-submission lock). */
@@ -244,11 +248,15 @@ const InteractiveMapImpl = forwardRef<
         const fingerprint = JSON.stringify({
           sources: Object.fromEntries(
             Object.entries(style.sources).filter(
-              ([id]) => id !== "quiz-satellite",
+              ([id]) => id !== "quiz-satellite" && !id.startsWith("bsy-"),
             ),
           ),
           layers: style.layers
-            .filter((layer) => layer.id !== "quiz-satellite-layer")
+            .filter(
+              (layer) =>
+                layer.id !== "quiz-satellite-layer" &&
+                !layer.id.startsWith("bsy-"),
+            )
             .map((layer) => [layer.id, layer.type]),
         });
         if (styleFingerprint.current !== fingerprint) {
@@ -279,6 +287,7 @@ const InteractiveMapImpl = forwardRef<
           );
         }
         for (const layer of style.layers) {
+          if (layer.id.startsWith("bsy-")) continue;
           if (layer.type !== "symbol") {
             if (!originalVisibility.current.has(layer.id))
               originalVisibility.current.set(
@@ -374,6 +383,9 @@ const InteractiveMapImpl = forwardRef<
 
   return (
     <div
+      className="bsy-interactive-map"
+      role="region"
+      aria-label={props.ariaLabel ?? "מפה אינטראקטיבית"}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -421,6 +433,28 @@ const InteractiveMapImpl = forwardRef<
           <NavigationControl position="top-left" showCompass={false} />
         ) : null}
 
+        {props.radiusArea ? (
+          <Source
+            id="bsy-radius-area"
+            type="geojson"
+            data={buildRadiusArea(
+              props.radiusArea.center,
+              props.radiusArea.radiusM,
+            )}
+          >
+            <Layer
+              id="bsy-radius-fill"
+              type="fill"
+              paint={{ "fill-color": "#306030", "fill-opacity": 0.13 }}
+            />
+            <Layer
+              id="bsy-radius-outline"
+              type="line"
+              paint={{ "line-color": "#306030", "line-width": 2 }}
+            />
+          </Source>
+        ) : null}
+
         {(props.markers ?? []).map((marker) => (
           <Marker
             key={marker.key}
@@ -435,9 +469,11 @@ const InteractiveMapImpl = forwardRef<
                 : undefined
             }
           >
-            {marker.children ?? (
-              <DefaultMarker color={marker.color ?? "#a23b3b"} />
-            )}
+            <span role="img" aria-label={marker.ariaLabel ?? "סימון במפה"}>
+              {marker.children ?? (
+                <DefaultMarker color={marker.color ?? "#a23b3b"} />
+              )}
+            </span>
           </Marker>
         ))}
 

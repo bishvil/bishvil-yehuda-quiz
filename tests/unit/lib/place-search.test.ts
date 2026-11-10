@@ -65,3 +65,38 @@ describe("searchMapPlaces", () => {
     });
   });
 });
+
+describe("place search recovery", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+  it("reports network failure rather than pretending no places matched", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MAPTILER_KEY", "");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("offline");
+      }),
+    );
+    await expect(searchMapPlaces("ירושלים")).rejects.toThrow(
+      "temporarily unavailable",
+    );
+  });
+  it("still uses a working fallback when the first provider fails", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MAPTILER_KEY", "test-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("api.maptiler.com"))
+          throw new Error("temporarily unavailable");
+        return Response.json([
+          { place_id: 2, name: "ירושלים", lat: "31.7767", lon: "35.2345" },
+        ]);
+      }),
+    );
+    expect(await searchMapPlaces("ירושלים")).toEqual([
+      { id: "2", name: "ירושלים", lat: 31.7767, lng: 35.2345 },
+    ]);
+  });
+});

@@ -30,7 +30,7 @@ export function HostTimerPanel({
 
   if (!timeLimitEnabled)
     return (
-      <div className="rounded-md border border-bsy-stone-100 bg-white p-4 text-center">
+      <div className="shrink-0 rounded-md border border-bsy-stone-100 bg-white p-4 text-center">
         <p className="font-bold">ללא הגבלת זמן</p>
         {typeof responseCount === "number" &&
         typeof totalPlayers === "number" ? (
@@ -75,7 +75,7 @@ export function HostTimerPanel({
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 rounded-md border border-bsy-stone-100 bg-white px-5 py-6 text-center">
+    <div className="flex shrink-0 flex-col items-center gap-3 rounded-md border border-bsy-stone-100 bg-white px-5 py-6 text-center">
       <div
         className={[
           "font-mono text-6xl leading-none",

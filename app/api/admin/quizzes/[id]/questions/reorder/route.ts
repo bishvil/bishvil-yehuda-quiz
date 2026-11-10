@@ -1,6 +1,9 @@
 import { type NextRequest } from "next/server";
 
-import { assertQuizEditable } from "@/src/lib/admin/quiz-lock";
+import {
+  assertQuizEditable,
+  QUIZ_LOCKED_MESSAGE,
+} from "@/src/lib/admin/quiz-lock";
 import { hasLockedQuizEditOverride } from "@/src/lib/admin/quiz-edit-override";
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { adminQuestionReorderSchema } from "@/src/lib/admin/validation";
@@ -25,15 +28,7 @@ interface AdminQuestionReorderErrorBody {
   message: string;
 }
 
-/**
- * Bulk reorder endpoint that updates all question ordinals atomically.
- *
- * Uses ordinal negation transaction to avoid UNIQUE(quiz_id, ordinal) collisions:
- * 1. Negate all ordinals for the quiz (-1 * ordinal)
- * 2. Set each question to its final positive ordinal
- *
- * This ensures no duplicate ordinals during the intermediate state.
- */
+/** The RPC locks, validates and normalizes the complete order in one transaction. */
 export async function POST(
   request: NextRequest,
   context: AdminQuestionReorderContext,
@@ -59,95 +54,49 @@ export async function POST(
   });
   if (!lock.ok) return lock.response;
 
-  // Fetch all current questions to validate the update is complete
-  const { data: currentQuestions, error: fetchError } = await serviceSupabase
-    .from("questions")
-    .select("id, ordinal")
-    .eq("quiz_id", quizId);
+  const { data: count, error } = await serviceSupabase.rpc(
+    "reorder_quiz_questions",
+    {
+      p_quiz_id: quizId,
+      p_ordinals: parsed.data.ordinals,
+      p_allow_locked_edit: hasLockedQuizEditOverride(request),
+    },
+  );
 
-  if (fetchError) {
-    return privateNoStoreJson<AdminQuestionReorderErrorBody>(
-      { error: "WRITE_FAILED", message: "Failed to fetch questions." },
-      { status: 500 },
-    );
-  }
-
-  // Validate that every question in the quiz is being reassigned exactly once
-  const currentIds = new Set((currentQuestions ?? []).map((q) => q.id));
-  const newIds = new Set(parsed.data.ordinals.map((o) => o.id));
-
-  if (
-    currentIds.size !== newIds.size ||
-    ![...currentIds].every((id) => newIds.has(id))
-  ) {
+  if (error) {
+    if (error.code === "P0002") {
+      return privateNoStoreJson<AdminQuestionReorderErrorBody>(
+        { error: "QUIZ_NOT_FOUND", message: "Quiz not found." },
+        { status: 404 },
+      );
+    }
+    if (error.code === "22023") {
+      return privateNoStoreJson<AdminQuestionReorderErrorBody>(
+        { error: "VALIDATION_FAILED", message: error.message },
+        { status: 400 },
+      );
+    }
+    if (error.code === "P0001" && error.message === "QUIZ_LOCKED") {
+      return privateNoStoreJson(
+        {
+          error: "QUIZ_LOCKED",
+          message: QUIZ_LOCKED_MESSAGE,
+          sessionCount: Number(error.details) || 0,
+        },
+        { status: 409 },
+      );
+    }
     return privateNoStoreJson<AdminQuestionReorderErrorBody>(
       {
-        error: "VALIDATION_FAILED",
-        message: "Reorder must include all questions and no others.",
+        error: "WRITE_FAILED",
+        message: "Reorder failed. No changes were saved.",
       },
-      { status: 400 },
-    );
-  }
-
-  try {
-    // Negate all existing ordinals to avoid UNIQUE constraint collision.
-    // Fetch current ordinals first so we can map them to unique negatives.
-    const { data: currentQuestions, error: fetchCurrentError } =
-      await serviceSupabase
-        .from("questions")
-        .select("id, ordinal")
-        .eq("quiz_id", quizId);
-
-    if (fetchCurrentError || !currentQuestions) {
-      throw new Error("Failed to fetch current questions");
-    }
-
-    // Update each question with a unique negative ordinal (-(current+1))
-    for (const row of currentQuestions) {
-      const negOrdinal = -(row.ordinal + 1000); // Use offset to ensure unique negatives
-      const { error: negError } = await serviceSupabase
-        .from("questions")
-        .update({ ordinal: negOrdinal })
-        .eq("id", row.id)
-        .eq("quiz_id", quizId);
-
-      if (negError) {
-        throw new Error(
-          `Negate step failed for ${row.id}: ${negError.message}`,
-        );
-      }
-    }
-
-    // Force-normalize to 1..N regardless of the client-supplied ordinal
-    // values. Earlier code paths could leave huge sparse ordinals (e.g.
-    // 115160) which then surfaced in the participant UI as "תחנה 115160
-    // מתוך 6". Sorting by the client-provided ordinal preserves the
-    // requested order while collapsing the values to a clean 1..N range.
-    const normalized = [...parsed.data.ordinals]
-      .sort((a, b) => a.ordinal - b.ordinal)
-      .map((row, index) => ({ id: row.id, ordinal: index + 1 }));
-
-    for (const { id, ordinal } of normalized) {
-      const { error: updateError } = await serviceSupabase
-        .from("questions")
-        .update({ ordinal })
-        .eq("id", id)
-        .eq("quiz_id", quizId);
-
-      if (updateError) {
-        throw new Error(`Update question ${id} failed: ${updateError.message}`);
-      }
-    }
-
-    return privateNoStoreJson<AdminQuestionReorderBody>({
-      status: "reordered",
-      count: normalized.length,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return privateNoStoreJson<AdminQuestionReorderErrorBody>(
-      { error: "WRITE_FAILED", message: `Reorder failed: ${message}` },
       { status: 500 },
     );
   }
+
+  return privateNoStoreJson<AdminQuestionReorderBody>({
+    status: "reordered",
+    count: count ?? 0,
+  });
 }

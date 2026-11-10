@@ -264,6 +264,10 @@ export function MapQuestionEditor({
             flyTo={flyTo}
             isAdmin
             markers={markers}
+            radiusArea={{
+              center: draft.target,
+              radiusM: draft.toleranceKm * 1000,
+            }}
             ariaLabel="עורך שאלת מפה"
           />
         </div>
@@ -273,7 +277,7 @@ export function MapQuestionEditor({
         <label>
           רקע המפה
           <select
-            className="block w-full rounded border p-2"
+            className="mt-1 block min-h-11 w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-sm text-bsy-ink focus:border-bsy-forest focus:outline-none"
             value={draft.baseStyle ?? "satellite"}
             onChange={(e) =>
               onChange({
@@ -289,7 +293,7 @@ export function MapQuestionEditor({
         <label>
           שמות יישובים
           <select
-            className="block w-full rounded border p-2"
+            className="mt-1 block min-h-11 w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-sm text-bsy-ink focus:border-bsy-forest focus:outline-none"
             value={draft.labelLevel ?? "none"}
             onChange={(e) =>
               onChange({

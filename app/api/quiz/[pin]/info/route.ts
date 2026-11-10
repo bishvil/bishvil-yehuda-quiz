@@ -18,6 +18,7 @@ interface QuizInfoSuccessBody {
   customLogo: string | null;
   customLogoLabel: string | null;
   questionCount: number;
+  joinFields: string[];
 }
 
 interface QuizInfoErrorBody {
@@ -58,7 +59,7 @@ export async function GET(
 
   const { data: quiz } = await serviceSupabase
     .from("quizzes")
-    .select("title, brand_id, custom_logo, custom_logo_label")
+    .select("title, brand_id, custom_logo, custom_logo_label, join_fields")
     .eq("id", session.quiz_id)
     .maybeSingle();
 
@@ -87,6 +88,11 @@ export async function GET(
       customLogo: quiz.custom_logo,
       customLogoLabel: quiz.custom_logo_label,
       questionCount: count ?? 0,
+      joinFields: Array.isArray(quiz.join_fields)
+        ? quiz.join_fields.filter(
+            (field): field is string => typeof field === "string",
+          )
+        : ["phone", "unit"],
     },
     { cacheControl: PUBLIC_QUIZ_INFO_CACHE_HEADER },
   );

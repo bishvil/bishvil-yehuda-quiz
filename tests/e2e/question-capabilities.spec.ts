@@ -158,6 +158,14 @@ test("editor persists open answers, untimed questions, map labels and location g
     );
     expect(create.ok()).toBe(true);
     const id = (await create.json()).question.id;
+    await page.route("https://nominatim.openstreetmap.org/search?**", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          { place_id: 7, name: "ירושלים", lat: "31.7767", lon: "35.2345" },
+        ]),
+      }),
+    );
     await page.goto(`/admin/quizzes/${quizId}`);
     await page.getByTestId("type-pill-open").click();
     await page
@@ -169,6 +177,17 @@ test("editor persists open answers, untimed questions, map labels and location g
     await page
       .getByRole("checkbox", { name: "התחנה תיפתח רק בהגעה למקום" })
       .check();
+    await expect(
+      page.getByText(
+        "יש לבחור מיקום. פתיחה לפי GPS תישמר רק אחרי בחירת נקודה.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await page
+      .getByRole("searchbox", { name: "חיפוש מקום במפה" })
+      .fill("ירושלים");
+    await page.getByRole("button", { name: "חיפוש", exact: true }).click();
+    await page.getByRole("button", { name: "ירושלים", exact: true }).click();
     await expect
       .poll(
         async () =>

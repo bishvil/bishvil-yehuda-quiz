@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useState } from "react";
+import { ParticipantPreviewDialog } from "@/src/components/admin/ParticipantPreviewDialog";
 
 import { AdminTopBar } from "@/src/components/admin/AdminTopBar";
 import { SaveIndicator } from "@/src/components/admin/SaveIndicator";
@@ -19,6 +21,10 @@ interface Props {
 
 export function QuizEditorScreen({ quizId, brands }: Props) {
   const editor = useQuizEditorController(quizId);
+  const [previewQuestionId, setPreviewQuestionId] = useState<string | null>(
+    null,
+  );
+  const closePreview = useCallback(() => setPreviewQuestionId(null), []);
 
   if (editor.status === "loading") {
     return (
@@ -59,6 +65,16 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
               status={editor.indicator}
               errorMessage={editor.saveErrorMessage}
             />
+            <button
+              type="button"
+              disabled={!editor.activeQuestion}
+              onClick={() =>
+                setPreviewQuestionId(editor.activeQuestion?.clientId ?? null)
+              }
+              className="min-h-11 rounded-full border border-bsy-stone-200 bg-white px-4 py-2 text-[13px] font-bold text-bsy-forest hover:bg-bsy-paper-warm disabled:cursor-not-allowed disabled:text-bsy-stone-400"
+            >
+              תצוגת שחקן
+            </button>
             <Link
               href={`/admin/quizzes/${quiz.id}/sessions`}
               className="rounded-full border border-bsy-stone-200 bg-white px-4 py-1.5 text-[13px] font-bold text-bsy-stone-700 hover:border-bsy-forest"
@@ -101,10 +117,14 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
           disabled={editor.readOnly || editor.launching}
           onQuizChange={editor.setQuiz}
           onQuestionSelect={(index) => {
+            closePreview();
             editor.setActiveIndex(index);
             editor.setMobileView("edit");
           }}
-          onAddQuestion={editor.addQuestion}
+          onAddQuestion={() => {
+            closePreview();
+            editor.addQuestion();
+          }}
           onReorder={editor.reorderQuestion}
         />
 
@@ -114,9 +134,22 @@ export function QuizEditorScreen({ quizId, brands }: Props) {
           readOnly={editor.readOnly}
           onMobileViewChange={editor.setMobileView}
           onQuestionChange={editor.updateQuestion}
-          onQuestionDelete={editor.removeQuestion}
+          onQuestionDelete={(clientId, serverId) => {
+            closePreview();
+            void editor.removeQuestion(clientId, serverId);
+          }}
         />
       </div>
+      {editor.activeQuestion &&
+      previewQuestionId === editor.activeQuestion.clientId ? (
+        <ParticipantPreviewDialog
+          key={editor.activeQuestion.clientId}
+          question={editor.activeQuestion}
+          quizTitle={quiz.title}
+          stationCount={editor.questions.length}
+          onClose={closePreview}
+        />
+      ) : null}
     </>
   );
 }

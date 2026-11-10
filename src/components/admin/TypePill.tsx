@@ -23,7 +23,7 @@ export function TypePill({
     <button
       type="button"
       className={[
-        "inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-[13px] font-bold transition-colors",
+        "inline-flex min-h-11 items-center justify-center rounded-full border px-4 py-1.5 text-[13px] font-bold transition-colors",
         active
           ? "border-bsy-forest bg-bsy-forest text-bsy-paper"
           : "border-bsy-stone-200 bg-white text-bsy-stone-700 hover:border-bsy-stone-400",

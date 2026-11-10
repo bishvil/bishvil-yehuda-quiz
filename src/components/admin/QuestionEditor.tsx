@@ -102,6 +102,7 @@ export function QuestionEditor({
       <Field label="ניסוח השאלה">
         <textarea
           rows={3}
+          aria-label="ניסוח השאלה"
           className="w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px] text-bsy-ink focus:border-bsy-forest focus:outline-none disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
           value={question.prompt}
           onChange={(event) => update({ prompt: event.target.value })}
@@ -165,7 +166,7 @@ export function QuestionEditor({
                 update({ imageAlt: event.target.value || null })
               }
               disabled={readOnly || !question.imageUrl}
-              className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[13px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50 disabled:text-bsy-stone-400"
+              className="min-h-11 rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[13px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50 disabled:text-bsy-stone-400"
               dir="rtl"
               data-testid="question-image-alt"
             />
@@ -190,7 +191,7 @@ export function QuestionEditor({
       {supportsOptions ? (
         <Field label="תשובות">
           <div className="flex flex-col gap-2">
-            {(question.options ?? []).map((option) => {
+            {(question.options ?? []).map((option, optionIndex) => {
               const checked = (question.correctIds ?? []).includes(option.id);
               return (
                 <div key={option.id} className="flex items-center gap-2">
@@ -198,9 +199,10 @@ export function QuestionEditor({
                     type="button"
                     onClick={() => toggleCorrect(option.id)}
                     aria-pressed={checked}
+                    aria-label={`סימון תשובה ${optionIndex + 1} כנכונה`}
                     disabled={readOnly}
                     className={[
-                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-[14px] transition-colors",
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-[14px] transition-colors",
                       checked
                         ? "border-bsy-forest bg-bsy-forest text-bsy-paper"
                         : "border-bsy-stone-200 bg-white text-transparent hover:border-bsy-forest",
@@ -211,7 +213,8 @@ export function QuestionEditor({
                     ✓
                   </button>
                   <input
-                    className="flex-1 rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
+                    aria-label={`נוסח תשובה ${optionIndex + 1}`}
+                    className="min-h-11 min-w-0 flex-1 rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px] focus:border-bsy-forest focus:outline-none disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
                     value={option.text}
                     disabled={readOnly}
                     onChange={(event) =>
@@ -227,9 +230,10 @@ export function QuestionEditor({
                   {question.type !== "truefalse" ? (
                     <button
                       type="button"
-                      title="מחיקה"
+                      title={`מחיקת תשובה ${optionIndex + 1}`}
+                      aria-label={`מחיקת תשובה ${optionIndex + 1}`}
                       disabled={readOnly}
-                      className="px-2 text-[14px] text-bsy-stone-400 hover:text-bsy-error disabled:cursor-not-allowed disabled:text-bsy-stone-300"
+                      className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border border-bsy-stone-200 text-[14px] text-bsy-stone-700 hover:border-bsy-error hover:text-bsy-error disabled:cursor-not-allowed disabled:text-bsy-stone-300"
                       onClick={() =>
                         update({
                           options: (question.options ?? []).filter(
@@ -251,7 +255,7 @@ export function QuestionEditor({
               <button
                 type="button"
                 disabled={readOnly}
-                className="self-start text-[12px] font-bold text-bsy-forest hover:underline disabled:cursor-not-allowed disabled:text-bsy-stone-400"
+                className="min-h-11 self-start rounded-full border border-bsy-stone-200 px-4 py-2 text-[13px] font-bold text-bsy-forest hover:bg-bsy-paper-warm disabled:cursor-not-allowed disabled:text-bsy-stone-400"
                 onClick={() => {
                   const next = [...(question.options ?? [])];
                   const id = nextOptionId(next);
@@ -273,9 +277,10 @@ export function QuestionEditor({
         >
           <textarea
             rows={4}
+            aria-label="תשובות קבילות (תשובה בכל שורה)"
             value={(question.settings?.acceptedAnswers ?? []).join("\n")}
             disabled={readOnly}
-            className="rounded-md border p-3"
+            className="rounded-md border border-bsy-stone-200 bg-white p-3 text-[14px] focus:border-bsy-forest focus:outline-none"
             onChange={(event) =>
               update({
                 settings: {
@@ -288,9 +293,10 @@ export function QuestionEditor({
         </Field>
       ) : null}
       {question.type !== "content" ? (
-        <label className="flex items-center gap-2">
+        <label className="flex min-h-11 items-center gap-3 rounded-full px-2 text-[14px]">
           <input
             type="checkbox"
+            className="h-5 w-5 accent-bsy-forest"
             disabled={readOnly}
             checked={question.settings?.timeLimitEnabled === false}
             onChange={(event) =>
@@ -310,47 +316,53 @@ export function QuestionEditor({
         update={update}
         readOnly={readOnly}
       />
-      <div className="grid grid-cols-2 gap-3">
+      {question.type !== "content" ? (
         <NumberField
           label="זמן (שניות)"
           value={question.timeSeconds}
           min={5}
           max={600}
           onChange={(timeSeconds) => update({ timeSeconds })}
-          disabled={
-            readOnly ||
-            question.type === "content" ||
-            question.settings?.timeLimitEnabled === false
-          }
+          disabled={readOnly || question.settings?.timeLimitEnabled === false}
         />
-        <NumberField
-          label="נקודות"
-          value={question.points}
-          min={1}
-          max={10000}
-          step={50}
-          onChange={(points) => update({ points })}
-          disabled={readOnly || question.type === "content"}
-        />
-      </div>
-
-      <Field label="פידבק לאחר תשובה">
-        <textarea
-          rows={3}
-          className="w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
-          value={question.explanation ?? ""}
-          disabled={readOnly}
-          onChange={(event) =>
-            update({ explanation: event.target.value || null })
-          }
-        />
-      </Field>
+      ) : null}
+      {question.type !== "content" ? (
+        <details className="rounded-md border border-bsy-stone-200 p-3">
+          <summary className="min-h-11 cursor-pointer content-center text-[13px] font-bold text-bsy-forest">
+            ניקוד ופידבק לאחר תשובה · {question.points} נקודות
+            {question.explanation ? " · פידבק מוגדר" : ""}
+          </summary>
+          <div className="mt-3 flex flex-col gap-4">
+            <NumberField
+              label="נקודות"
+              value={question.points}
+              min={1}
+              max={10000}
+              step={50}
+              onChange={(points) => update({ points })}
+              disabled={readOnly}
+            />
+            <Field label="פידבק לאחר תשובה">
+              <textarea
+                aria-label="פידבק לאחר תשובה"
+                rows={3}
+                className="w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
+                value={question.explanation ?? ""}
+                disabled={readOnly}
+                onChange={(event) =>
+                  update({ explanation: event.target.value || null })
+                }
+              />
+            </Field>
+          </div>
+        </details>
+      ) : null}
 
       {onDelete ? (
         <button
           type="button"
           onClick={onDelete}
-          className="self-start text-[12px] text-bsy-error hover:underline"
+          className="min-h-11 self-start rounded-full border border-bsy-error/30 px-4 py-2 text-[13px] text-bsy-error hover:bg-bsy-error/5"
         >
           מחיקת תחנה
         </button>
@@ -380,15 +392,15 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
+    <fieldset className="flex min-w-0 flex-col gap-1.5">
+      <legend className="mb-1.5 text-[12px] font-bold text-bsy-stone-700">
         {label}
-      </span>
+      </legend>
       {children}
       {help ? (
         <span className="text-[11px] text-bsy-stone-400">{help}</span>
       ) : null}
-    </label>
+    </fieldset>
   );
 }
 
@@ -448,7 +460,7 @@ function NumberField({
       </span>
       <input
         type="number"
-        className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 font-mono text-[14px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
+        className="min-h-11 rounded-md border border-bsy-stone-200 bg-white px-3 py-2 font-mono text-[14px] disabled:cursor-not-allowed disabled:bg-bsy-stone-50"
         value={Number.isFinite(value) ? value : ""}
         min={min}
         max={max}

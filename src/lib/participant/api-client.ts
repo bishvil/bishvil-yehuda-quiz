@@ -15,6 +15,7 @@ export interface QuizInfoResponse {
   customLogo: string | null;
   customLogoLabel: string | null;
   questionCount: number;
+  joinFields?: string[];
 }
 
 export interface JoinRequestBody {

@@ -57,7 +57,9 @@ The following migrations were applied successfully to **local Postgres only**:
 2. `20261110090100_question_capabilities.sql`
 3. `20261110090200_unlock_station.sql`
 
-Run them in that order before deploying application code. The enum additions
+The [UI follow-up](2026-11-10-ui-polish.md) adds
+`20261110090300_atomic_question_reorder.sql` after these three migrations.
+Run all four in that order before deploying the combined application code. The enum additions
 must commit before the schema/RPC migration. The second migration repairs score
 summaries from stored answers; it cannot restore answers that were never saved.
 No production database or deployed site was changed in this task.

@@ -45,6 +45,9 @@ export function QuestionCard({
   const hasVideo = Boolean(videoUrl ?? videoEmbedUrl);
   const imageSrc = type === "image" || type === "content" ? imageUrl : null;
 
+  const [contentTitle, ...contentBody] = prompt.split(/\r?\n/);
+  const hasContentTitle = (contentTitle?.length ?? 0) <= 80;
+
   return (
     <div className="rounded-md border border-bsy-stone-100 bg-white p-5 shadow-[0_1px_2px_rgba(74,63,38,0.06)]">
       <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-bsy-forest">
@@ -73,8 +76,17 @@ export function QuestionCard({
       ) : null}
       {children}
       <h3 className="m-0 whitespace-pre-wrap font-[var(--font-display)] text-[22px] leading-snug text-bsy-brown">
-        {prompt}
+        {type === "content"
+          ? hasContentTitle
+            ? contentTitle
+            : "סיפור התחנה"
+          : prompt}
       </h3>
+      {type === "content" && (contentBody.length > 0 || !hasContentTitle) ? (
+        <div className="mt-3 whitespace-pre-wrap font-[var(--font-body)] text-[16px] leading-8 text-bsy-ink">
+          {hasContentTitle ? contentBody.join("\n") : prompt}
+        </div>
+      ) : null}
     </div>
   );
 }
