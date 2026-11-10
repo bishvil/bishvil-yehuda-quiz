@@ -7,9 +7,10 @@ the tested feature branch. No client-only changes were found in that comparison.
 
 ## Two-repository ownership
 
-The user requires the code to remain in both repositories. Keep the existing
-GitHub connection for `NehoraiHadad` and add effective access to the client
-repository. The local checkout has two named remotes:
+The user requires the code to remain in both repositories. The connected app
+account may change independently of the existing repositories and Git transport
+credentials. Verify each remote separately. The local checkout has two named
+remotes:
 
 | Remote | Repository | Role |
 | --- | --- | --- |
@@ -26,21 +27,26 @@ git push origin feat/quiz-completion-gps-20261110
 git push client feat/quiz-completion-gps-20261110
 ```
 
-The second command remains blocked by the access restriction below. The
-client's deployment settings and main branch have not been changed.
+Both pushes succeeded after the GitHub connection was changed to `bishvil`.
+The same branch is available in both repositories, with a draft PR in each:
+[developer PR](https://github.com/NehoraiHadad/bishvil-yehuda-quiz/pull/1) and
+[client PR](https://github.com/bishvil/bishvil-yehuda-quiz/pull/1). The client's
+deployment settings and main branch have not been changed.
 
 ## Access and deployment evidence
 
-- The connected GitHub identity is `NehoraiHadad`. The collaborator listing
-  reports `pull: true` and `push: true` for the client repository.
-- Effective write access is blocked: a native Git push returned HTTP 403, and
-  the connected GitHub integration's branch creation returned HTTP 403,
-  `Resource not accessible by integration`. Neither attempt created a branch or
-  changed client `main`. Repository permission metadata alone is insufficient.
-- The client owner must authorize the ChatGPT/Codex GitHub connection for this
-  repository. This may require signing in as the client owner `bishvil` and
-  installing/authorizing the GitHub app for this repository. Do not paste account
-  passwords or tokens into chat.
+- Initially, the connected GitHub identity was `NehoraiHadad`. The collaborator
+  listing reported `pull: true` and `push: true`, but native Git push and the
+  integration's branch creation both returned HTTP 403. Permission metadata did
+  not establish effective integration access.
+- After the user changed the GitHub connection, the verified app identity became
+  `bishvil` (`bishvil.go@gmail.com`), with administrative access to the client
+  repository. The connected app did not list the developer's private repository.
+- Git transport was verified separately: the feature branch was pushed to the
+  client repository, the developer remote still accepted pushes, and both remote
+  branch heads matched. Changing the app connection did not remove the code
+  already stored in either repository. This is verified Git access in this
+  session, not a claim that the app supports two simultaneous account logins.
 - The repository homepage is `https://bishvil-yehuda-quiz.vercel.app`. Client
   `main` has a successful `Vercel` deployment status linking to the
   `beshvil-yehodas-projects/bishvil-yehuda-quiz` Vercel project. This is evidence of
