@@ -30,6 +30,7 @@ export const answers = pgTable(
     submittedAt: timestamp("submitted_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    textAnswer: text("text_answer"),
     selectedIds: text("selected_ids").array(),
     /** Geographic answer pin (ADR-0011 §6.3). */
     pinLat: numeric("pin_lat", { precision: 8, scale: 5 }),

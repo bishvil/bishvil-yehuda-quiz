@@ -9,6 +9,8 @@ export interface ResultsListRow {
   quizTitle: string;
   brandId: string;
   endedAt: string | null;
+  status?: string;
+  gameMode?: string;
   startedAt: string | null;
   participantCount: number;
   averageScore: number;
@@ -29,7 +31,7 @@ interface ResultsListErrorBody {
 }
 
 /**
- * QA-23: cross-quiz list of ENDED sessions with quick summary stats for
+ * Cross-quiz results for ended sessions and open async sessions, with stats for
  * the `/admin/results` page. The detailed per-session drill-down still
  * lives at `/admin/quizzes/[quizId]/sessions/[sessionId]/results`.
  */
@@ -42,6 +44,8 @@ export async function GET() {
     pin: string;
     quiz_id: string;
     ended_at: string | null;
+    status: string;
+    game_mode: string;
     started_at: string | null;
     quizzes: { title: string; brand_id: string } | null;
   }
@@ -56,9 +60,11 @@ export async function GET() {
   const supabase = await createServiceRoleSupabaseClient();
   const { data: sessionData, error: sessionError } = await supabase
     .from("sessions")
-    .select("id, pin, quiz_id, ended_at, started_at, quizzes(title, brand_id)")
-    .eq("status", "ended")
-    .order("ended_at", { ascending: false, nullsFirst: false })
+    .select(
+      "id, pin, quiz_id, status, game_mode, ended_at, started_at, quizzes(title, brand_id)",
+    )
+    .or("status.eq.ended,and(game_mode.eq.async,status.in.(live,paused))")
+    .order("created_at", { ascending: false })
     .limit(50);
 
   if (sessionError) {
@@ -74,13 +80,33 @@ export async function GET() {
   // Pull `participant_scores` joined with `session_participants` for the
   // names. Empty `in()` would match every row, so guard explicitly.
   const scoresBySession = new Map<string, ScoreRow[]>();
+  const participantCounts = new Map<string, number>();
   if (sessionIds.length > 0) {
-    const { data: scoreData, error: scoreError } = await supabase
-      .from("participant_scores")
-      .select(
-        "session_id, participant_id, total_score, session_participants(first_name, last_name)",
-      )
-      .in("session_id", sessionIds);
+    const [
+      { data: scoreData, error: scoreError },
+      { data: participants, error: participantsError },
+    ] = await Promise.all([
+      supabase
+        .from("participant_scores")
+        .select(
+          "session_id, participant_id, total_score, session_participants(first_name, last_name)",
+        )
+        .in("session_id", sessionIds),
+      supabase
+        .from("session_participants")
+        .select("session_id")
+        .in("session_id", sessionIds),
+    ]);
+    if (participantsError)
+      return privateNoStoreJson<ResultsListErrorBody>(
+        { error: "READ_FAILED", message: "Failed to load participants." },
+        { status: 500 },
+      );
+    for (const participant of participants ?? [])
+      participantCounts.set(
+        participant.session_id,
+        (participantCounts.get(participant.session_id) ?? 0) + 1,
+      );
 
     if (scoreError) {
       return privateNoStoreJson<ResultsListErrorBody>(
@@ -102,8 +128,9 @@ export async function GET() {
     const scores = scoresBySession.get(row.id) ?? [];
     const sorted = [...scores].sort((a, b) => b.total_score - a.total_score);
     const total = sorted.reduce((acc, s) => acc + s.total_score, 0);
+    const participantCount = participantCounts.get(row.id) ?? 0;
     const averageScore =
-      sorted.length > 0 ? Math.round(total / sorted.length) : 0;
+      participantCount > 0 ? Math.round(total / participantCount) : 0;
 
     return {
       id: row.id,
@@ -112,8 +139,10 @@ export async function GET() {
       quizTitle: quiz?.title ?? "",
       brandId: quiz?.brand_id ?? "",
       endedAt: row.ended_at,
+      status: row.status,
+      gameMode: row.game_mode,
       startedAt: row.started_at,
-      participantCount: sorted.length,
+      participantCount,
       averageScore,
       topThree: sorted.slice(0, 3).map((s) => ({
         participantId: s.participant_id,

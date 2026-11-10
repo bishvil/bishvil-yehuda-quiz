@@ -28,7 +28,9 @@ export default async function ParticipantJoinPage({ params }: JoinPageProps) {
 
   const { data: quiz } = await serviceSupabase
     .from("quizzes")
-    .select("title, brand_id, custom_logo, custom_logo_label, custom_logo_active")
+    .select(
+      "title, brand_id, custom_logo, custom_logo_label, custom_logo_active, join_fields",
+    )
     .eq("id", session.quiz_id)
     .maybeSingle();
 
@@ -47,6 +49,13 @@ export default async function ParticipantJoinPage({ params }: JoinPageProps) {
       customLogo={effectiveLogo}
       customLogoLabel={effectiveLogo ? quiz.custom_logo_label : null}
       sessionStatus={session.status}
+      joinFields={
+        Array.isArray(quiz.join_fields)
+          ? quiz.join_fields.filter(
+              (field): field is string => typeof field === "string",
+            )
+          : undefined
+      }
     />
   );
 }

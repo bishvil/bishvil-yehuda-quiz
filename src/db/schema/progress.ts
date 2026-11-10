@@ -49,8 +49,12 @@ export const participantQuestionProgress = pgTable(
       .references(() => questions.id, { onDelete: "cascade" }),
     questionIndex: integer("question_index").notNull(),
     status: asyncQuestionStatusEnum("status").notNull(),
-    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
-    deadlineAt: timestamp("deadline_at", { withTimezone: true }).notNull(),
+    locationUnlockActor: uuid("location_unlock_actor"),
+    locationUnlockedAt: timestamp("location_unlocked_at", {
+      withTimezone: true,
+    }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    deadlineAt: timestamp("deadline_at", { withTimezone: true }),
     revealedAt: timestamp("revealed_at", { withTimezone: true }),
   },
   (table) => [

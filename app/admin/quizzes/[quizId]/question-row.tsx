@@ -8,8 +8,6 @@ interface QuestionRowProps {
   index: number;
   active: boolean;
   onSelect: () => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
 }
 
 export function QuestionRow({
@@ -17,8 +15,6 @@ export function QuestionRow({
   index,
   active,
   onSelect,
-  onMoveUp,
-  onMoveDown,
 }: QuestionRowProps) {
   const optionsCount = question.options?.length ?? 0;
   const correctCount = question.correctIds?.length ?? 0;
@@ -32,30 +28,10 @@ export function QuestionRow({
           : "border-bsy-stone-100 hover:border-bsy-forest",
       ].join(" ")}
     >
-      <div className="flex flex-col items-center justify-center gap-0.5 text-bsy-stone-400">
-        <button
-          type="button"
-          aria-label="הזז למעלה"
-          onClick={onMoveUp}
-          disabled={!onMoveUp}
-          className="text-[10px] disabled:opacity-30"
-        >
-          ▲
-        </button>
-        <button
-          type="button"
-          aria-label="הזז למטה"
-          onClick={onMoveDown}
-          disabled={!onMoveDown}
-          className="text-[10px] disabled:opacity-30"
-        >
-          ▼
-        </button>
-      </div>
       <button
         type="button"
         onClick={onSelect}
-        className="flex flex-1 flex-col gap-1 text-start"
+        className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 text-start"
       >
         <div className="flex items-center gap-2">
           <span className="font-mono text-[12px] text-bsy-stone-400">
@@ -69,9 +45,10 @@ export function QuestionRow({
           </span>
         </div>
         <div className="text-[11px] text-bsy-stone-400">
-          {question.type === "map"
-            ? `נקודה על מפה · ${question.timeSeconds} שניות`
-            : `${optionsCount} תשובות · ${question.timeSeconds} שניות · ${correctCount} נכונות`}
+          {question.type === "content"
+            ? "קטע מידע · ללא ניקוד"
+            : `${question.type === "map" ? "נקודה על מפה" : question.type === "open" ? "תשובה פתוחה" : `${optionsCount} תשובות · ${correctCount} נכונות`} · ${question.settings?.timeLimitEnabled === false ? "ללא הגבלת זמן" : `${question.timeSeconds} שניות`}`}
+          {question.settings?.locationGate ? " · פתיחה לפי מיקום" : ""}
         </div>
       </button>
     </div>

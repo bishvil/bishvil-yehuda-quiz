@@ -34,17 +34,24 @@ export function VideoQuestionSpotlight({
   const [confirmEligible, setConfirmEligible] = useState(false);
 
   const isPlayable = Boolean(videoUrl || videoEmbedUrl);
-  const canConfirm = mode === "host_gated" ? Boolean(onConfirm) : Boolean(onConfirm) && confirmEligible;
+  const canConfirm =
+    mode === "host_gated"
+      ? Boolean(onConfirm)
+      : Boolean(onConfirm) && confirmEligible;
 
   const defaultHint = useMemo(() => {
-    if (mode === "host_gated") return "ממתינים לאישור המדריך — כולכם תתחילו יחד";
+    if (mode === "host_gated")
+      return "ממתינים לאישור המדריך — כולכם תתחילו יחד";
     return "לאחר סיום הצפייה תוצג השאלה והטיימר יתחיל";
   }, [mode]);
 
   useEffect(() => {
     if (mode !== "self_paced") return;
     const clampedLead = Math.max(1, mediaLeadSeconds);
-    const timer = window.setTimeout(() => setConfirmEligible(true), clampedLead * 1000);
+    const timer = window.setTimeout(
+      () => setConfirmEligible(true),
+      clampedLead * 1000,
+    );
     return () => window.clearTimeout(timer);
   }, [mode, mediaLeadSeconds]);
 
@@ -93,7 +100,7 @@ export function VideoQuestionSpotlight({
               type="button"
               onClick={canConfirm ? onConfirm : undefined}
               disabled={!canConfirm}
-              className="rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-[12px] font-bold text-bsy-forest disabled:opacity-40"
+              className="min-h-11 rounded-full border border-bsy-stone-200 bg-white px-4 py-2 text-sm font-bold text-bsy-forest disabled:opacity-40"
             >
               {mode === "host_gated" ? "סיום צפייה ←" : "אישור צפייה ←"}
             </button>
@@ -103,4 +110,3 @@ export function VideoQuestionSpotlight({
     </div>
   );
 }
-

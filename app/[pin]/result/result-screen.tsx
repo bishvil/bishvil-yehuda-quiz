@@ -2,10 +2,10 @@ import Link from "next/link";
 
 import { BrandBlock } from "@/src/components/participant/BrandBlock";
 import { Leaderboard } from "@/src/components/participant/Leaderboard";
-import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import { ScoreCircle } from "@/src/components/participant/ScoreCircle";
 import { Spark } from "@/src/components/illustrations/Spark";
 import type { ParticipantBrand } from "@/src/lib/participant/brands";
+import type { PersonalAnswerReview } from "@/src/lib/participant/answer-review";
 import type { LeaderboardRowDto } from "./page";
 
 interface ResultScreenProps {
@@ -16,11 +16,13 @@ interface ResultScreenProps {
   quizTitle: string;
   questionCount: number;
   maxScorePerQuestion: number;
+  maxTotalScore?: number;
   myScore: number;
   myCorrectCount: number;
   myStreak: number;
   myRank: number | null;
   leaderboard: LeaderboardRowDto[];
+  review?: PersonalAnswerReview[];
 }
 
 export function ResultScreen({
@@ -31,17 +33,20 @@ export function ResultScreen({
   quizTitle,
   questionCount,
   maxScorePerQuestion,
+  maxTotalScore: configuredMaxTotalScore,
   myScore,
   myCorrectCount,
   myStreak,
   myRank,
   leaderboard,
+  review = [],
 }: ResultScreenProps) {
-  const maxTotalScore = Math.max(1, questionCount * maxScorePerQuestion);
+  const maxTotalScore = Math.max(
+    1,
+    configuredMaxTotalScore ?? questionCount * maxScorePerQuestion,
+  );
   const accuracyPercent =
-    questionCount > 0
-      ? Math.round((myCorrectCount / questionCount) * 100)
-      : 0;
+    questionCount > 0 ? Math.round((myCorrectCount / questionCount) * 100) : 0;
   const headlineSubtitle = brand.tagline;
 
   return (
@@ -71,27 +76,103 @@ export function ResultScreen({
           {quizTitle} · {headlineSubtitle}
         </p>
 
-        <ScoreCircle score={myScore} maxScore={maxTotalScore} />
+        {questionCount > 0 ? (
+          <>
+            <ScoreCircle score={myScore} maxScore={maxTotalScore} />
 
-        <dl className="grid w-full grid-cols-3 gap-2">
-          <Stat label="דירוג" value={myRank !== null ? `#${myRank}` : "—"} />
-          <Stat label="רצף" value={`${myStreak}`} />
-          <Stat label="דיוק" value={`${accuracyPercent}%`} />
-        </dl>
+            <dl className="grid w-full grid-cols-3 gap-2">
+              <Stat
+                label="דירוג"
+                value={myRank !== null ? `#${myRank}` : "—"}
+              />
+              <Stat label="רצף" value={`${myStreak}`} />
+              <Stat label="דיוק" value={`${accuracyPercent}%`} />
+            </dl>
 
-        <Leaderboard
-          entries={leaderboard.map((row) => ({
-            participantId: row.participantId,
-            displayName: row.displayName,
-            score: row.score,
-            isMe: row.isMe,
-          }))}
-        />
+            <Leaderboard
+              entries={leaderboard.map((row) => ({
+                participantId: row.participantId,
+                displayName: row.displayName,
+                score: row.score,
+                isMe: row.isMe,
+              }))}
+            />
+          </>
+        ) : (
+          <p className="w-full rounded-md border border-bsy-stone-200 bg-white p-5 text-sm leading-7 text-bsy-ink">
+            עברתם את תחנות המידע במסלול. אין שאלות מנוקדות במסלול זה.
+          </p>
+        )}
 
-        <Link href={`/${pin}`} className="block w-full">
-          <PrimaryButton variant="ghost" block>
-            חזרה למסך ההצטרפות
-          </PrimaryButton>
+        {review.length > 0 ? (
+          <details className="w-full rounded-md border border-bsy-stone-200 bg-white p-4 text-start">
+            <summary className="min-h-11 cursor-pointer text-center font-bold text-bsy-forest">
+              סקירת התשובות שלי
+            </summary>
+            <ol className="mt-4 space-y-4">
+              {review.map((item) => (
+                <li
+                  key={item.questionId}
+                  className="rounded-md border border-bsy-stone-100 bg-bsy-paper p-4 text-sm leading-7"
+                >
+                  <p className="text-xs font-bold text-bsy-stone-700">
+                    תחנה {item.index} · {REVIEW_OUTCOMES[item.outcome]}
+                  </p>
+                  {item.outcome === "information" ? (
+                    <p className="mt-2 whitespace-pre-wrap font-[var(--font-body)] leading-8 text-bsy-ink">
+                      {item.prompt}
+                    </p>
+                  ) : (
+                    <h3
+                      style={{ fontFamily: "var(--font-body)" }}
+                      className="mt-1 whitespace-pre-wrap text-base font-bold leading-7 text-bsy-brown"
+                    >
+                      {item.prompt}
+                    </h3>
+                  )}
+                  {item.outcome !== "information" ? (
+                    <>
+                      <p className="mt-2">
+                        התשובה שלכם: {item.submittedAnswer ?? "לא נשלחה תשובה"}
+                      </p>
+                      {item.correctAnswer ? (
+                        <p>
+                          תשובה קבילה: <b>{item.correctAnswer}</b>
+                        </p>
+                      ) : null}
+                      {item.mapTargetUrl ? (
+                        <a
+                          className="inline-flex min-h-11 items-center font-bold text-bsy-forest underline"
+                          href={item.mapTargetUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          צפייה במיקום הנכון במפה
+                        </a>
+                      ) : null}
+                      {item.distanceKm != null ? (
+                        <p>מרחק מהיעד: {item.distanceKm.toFixed(2)} ק״מ</p>
+                      ) : null}
+                      <p className="font-bold">
+                        {item.score} מתוך {item.maxScore} נקודות
+                      </p>
+                    </>
+                  ) : null}
+                  {item.explanation ? (
+                    <p className="mt-2 whitespace-pre-wrap">
+                      {item.explanation}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </details>
+        ) : null}
+        <Link
+          href={`/${pin}`}
+          className="flex min-h-11 w-full items-center justify-center rounded-full border border-bsy-stone-200 bg-white px-5 py-3 text-sm font-bold text-bsy-forest"
+        >
+          חזרה למסך ההצטרפות
         </Link>
       </div>
     </main>
@@ -110,3 +191,11 @@ function Stat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+const REVIEW_OUTCOMES: Record<PersonalAnswerReview["outcome"], string> = {
+  correct: "תשובה נכונה",
+  partial: "נכון חלקית",
+  incorrect: "תשובה שגויה",
+  missed: "לא נענתה",
+  information: "קטע מידע · ללא ניקוד",
+};

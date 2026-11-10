@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   InteractiveMap,
@@ -14,6 +14,12 @@ import { useMapMarkerState } from "@/src/components/map/useMapMarkerState";
  * Tel Aviv-Jaffa city hall (32.0853, 34.7818).
  */
 export function MapPreviewClient() {
+  const [baseStyle, setBaseStyle] = useState<"satellite" | "streets">(
+    "satellite",
+  );
+  const [labelLevel, setLabelLevel] = useState<
+    "none" | "major" | "medium" | "all"
+  >("none");
   const pin = useMapMarkerState();
   const mapHandleRef = useRef<InteractiveMapHandle>(null);
 
@@ -35,6 +41,8 @@ export function MapPreviewClient() {
   return (
     <div className="relative h-full w-full">
       <InteractiveMap
+        baseStyle={baseStyle}
+        labelLevel={labelLevel}
         ref={mapHandleRef}
         exposeRef
         ariaLabel="ארגז חול — מפה אינטראקטיבית"
@@ -54,11 +62,39 @@ export function MapPreviewClient() {
       />
       <div
         dir="rtl"
+        className="absolute right-2 top-2 z-10 flex gap-2 rounded bg-white p-2"
+      >
+        <label>
+          רקע
+          <select
+            value={baseStyle}
+            onChange={(e) => setBaseStyle(e.target.value as typeof baseStyle)}
+          >
+            <option value="satellite">לוויין</option>
+            <option value="streets">רחובות</option>
+          </select>
+        </label>
+        <label>
+          שמות
+          <select
+            value={labelLevel}
+            onChange={(e) => setLabelLevel(e.target.value as typeof labelLevel)}
+          >
+            <option value="none">ללא שמות</option>
+            <option value="major">גדולות</option>
+            <option value="medium">בינוניים</option>
+            <option value="all">הכול</option>
+          </select>
+        </label>
+      </div>
+      <div
+        dir="rtl"
         className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center"
       >
         {pin.position ? (
           <span className="pointer-events-auto rounded-full bg-bsy-ink/85 px-3 py-1 font-mono text-[11px] text-bsy-paper">
-            lat {pin.position.lat.toFixed(4)} · lng {pin.position.lng.toFixed(4)}
+            lat {pin.position.lat.toFixed(4)} · lng{" "}
+            {pin.position.lng.toFixed(4)}
           </span>
         ) : (
           <span className="pointer-events-auto rounded-full bg-bsy-ink/70 px-3 py-1 text-[11px] text-bsy-paper">

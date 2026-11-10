@@ -91,6 +91,32 @@ function fillPhoneField() {
 }
 
 describe("JoinScreen", () => {
+  it("shows only configured optional fields while retaining required phone and Google identity", () => {
+    const { rerender } = renderJoinScreen({ joinFields: ["phone"] });
+    expect(screen.queryByLabelText(/יחידה/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/צוות/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/מספר נייד/)).toBeRequired();
+    expect(
+      screen.getByRole("button", { name: /הצטרפות עם Google/ }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/Google משמש לזיהוי ולשמירת ההתקדמות/),
+    ).toBeInTheDocument();
+    rerender(
+      <JoinScreen
+        pin="123456"
+        brand={YEHUDA_BRAND}
+        quizTitle="חידון"
+        customLogo={null}
+        customLogoLabel={null}
+        sessionStatus="live"
+        joinFields={["phone", "team"]}
+      />,
+    );
+    expect(screen.queryByLabelText(/יחידה/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/צוות/)).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     routerReplaceMock.mockClear();
     signInWithOAuthMock.mockReset();

@@ -1,3 +1,4 @@
+import { hasTimeLimit } from "@/src/lib/schemas/question-settings";
 import { type NextRequest } from "next/server";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
@@ -56,6 +57,7 @@ export interface HostLiveQuestion {
       styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
     };
   } | null;
+  timeLimitEnabled?: boolean;
   timeSeconds: number;
   status: QuestionStatusEnum;
   startedAt: string | null;
@@ -197,7 +199,7 @@ export async function GET(
     const { data: question } = await serviceSupabase
       .from("questions")
       .select(
-        "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, time_seconds, correct_ids, explanation",
+        "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, settings, time_seconds, correct_ids, explanation",
       )
       .eq("id", session.current_question_id)
       .maybeSingle();
@@ -259,6 +261,7 @@ export async function GET(
         mediaLeadSeconds: question.media_lead_seconds ?? 0,
         // Always strip target — it lives inside reveal only.
         map: mapPayload,
+        timeLimitEnabled: hasTimeLimit(question.type, question.settings),
         timeSeconds: question.time_seconds,
         status: (row?.status ?? "idle") as QuestionStatusEnum,
         startedAt: row?.started_at ?? null,

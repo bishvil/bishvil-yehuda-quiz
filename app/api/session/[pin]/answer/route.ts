@@ -171,12 +171,15 @@ export async function POST(request: NextRequest, context: AnswerRouteContext) {
       p_session_id: session.id,
       p_participant_id: participantId,
       p_question_id: submission.questionId,
+      p_text_answer: null as string | null,
       p_selected_ids: null as string[] | null,
       p_pin_lat: null as number | null,
       p_pin_lng: null as number | null,
     };
     if ("selectedIds" in submission) {
       base.p_selected_ids = submission.selectedIds;
+    } else if ("textAnswer" in submission) {
+      base.p_text_answer = submission.textAnswer;
     } else {
       base.p_pin_lat = submission.pin.lat;
       base.p_pin_lng = submission.pin.lng;

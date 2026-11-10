@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { expect, test } from "@playwright/test";
 import postgres from "postgres";
+import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 
 import {
   LOCAL_TEST_HOST_EMAIL,
@@ -93,6 +95,43 @@ test("host flow starts, reveals, and advances without partial mutation errors", 
       )
     `;
 
+    // Authenticated participant fixture: Google sign-in replaced anonymous join.
+    const authUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const service = createClient(
+      authUrl,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } },
+    );
+    const email = `host-flow-${randomUUID()}@test.local`;
+    const password = "Test-Only-Password123!";
+    const user = await service.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      app_metadata: { role: "participant", session_id: sessionId },
+    });
+    expect(user.error).toBeNull();
+    const participantId = user.data.user!.id;
+    await sql`insert into public.session_participants(id,session_id,first_name,last_name,phone) values (${participantId}::uuid,${sessionId}::uuid,'נועה','בדיקה','+972500000001')`;
+    const participantCookies: Array<{ name: string; value: string }> = [];
+    const participantAuth = createServerClient(
+      authUrl,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => [],
+          setAll: (values) => participantCookies.push(...values),
+        },
+      },
+    );
+    expect(
+      (await participantAuth.auth.signInWithPassword({ email, password }))
+        .error,
+    ).toBeNull();
+    const participantCookie = participantCookies
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join("; ");
+
     const signin = await page.request.post("/api/auth/host/signin", {
       data: {
         email: LOCAL_TEST_HOST_EMAIL,
@@ -121,16 +160,8 @@ test("host flow starts, reveals, and advances without partial mutation errors", 
       timeout: 15_000,
     });
 
-    const join = await request.post(`/api/session/${pin}/join`, {
-      data: {
-        firstName: "נועה",
-        lastName: `בדיקה_${Date.now().toString(36)}`,
-        phone: `050${String(Date.now()).slice(-7)}`,
-      },
-    });
-    expect(join.status(), "participant join should succeed").toBe(200);
-
     const answer = await request.post(`/api/session/${pin}/answer`, {
+      headers: { Cookie: participantCookie },
       data: {
         questionId: firstQuestionId,
         selectedIds: ["a"],

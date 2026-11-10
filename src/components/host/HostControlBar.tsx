@@ -43,10 +43,7 @@ export function HostControlBar({
 }: HostControlBarProps) {
   if (!canControl) {
     return (
-      <p
-        dir="rtl"
-        className="m-0 text-center text-[12px] text-bsy-stone-400"
-      >
+      <p dir="rtl" className="m-0 text-center text-[12px] text-bsy-stone-400">
         מצב צפייה בלבד — המשתתפים קובעים את הקצב בעצמם
       </p>
     );
@@ -71,7 +68,9 @@ export function HostControlBar({
       <div
         className={[
           "flex items-center gap-2",
-          isCompact ? "order-2 justify-between" : "order-2 md:order-1 md:flex-1",
+          isCompact
+            ? "order-2 justify-between"
+            : "order-2 md:order-1 md:flex-1",
         ].join(" ")}
       >
         {showPause ? (
@@ -122,7 +121,12 @@ interface SecondaryActionProps {
   children: React.ReactNode;
 }
 
-function SecondaryAction({ onClick, disabled, tone = "neutral", children }: SecondaryActionProps) {
+function SecondaryAction({
+  onClick,
+  disabled,
+  tone = "neutral",
+  children,
+}: SecondaryActionProps) {
   const toneClass =
     tone === "danger"
       ? "border-bsy-error/30 text-bsy-error hover:border-bsy-error"
@@ -133,7 +137,7 @@ function SecondaryAction({ onClick, disabled, tone = "neutral", children }: Seco
       onClick={onClick}
       disabled={disabled}
       className={[
-        "inline-flex items-center justify-center rounded-full border bg-white px-4 py-2 text-[13px] font-bold transition-colors",
+        "inline-flex min-h-11 items-center justify-center rounded-full border bg-white px-4 py-2 text-[13px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bsy-forest",
         "disabled:cursor-not-allowed disabled:border-bsy-stone-100 disabled:text-bsy-stone-400",
         toneClass,
       ].join(" ")}

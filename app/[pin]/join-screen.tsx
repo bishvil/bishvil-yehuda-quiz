@@ -9,7 +9,8 @@ import { JoinFormField } from "@/src/components/participant/JoinFormField";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import { buildOAuthCallbackUrl } from "@/src/lib/auth/oauth-redirect";
 import type { ParticipantBrand } from "@/src/lib/participant/brands";
-import { joinSession } from "@/src/lib/participant/api-client";
+import { DEFAULT_JOIN_FIELDS } from "@/src/lib/constants";
+import { fetchQuizInfo, joinSession } from "@/src/lib/participant/api-client";
 import {
   isValidParticipantPin,
   PARTICIPANT_PIN_LENGTH,
@@ -17,6 +18,8 @@ import {
 import { createBrowserSupabaseClient } from "@/src/lib/supabase/browser";
 
 const TEAM_OPTIONS = ["צוות א׳", "צוות ב׳", "צוות ג׳", "צוות ד׳"] as const;
+const EMPTY_FIELDS: string[] = [];
+const DEFAULT_FIELDS = [...DEFAULT_JOIN_FIELDS];
 const GOOGLE_JOIN_DRAFT_PREFIX = "bsy:participant-google-join:";
 
 interface JoinDraft {
@@ -32,6 +35,7 @@ interface JoinScreenProps {
   quizTitle: string;
   customLogo: string | null;
   customLogoLabel: string | null;
+  joinFields?: string[];
   sessionStatus: "draft" | "scheduled" | "live" | "paused" | "ended";
 }
 
@@ -42,6 +46,7 @@ export function JoinScreen({
   customLogo,
   customLogoLabel,
   sessionStatus,
+  joinFields = DEFAULT_FIELDS,
 }: JoinScreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,6 +54,16 @@ export function JoinScreen({
   const [code, setCode] = useState(() =>
     isValidParticipantPin(pin) ? pin : "",
   );
+  const [destination, setDestination] = useState<{
+    pin: string;
+    fields: string[];
+  } | null>(null);
+  const activeJoinFields =
+    code === pin
+      ? joinFields
+      : destination?.pin === code
+        ? destination.fields
+        : EMPTY_FIELDS;
   const [phone, setPhone] = useState("");
   const [unit, setUnit] = useState("");
   const [team, setTeam] = useState("");
@@ -81,6 +96,25 @@ export function JoinScreen({
             }
           : null;
 
+  useEffect(() => {
+    let current = true;
+    if (code === pin || !isValidParticipantPin(code)) return;
+    void fetchQuizInfo(code)
+      .then((info) => {
+        if (current && info)
+          setDestination({
+            pin: code,
+            fields: info.joinFields ?? DEFAULT_FIELDS,
+          });
+      })
+      .catch(() => {
+        /* Keep current fields until the destination can be loaded. */
+      });
+    return () => {
+      current = false;
+    };
+  }, [code, pin]);
+
   const submitJoin = useCallback(
     async function submitJoin(draft: JoinDraft) {
       setSubmitting(true);
@@ -90,8 +124,12 @@ export function JoinScreen({
       try {
         const response = await joinSession(draft.code, {
           phone: draft.phone.trim(),
-          unit: draft.unit.trim() || undefined,
-          team: draft.team || undefined,
+          unit: activeJoinFields.includes("unit")
+            ? draft.unit.trim() || undefined
+            : undefined,
+          team: activeJoinFields.includes("team")
+            ? draft.team || undefined
+            : undefined,
           identityProvider: "google",
         });
 
@@ -111,7 +149,7 @@ export function JoinScreen({
         setSubmitting(false);
       }
     },
-    [router],
+    [router, activeJoinFields],
   );
 
   useEffect(() => {
@@ -228,27 +266,31 @@ export function JoinScreen({
               value={phone}
               onChange={setPhone}
               placeholder="050-1234567"
-              helpText="נשמור אותו כפרטי קשר לצד חשבון Google"
+              helpText="המספר נשמר כפרט קשר למפעיל; Google משמש לזיהוי ולשמירת ההתקדמות שלכם."
             />
-            <JoinFormField
-              id="join-unit"
-              label="גדוד / פלוגה"
-              type="text"
-              value={unit}
-              onChange={setUnit}
-              placeholder="גדוד 890"
-            />
-            <JoinFormField
-              id="join-team"
-              label="צוות"
-              type="select"
-              value={team}
-              onChange={setTeam}
-              options={TEAM_OPTIONS.map((option) => ({
-                value: option,
-                label: option,
-              }))}
-            />
+            {activeJoinFields.includes("unit") ? (
+              <JoinFormField
+                id="join-unit"
+                label="גדוד / פלוגה"
+                type="text"
+                value={unit}
+                onChange={setUnit}
+                placeholder="גדוד 890"
+              />
+            ) : null}
+            {activeJoinFields.includes("team") ? (
+              <JoinFormField
+                id="join-team"
+                label="צוות"
+                type="select"
+                value={team}
+                onChange={setTeam}
+                options={TEAM_OPTIONS.map((option) => ({
+                  value: option,
+                  label: option,
+                }))}
+              />
+            ) : null}
           </div>
 
           {error ? (

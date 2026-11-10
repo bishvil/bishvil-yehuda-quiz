@@ -20,7 +20,9 @@ export type QuestionTypeEnum =
   | "truefalse"
   | "image"
   | "video"
-  | "map";
+  | "map"
+  | "open"
+  | "content";
 export type QuestionStatusEnum =
   | "idle"
   | "presenting"
@@ -41,6 +43,8 @@ export interface QuestionMap {
     center?: { lat: number; lng: number };
     zoom?: number;
     toleranceKm: number;
+    baseStyle?: "satellite" | "streets";
+    labelLevel?: "none" | "major" | "medium" | "all";
     styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
   };
 }
@@ -191,6 +195,7 @@ export interface Database {
            */
           media_lead_seconds: number;
           explanation: string | null;
+          settings?: Json;
           time_seconds: number;
           points: number;
           created_at: string;
@@ -220,6 +225,7 @@ export interface Database {
           video_height?: number | null;
           media_lead_seconds?: number;
           explanation?: string | null;
+          settings?: Json;
           time_seconds?: number;
           points?: number;
           created_at?: string;
@@ -234,6 +240,7 @@ export interface Database {
           question_id: string;
           participant_id: string;
           submitted_at: string;
+          text_answer?: string | null;
           selected_ids: string[] | null;
           /** ADR-0011 §6.3 — geographic pin (degrees). */
           pin_lat: string | null;
@@ -261,6 +268,7 @@ export interface Database {
           question_id: string;
           participant_id: string;
           submitted_at?: string;
+          text_answer?: string | null;
           selected_ids?: string[] | null;
           pin_lat?: string | null;
           pin_lng?: string | null;
@@ -306,8 +314,9 @@ export interface Database {
           question_id: string;
           question_index: number;
           status: AsyncQuestionStatusEnum;
-          started_at: string;
-          deadline_at: string;
+          started_at: string | null;
+          deadline_at: string | null;
+          location_unlocked_at?: string | null;
           revealed_at: string | null;
         };
         Insert: {
@@ -316,8 +325,9 @@ export interface Database {
           question_id: string;
           question_index: number;
           status: AsyncQuestionStatusEnum;
-          started_at: string;
-          deadline_at: string;
+          started_at: string | null;
+          deadline_at: string | null;
+          location_unlocked_at?: string | null;
           revealed_at?: string | null;
         };
         Update: Partial<
@@ -348,11 +358,33 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      reorder_quiz_questions: {
+        Args: {
+          p_quiz_id: string;
+          p_ordinals: Json;
+          p_allow_locked_edit?: boolean;
+        };
+        Returns: number;
+      };
+      unlock_quiz_station: {
+        Args: {
+          p_session_id: string;
+          p_participant_id: string;
+          p_question_id: string;
+          p_lat?: number;
+          p_lng?: number;
+          p_accuracy?: number;
+          p_measured_at?: string;
+          p_actor?: string;
+        };
+        Returns: string;
+      };
       submit_answer: {
         Args: {
           p_session_id: string;
           p_participant_id: string;
           p_question_id: string;
+          p_text_answer?: string | null;
           p_selected_ids?: string[] | null;
           /** ADR-0011 §5 — geographic pin (degrees, WGS-84). */
           p_pin_lat?: number | null;

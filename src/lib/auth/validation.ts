@@ -49,7 +49,13 @@ export const mapGeoAnswerSchema = z.object({
   }),
 });
 
+export const openAnswerSchema = z.object({
+  questionId: z.string().uuid(),
+  textAnswer: z.string().trim().min(1).max(2000),
+});
+
 export const submitAnswerRequestSchema = z.union([
+  openAnswerSchema,
   choiceAnswerSchema,
   mapGeoAnswerSchema,
 ]);

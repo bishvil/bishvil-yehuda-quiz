@@ -31,6 +31,8 @@ const storedQuestionMapGeoSchema = z.object({
   center: storedQuestionMapGeoCenterSchema.optional(),
   zoom: z.number().min(1).max(18).optional(),
   toleranceKm: z.number().min(0.05).max(500),
+  baseStyle: z.enum(["satellite", "streets"]).optional(),
+  labelLevel: z.enum(["none", "major", "medium", "all"]).optional(),
   styleHint: storedQuestionMapStyleHintSchema.optional(),
 });
 
@@ -55,7 +57,9 @@ const optionQuestionTypes = new Set<QuestionTypeEnum>([
   "video",
 ]);
 
-export function parseStoredQuestionOptions(value: unknown):
+export function parseStoredQuestionOptions(
+  value: unknown,
+):
   | { success: true; data: StoredQuestionOption[] | null }
   | { success: false; error: z.ZodError } {
   if (value === null || value === undefined) {
@@ -67,7 +71,9 @@ export function parseStoredQuestionOptions(value: unknown):
   return { success: true, data: parsed.data };
 }
 
-export function parseStoredQuestionMap(value: unknown):
+export function parseStoredQuestionMap(
+  value: unknown,
+):
   | { success: true; data: StoredQuestionMap | null }
   | { success: false; error: z.ZodError } {
   if (value === null || value === undefined) {
@@ -115,7 +121,10 @@ export function validateStoredQuestionContent(args: {
   }
 
   const needsOptions = optionQuestionTypes.has(args.type);
-  if (needsOptions && (!options.success || !options.data || options.data.length === 0)) {
+  if (
+    needsOptions &&
+    (!options.success || !options.data || options.data.length === 0)
+  ) {
     issues.push({
       path: ["options"],
       message: "Choice questions must have at least one valid option.",

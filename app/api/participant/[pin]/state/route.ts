@@ -2,6 +2,10 @@ import { type NextRequest } from "next/server";
 
 import { privateNoStoreJson } from "@/src/lib/http/responses";
 import { requireRole } from "@/src/lib/auth/server-auth";
+import {
+  hasTimeLimit,
+  readQuestionSettings,
+} from "@/src/lib/schemas/question-settings";
 import { computeMediaPaddedDeadline } from "@/src/lib/sessions/deadline";
 import { findPublicSessionByPin } from "@/src/lib/sessions/lookup";
 import {
@@ -109,7 +113,7 @@ export async function GET(
       ? serviceSupabase
           .from("questions")
           .select(
-            "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, time_seconds, points, correct_ids, explanation",
+            "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, settings, time_seconds, points, correct_ids, explanation",
           )
           .eq("id", syncCurrentQuestionId)
           .maybeSingle()
@@ -125,6 +129,7 @@ export async function GET(
 
   const sessionPayload: ParticipantStateResponse["session"] = {
     status: session.status,
+    participantStatus: participant.status,
     gameMode: session.game_mode,
     quizTitle: quiz?.title ?? "",
     brandId: quiz?.brand_id ?? "",
@@ -132,6 +137,15 @@ export async function GET(
   };
 
   const myScore = scoreRow?.total_score ?? 0;
+  if (participant.status === "completed" || session.status === "ended") {
+    return privateNoStoreJson<ParticipantStateResponse>({
+      session: sessionPayload,
+      question: null,
+      myAnswer: null,
+      myScore,
+      reveal: null,
+    });
+  }
 
   // Sync mode: shared current_question_id; question state is per-session.
   if (session.game_mode === "sync") {
@@ -227,6 +241,11 @@ export async function GET(
 
     const reveal = isRevealed
       ? {
+          acceptedAnswer:
+            currentQuestion.type === "open"
+              ? (readQuestionSettings(currentQuestion.settings)
+                  .acceptedAnswers?.[0] ?? null)
+              : null,
           correctIds: currentQuestion.correct_ids,
           explanation: currentQuestion.explanation,
           mapGeoTarget: extractMapGeoTarget(currentQuestion.map),
@@ -264,7 +283,7 @@ export async function GET(
   if (!currentProgress) {
     const { data: firstQuestion } = await serviceSupabase
       .from("questions")
-      .select("id, ordinal, time_seconds, media_lead_seconds")
+      .select("id, ordinal, time_seconds, settings, type, media_lead_seconds")
       .eq("quiz_id", session.quiz_id)
       .order("ordinal", { ascending: true })
       .limit(1)
@@ -284,27 +303,53 @@ export async function GET(
     }
 
     const startedAt = new Date();
+    const locationLocked = Boolean(
+      readQuestionSettings(firstQuestion.settings).locationGate,
+    );
     const deadlineAt = computeMediaPaddedDeadline(
       startedAt,
       firstQuestion.time_seconds,
       firstQuestion.media_lead_seconds,
+      hasTimeLimit(firstQuestion.type, firstQuestion.settings),
     );
 
     const { data: created } = await serviceSupabase
       .from("participant_question_progress")
-      .insert({
-        session_id: session.id,
-        participant_id: participant.id,
-        question_id: firstQuestion.id,
-        question_index: firstQuestion.ordinal,
-        status: "answering",
-        started_at: startedAt.toISOString(),
-        deadline_at: deadlineAt.toISOString(),
-      })
+      .upsert(
+        {
+          session_id: session.id,
+          participant_id: participant.id,
+          question_id: firstQuestion.id,
+          question_index: firstQuestion.ordinal,
+          status:
+            firstQuestion.type === "content" && !locationLocked
+              ? "revealed"
+              : "answering",
+          started_at: locationLocked ? null : startedAt.toISOString(),
+          deadline_at: locationLocked
+            ? null
+            : (deadlineAt?.toISOString() ?? null),
+        },
+        {
+          onConflict: "session_id,participant_id,question_id",
+          ignoreDuplicates: true,
+        },
+      )
       .select("*")
       .maybeSingle();
 
-    currentProgress = created ?? null;
+    currentProgress =
+      created ??
+      (
+        await serviceSupabase
+          .from("participant_question_progress")
+          .select("*")
+          .eq("session_id", session.id)
+          .eq("participant_id", participant.id)
+          .eq("question_id", firstQuestion.id)
+          .maybeSingle()
+      ).data ??
+      null;
 
     if (!currentProgress) {
       writeLog({
@@ -339,7 +384,7 @@ export async function GET(
   const { data: question } = await serviceSupabase
     .from("questions")
     .select(
-      "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, time_seconds, points, correct_ids, explanation",
+      "id, ordinal, type, prompt, options, map, image_url, image_alt, image_width, image_height, video_url, video_embed_url, video_provider, video_mime_type, video_duration_seconds, video_poster_url, video_width, video_height, media_lead_seconds, settings, time_seconds, points, correct_ids, explanation",
     )
     .eq("id", currentProgress.question_id)
     .maybeSingle();
@@ -369,6 +414,21 @@ export async function GET(
     deadlineAt: progress?.deadline_at ?? currentProgress.deadline_at,
     serverNow: new Date(),
   });
+
+  if (
+    questionPayload &&
+    readQuestionSettings(question.settings).locationGate &&
+    !(progress ?? currentProgress).location_unlocked_at
+  ) {
+    questionPayload.locationLocked = true;
+    questionPayload.prompt = "הגיעו למיקום התחנה כדי לפתוח אותה";
+    questionPayload.options = null;
+    questionPayload.map = null;
+    questionPayload.imageUrl = null;
+    questionPayload.videoUrl = null;
+    questionPayload.videoEmbedUrl = null;
+    questionPayload.deadlineAt = null;
+  }
 
   if (!questionPayload) {
     writeLog({
@@ -403,13 +463,19 @@ export async function GET(
       })
     : null;
 
-  const reveal = isRevealed
-    ? {
-        correctIds: question.correct_ids,
-        explanation: question.explanation,
-        mapGeoTarget: extractMapGeoTarget(question.map),
-      }
-    : null;
+  const reveal =
+    isRevealed && !questionPayload.locationLocked
+      ? {
+          acceptedAnswer:
+            question.type === "open"
+              ? (readQuestionSettings(question.settings).acceptedAnswers?.[0] ??
+                null)
+              : null,
+          correctIds: question.correct_ids,
+          explanation: question.explanation,
+          mapGeoTarget: extractMapGeoTarget(question.map),
+        }
+      : null;
 
   return privateNoStoreJson<ParticipantStateResponseBody>(
     {

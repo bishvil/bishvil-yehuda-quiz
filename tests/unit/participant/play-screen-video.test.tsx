@@ -92,6 +92,63 @@ describe("PlayScreen video questions", () => {
     expect(screen.getByTestId("participant-spotlight")).toBeInTheDocument();
   });
 
+  it("marks scored untimed questions explicitly and keeps information stations distinct", () => {
+    mock.state = buildChoiceState();
+    mock.state.question!.timeLimitEnabled = false;
+    mock.state.question!.deadlineAt = null;
+    const props = {
+      pin: "123456",
+      brand: BRAND,
+      customLogo: null,
+      customLogoLabel: null,
+      gameMode: "sync" as const,
+    };
+    const view = render(<PlayScreen {...props} />);
+    expect(screen.getByText("ללא הגבלת זמן")).toBeInTheDocument();
+    mock.state = {
+      ...mock.state,
+      question: {
+        ...mock.state.question!,
+        type: "content",
+        status: "revealed",
+        options: null,
+      },
+    };
+    view.rerender(<PlayScreen {...props} />);
+    expect(screen.queryByText("ללא הגבלת זמן")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("shows an accepted open answer only after the station is revealed", () => {
+    mock.state = buildChoiceState();
+    mock.state.question!.type = "open";
+    mock.state.question!.options = null;
+    mock.state.question!.timeLimitEnabled = false;
+    mock.state.question!.deadlineAt = null;
+    mock.state.reveal = {
+      acceptedAnswer: "ירושלים",
+      correctIds: null,
+      explanation: null,
+      mapGeoTarget: null,
+    };
+    const props = {
+      pin: "123456",
+      brand: BRAND,
+      customLogo: null,
+      customLogoLabel: null,
+      gameMode: "sync" as const,
+    };
+    const view = render(<PlayScreen {...props} />);
+    expect(screen.queryByText("ירושלים")).not.toBeInTheDocument();
+    mock.state = {
+      ...mock.state,
+      question: { ...mock.state.question!, status: "revealed" },
+    };
+    view.rerender(<PlayScreen {...props} />);
+    expect(screen.getByText("תשובה קבילה")).toBeInTheDocument();
+    expect(screen.getByText("ירושלים")).toBeInTheDocument();
+  });
+
   it("renders the configured question timer instead of the default", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-12T00:00:00.000Z"));

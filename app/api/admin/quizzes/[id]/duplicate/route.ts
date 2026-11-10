@@ -128,6 +128,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         image_height: row.image_height,
         image_path: row.image_path,
         explanation: row.explanation,
+        settings: row.settings ?? {},
         time_seconds: row.time_seconds,
         points: row.points,
         video_url: row.video_url,

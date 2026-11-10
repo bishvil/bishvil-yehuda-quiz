@@ -22,11 +22,20 @@ export async function searchMapPlaces(
 
   const results: PlaceSearchResult[] = [];
 
-  for (const provider of [searchMapTilerPlaces, searchNominatimPlaces]) {
-    const providerResults = await provider(normalizedQuery).catch(() => []);
-    results.push(...providerResults);
+  const providers = process.env.NEXT_PUBLIC_MAPTILER_KEY
+    ? [searchMapTilerPlaces, searchNominatimPlaces]
+    : [searchNominatimPlaces];
+  let completed = false;
+  for (const provider of providers) {
+    try {
+      results.push(...(await provider(normalizedQuery)));
+      completed = true;
+    } catch {
+      // Try the next provider, but do not misreport total network failure as no matches.
+    }
     if (results.length >= RESULT_LIMIT) break;
   }
+  if (!completed) throw new Error("Place search is temporarily unavailable");
 
   return mergePlaceResults(results).slice(0, RESULT_LIMIT);
 }
@@ -52,12 +61,9 @@ async function searchMapTilerPlaces(
     worldview: "default",
   });
 
-  const response = await fetch(
+  const data = (await fetchPlaceData(
     `https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json?${params.toString()}`,
-  );
-  if (!response.ok) throw new Error("MapTiler place search failed");
-
-  const data = (await response.json()) as {
+  )) as {
     features?: Array<{
       id?: string;
       text?: string;
@@ -109,12 +115,9 @@ async function searchNominatimPlaces(
     "accept-language": "he,en",
   });
 
-  const response = await fetch(
+  const data = (await fetchPlaceData(
     `https://nominatim.openstreetmap.org/search?${params.toString()}`,
-  );
-  if (!response.ok) throw new Error("Nominatim place search failed");
-
-  const data = (await response.json()) as Array<{
+  )) as Array<{
     place_id?: number;
     osm_id?: number;
     display_name?: string;
@@ -151,4 +154,16 @@ function mergePlaceResults(results: PlaceSearchResult[]): PlaceSearchResult[] {
     merged.push(result);
   }
   return merged;
+}
+
+async function fetchPlaceData(url: string): Promise<unknown> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error("Place search provider failed");
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }

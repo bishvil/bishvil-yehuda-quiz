@@ -88,9 +88,7 @@ export function JoinFormField({
         />
       )}
       {helpText ? (
-        <p className="mt-1 text-[11px] leading-snug text-bsy-stone-400">
-          {helpText}
-        </p>
+        <p className="mt-1 text-xs leading-6 text-bsy-stone-700">{helpText}</p>
       ) : null}
     </div>
   );

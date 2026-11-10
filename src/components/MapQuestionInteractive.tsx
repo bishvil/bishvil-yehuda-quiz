@@ -32,7 +32,8 @@ import {
 } from "@/src/components/map/InteractiveMap";
 
 const InteractiveMap = dynamic(
-  () => import("@/src/components/map/InteractiveMap").then((m) => m.InteractiveMap),
+  () =>
+    import("@/src/components/map/InteractiveMap").then((m) => m.InteractiveMap),
   {
     ssr: false,
     loading: () => (
@@ -51,6 +52,8 @@ export interface MapQuestionGeoMeta {
   center?: LatLng;
   zoom?: number;
   toleranceKm: number;
+  baseStyle?: "satellite" | "streets";
+  labelLevel?: "none" | "major" | "medium" | "all";
   styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
 }
 
@@ -93,8 +96,7 @@ export function MapQuestionInteractive({
     revealed && pin && target ? haversineKmInline(pin, target) : null;
   // Strict boundary: d < tolerance is correct. Matches the server-side
   // partial-credit formula in `submit_answer` (d=tol earns ratio=0, not correct).
-  const isCorrect =
-    distanceKm !== null ? distanceKm < geo.toleranceKm : null;
+  const isCorrect = distanceKm !== null ? distanceKm < geo.toleranceKm : null;
 
   const markers = useMemo(() => {
     const list: InteractiveMarker[] = [];
@@ -157,6 +159,8 @@ export function MapQuestionInteractive({
         <InteractiveMap
           initialView={initialView}
           styleHint={geo.styleHint}
+          baseStyle={geo.baseStyle}
+          labelLevel={geo.labelLevel}
           onMapClick={interactionDisabled ? undefined : onPin}
           markers={markers}
           segments={segments}
@@ -172,7 +176,9 @@ export function MapQuestionInteractive({
           </div>
         ) : null}
       </div>
-      <p className="px-1.5 text-center text-xs text-bsy-stone-700">{helpText}</p>
+      <p className="px-1.5 text-center text-xs text-bsy-stone-700">
+        {helpText}
+      </p>
     </div>
   );
 }

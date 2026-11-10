@@ -28,6 +28,7 @@ interface AdminQuestionDetailBody {
     imageHeight: number | null;
     imagePath: string | null;
     explanation: string | null;
+    settings?: Json;
     timeSeconds: number;
     points: number;
     videoUrl: string | null;
@@ -70,6 +71,7 @@ function toDetail(
     imageHeight: row.image_height,
     imagePath: row.image_path,
     explanation: row.explanation,
+    settings: row.settings ?? {},
     timeSeconds: row.time_seconds,
     points: row.points,
     videoUrl: row.video_url ?? null,
@@ -140,6 +142,8 @@ export async function PUT(
   if (!lock.ok) return lock.response;
 
   const update: Database["public"]["Tables"]["questions"]["Update"] = {};
+  if (parsed.data.settings !== undefined)
+    update.settings = parsed.data.settings;
   if (parsed.data.ordinal !== undefined) update.ordinal = parsed.data.ordinal;
   if (parsed.data.type !== undefined) update.type = parsed.data.type;
   if (parsed.data.prompt !== undefined) update.prompt = parsed.data.prompt;

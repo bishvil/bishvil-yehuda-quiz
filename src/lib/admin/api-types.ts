@@ -14,6 +14,11 @@ export interface AdminQuizListItem {
   id: string;
   title: string;
   brandId: string;
+  brandName?: string;
+  brandLogoUrl?: string | null;
+  brandPrimary?: string;
+  /** Canonical brand slug (or UUID for brands without a slug), used by filters. */
+  brandKey?: string;
   defaultGameMode: GameMode;
   customLogoActive: boolean;
   archivedAt: string | null;
@@ -106,6 +111,7 @@ export interface AdminQuestionListItem {
   imageHeight: number | null;
   imagePath: string | null;
   explanation: string | null;
+  settings?: import("@/src/lib/schemas/question-settings").QuestionSettings;
   timeSeconds: number;
   points: number;
   createdAt?: string;
@@ -139,6 +145,7 @@ export interface AdminQuestionCreateRequest {
   imageHeight?: number;
   imagePath?: string;
   explanation?: string;
+  settings?: import("@/src/lib/schemas/question-settings").QuestionSettings;
   timeSeconds?: number;
   points?: number;
   videoUrl?: string | null;
@@ -259,6 +266,7 @@ export interface AdminSessionResultPlayer {
   totalScore: number;
   correctCount: number;
   streak: number;
+  locationLockedQuestionId?: string | null;
   joinedAt: string;
 }
 
@@ -266,6 +274,7 @@ export interface AdminSessionResultAnswer {
   questionId: string;
   participantId: string;
   submittedAt: string;
+  textAnswer?: string | null;
   selectedIds: string[] | null;
   pinLat: string | null;
   pinLng: string | null;
@@ -318,6 +327,7 @@ export interface AdminParticipantParticipation {
   gameMode: GameMode;
   startedAt: string | null;
   endedAt: string | null;
+  locationLockedQuestionId?: string | null;
   joinedAt: string;
   firstName: string;
   lastName: string;

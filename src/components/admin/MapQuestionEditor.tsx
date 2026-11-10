@@ -55,6 +55,8 @@ export interface MapQuestionGeoDraft {
   toleranceKm: number;
   center?: LatLng;
   zoom?: number;
+  baseStyle?: "satellite" | "streets";
+  labelLevel?: "none" | "major" | "medium" | "all";
   styleHint?: MapStyleHint;
 }
 
@@ -257,15 +259,60 @@ export function MapQuestionEditor({
             styleHint={draft.styleHint}
             onMapClick={handlePlace}
             onMove={setView}
-            showLabels
+            baseStyle={draft.baseStyle}
+            labelLevel={draft.labelLevel ?? "none"}
             flyTo={flyTo}
             isAdmin
             markers={markers}
+            radiusArea={{
+              center: draft.target,
+              radiusM: draft.toleranceKm * 1000,
+            }}
             ariaLabel="עורך שאלת מפה"
           />
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        <label>
+          רקע המפה
+          <select
+            className="mt-1 block min-h-11 w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-sm text-bsy-ink focus:border-bsy-forest focus:outline-none"
+            value={draft.baseStyle ?? "satellite"}
+            onChange={(e) =>
+              onChange({
+                ...draft,
+                baseStyle: e.target.value as "satellite" | "streets",
+              })
+            }
+          >
+            <option value="satellite">לוויין</option>
+            <option value="streets">מפת רחובות</option>
+          </select>
+        </label>
+        <label>
+          שמות יישובים
+          <select
+            className="mt-1 block min-h-11 w-full rounded-md border border-bsy-stone-200 bg-white px-3 py-2 text-sm text-bsy-ink focus:border-bsy-forest focus:outline-none"
+            value={draft.labelLevel ?? "none"}
+            onChange={(e) =>
+              onChange({
+                ...draft,
+                labelLevel: e.target.value as
+                  | "none"
+                  | "major"
+                  | "medium"
+                  | "all",
+              })
+            }
+          >
+            <option value="none">ללא שמות</option>
+            <option value="major">1 — ערים גדולות</option>
+            <option value="medium">2 — גם ערים ויישובים בינוניים</option>
+            <option value="all">3 — כלל היישובים</option>
+          </select>
+        </label>
+      </div>
       <MapQuestionDetails
         target={draft.target}
         center={draft.center}

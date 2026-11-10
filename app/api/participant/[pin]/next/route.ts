@@ -2,6 +2,10 @@ import { type NextRequest } from "next/server";
 
 import { requireRole } from "@/src/lib/auth/server-auth";
 import { noStoreJson } from "@/src/lib/http/responses";
+import {
+  hasTimeLimit,
+  readQuestionSettings,
+} from "@/src/lib/schemas/question-settings";
 import { computeMediaPaddedDeadline } from "@/src/lib/sessions/deadline";
 import { lazyExpireAsyncProgress } from "@/src/lib/sessions/expiry";
 import { findActiveSessionByPin } from "@/src/lib/sessions/lookup";
@@ -79,6 +83,15 @@ export async function POST(
     );
   }
 
+  if (
+    session.status !== "live" ||
+    (session.ended_at && Date.parse(session.ended_at) < Date.now())
+  ) {
+    return noStoreJson(
+      { error: "SESSION_EXPIRED", message: "Session is not available." },
+      { status: 409 },
+    );
+  }
   const participantId = auth.claims.userId;
 
   const { data: participant } = await serviceSupabase
@@ -95,6 +108,20 @@ export async function POST(
     );
   }
 
+  if (participant.status === "completed") {
+    return noStoreJson<AdvanceResponseBody>(
+      { status: "completed" },
+      { status: 200 },
+    );
+  }
+
+  const requestBody = await _request.json().catch(() => null);
+  const expectedQuestionId =
+    requestBody &&
+    typeof requestBody === "object" &&
+    typeof requestBody.questionId === "string"
+      ? requestBody.questionId
+      : null;
   // Find the participant's current (latest) progress row.
   const { data: latestProgressRows } = await serviceSupabase
     .from("participant_question_progress")
@@ -113,6 +140,18 @@ export async function POST(
         message: "No current question to advance from.",
       },
       { status: 409 },
+    );
+  }
+
+  // A retried click from the previous content station must not skip a second station.
+  if (expectedQuestionId && latestProgress.question_id !== expectedQuestionId) {
+    return noStoreJson<AdvanceResponseBody>(
+      {
+        status: "advanced",
+        questionId: latestProgress.question_id,
+        questionIndex: latestProgress.question_index,
+      },
+      { status: 200 },
     );
   }
 
@@ -139,7 +178,7 @@ export async function POST(
   // Find the next question by ordinal.
   const { data: nextQuestion } = await serviceSupabase
     .from("questions")
-    .select("id, ordinal, time_seconds, media_lead_seconds")
+    .select("id, ordinal, time_seconds, settings, type, media_lead_seconds")
     .eq("quiz_id", session.quiz_id)
     .gt("ordinal", latestProgress.question_index)
     .order("ordinal", { ascending: true })
@@ -148,10 +187,17 @@ export async function POST(
 
   if (!nextQuestion) {
     // No more questions — mark participant completed.
-    await serviceSupabase
+    const { error: completionError } = await serviceSupabase
       .from("session_participants")
       .update({ status: "completed" })
-      .eq("id", participantId);
+      .eq("id", participantId)
+      .eq("session_id", session.id);
+    if (completionError) {
+      return noStoreJson<AdvanceResponseBody>(
+        { error: "ADVANCE_FAILED", message: "Could not save completion." },
+        { status: 500 },
+      );
+    }
 
     return noStoreJson<AdvanceResponseBody>(
       { status: "completed" },
@@ -181,27 +227,55 @@ export async function POST(
   }
 
   const startedAt = new Date();
+  const locationLocked = Boolean(
+    readQuestionSettings(nextQuestion.settings).locationGate,
+  );
   const deadlineAt = computeMediaPaddedDeadline(
     startedAt,
     nextQuestion.time_seconds,
     nextQuestion.media_lead_seconds,
+    hasTimeLimit(nextQuestion.type, nextQuestion.settings),
   );
 
   const { data: created, error: createError } = await serviceSupabase
     .from("participant_question_progress")
-    .insert({
-      session_id: session.id,
-      participant_id: participantId,
-      question_id: nextQuestion.id,
-      question_index: nextQuestion.ordinal,
-      status: "answering",
-      started_at: startedAt.toISOString(),
-      deadline_at: deadlineAt.toISOString(),
-    })
+    .upsert(
+      {
+        session_id: session.id,
+        participant_id: participantId,
+        question_id: nextQuestion.id,
+        question_index: nextQuestion.ordinal,
+        status:
+          nextQuestion.type === "content" && !locationLocked
+            ? "revealed"
+            : "answering",
+        started_at: locationLocked ? null : startedAt.toISOString(),
+        deadline_at: locationLocked
+          ? null
+          : (deadlineAt?.toISOString() ?? null),
+      },
+      {
+        onConflict: "session_id,participant_id,question_id",
+        ignoreDuplicates: true,
+      },
+    )
     .select("*")
     .maybeSingle();
 
-  if (createError || !created) {
+  const persisted =
+    created ??
+    (!createError
+      ? (
+          await serviceSupabase
+            .from("participant_question_progress")
+            .select("*")
+            .eq("session_id", session.id)
+            .eq("participant_id", participantId)
+            .eq("question_id", nextQuestion.id)
+            .maybeSingle()
+        ).data
+      : null);
+  if (createError || !persisted) {
     writeLog({
       level: "error",
       message: "Async progress advance insert failed",
@@ -214,7 +288,10 @@ export async function POST(
     });
 
     return noStoreJson<AdvanceResponseBody>(
-      { error: "ADVANCE_FAILED", message: "Could not advance to the next question." },
+      {
+        error: "ADVANCE_FAILED",
+        message: "Could not advance to the next question.",
+      },
       { status: 500 },
     );
   }
@@ -222,8 +299,8 @@ export async function POST(
   return noStoreJson<AdvanceResponseBody>(
     {
       status: "advanced",
-      questionId: created.question_id,
-      questionIndex: created.question_index,
+      questionId: persisted.question_id,
+      questionIndex: persisted.question_index,
     },
     { status: 200 },
   );

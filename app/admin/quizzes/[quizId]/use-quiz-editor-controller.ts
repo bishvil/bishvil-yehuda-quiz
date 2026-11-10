@@ -88,7 +88,12 @@ export function useQuizEditorController(quizId: string) {
       });
       setHasAnySession(quizBody.quiz.hasAnySession);
       setLockedEditingEnabled(false);
-      setQuestions(questionsBody.questions.map(rowToEditable));
+      const loadedQuestions = questionsBody.questions.map(rowToEditable);
+      previousSnapshotRef.current = loadedQuestions;
+      serverIdsByClientIdRef.current = new Map(
+        loadedQuestions.map((question) => [question.clientId, question.id!]),
+      );
+      setQuestions(loadedQuestions);
       initialQuestionsLoadedRef.current = true;
       setQuestionsAutosaveEnabled(!quizBody.quiz.hasAnySession);
       setStatus("ready");
@@ -117,32 +122,59 @@ export function useQuizEditorController(quizId: string) {
 
   const runFullQuestionSave = useCallback(
     async (snapshot: EditableQuestion[]) => {
+      // Never swap unique ordinals through individual PATCHes. Content changes
+      // and newly added rows can share a debounce window with reordering.
+      const stored = await listAdminQuestions(quizId);
+      if (isAdminApiError(stored)) throw new Error(stored.message);
+      const storedOrdinals = new Map(
+        stored.questions.map((row) => [row.id, row.ordinal]),
+      );
+      let appendOrdinal = Math.max(0, ...storedOrdinals.values());
+      let needsReorder = false;
+      const resolvedSnapshot: EditableQuestion[] = [];
       for (const q of snapshot) {
-        if (q.id === null) {
+        let serverId = q.id ?? serverIdsByClientIdRef.current.get(q.clientId);
+        if (!serverId) {
+          const createdOrdinal = ++appendOrdinal;
           const body = await createAdminQuestion(
             quizId,
-            buildQuestionCreateRequest(q),
+            { ...buildQuestionCreateRequest(q), ordinal: createdOrdinal },
             { allowLockedQuizEdit },
           );
           if (isAdminApiError(body)) throw new Error(body.message);
-          serverIdsByClientIdRef.current.set(q.clientId, body.question.id);
+          serverId = body.question.id;
+          storedOrdinals.set(serverId, createdOrdinal);
+          serverIdsByClientIdRef.current.set(q.clientId, serverId);
           setQuestions((prev) =>
             prev.map((row) =>
-              row.clientId === q.clientId
-                ? { ...row, id: body.question.id }
-                : row,
+              row.clientId === q.clientId ? { ...row, id: serverId! } : row,
             ),
           );
         } else {
-          const body = await updateAdminQuestion(
-            quizId,
-            q.id,
-            buildQuestionUpdateRequest(q),
-            { allowLockedQuizEdit },
-          );
+          const content = buildQuestionUpdateRequest(q);
+          delete content.ordinal;
+          const body = await updateAdminQuestion(quizId, serverId, content, {
+            allowLockedQuizEdit,
+          });
           if (isAdminApiError(body)) throw new Error(body.message);
         }
+        needsReorder ||= storedOrdinals.get(serverId) !== q.ordinal;
+        resolvedSnapshot.push({ ...q, id: serverId });
       }
+      if (needsReorder) {
+        const result = await reorderAdminQuestions(
+          quizId,
+          {
+            ordinals: resolvedSnapshot.map((q) => ({
+              id: q.id!,
+              ordinal: q.ordinal,
+            })),
+          },
+          { allowLockedQuizEdit },
+        );
+        if (isAdminApiError(result)) throw new Error(result.message);
+      }
+      return resolvedSnapshot;
     },
     [allowLockedQuizEdit, quizId],
   );
@@ -174,8 +206,7 @@ export function useQuizEditorController(quizId: string) {
           previousSnapshotRef.current = snapshot;
           return;
         }
-        await runFullQuestionSave(snapshot);
-        previousSnapshotRef.current = snapshot;
+        previousSnapshotRef.current = await runFullQuestionSave(snapshot);
       })();
       questionsSaveInflightRef.current = work;
       try {

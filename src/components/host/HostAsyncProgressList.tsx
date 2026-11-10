@@ -25,12 +25,16 @@ export function HostAsyncProgressList({
   return (
     <div
       dir="rtl"
-      className="rounded-md border border-bsy-stone-100 bg-white p-3"
+      className="flex max-h-[40%] min-h-20 shrink-0 flex-col rounded-md border border-bsy-stone-100 bg-white p-3"
     >
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400">
+      <p className="mb-2 shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-bsy-stone-400">
         התקדמות משתתפים
       </p>
-      <ul className="m-0 flex flex-col gap-1 p-0">
+      <ul
+        aria-label="התקדמות משתתפים"
+        tabIndex={0}
+        className="m-0 flex min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain p-0 focus-visible:outline-2 focus-visible:outline-bsy-forest"
+      >
         {progress.map((entry) => {
           const fraction =
             totalQuestions > 0
@@ -41,7 +45,7 @@ export function HostAsyncProgressList({
           return (
             <li
               key={entry.participantId}
-              className="flex items-center gap-2 text-[12px]"
+              className="flex shrink-0 items-center gap-2 text-[12px]"
             >
               <span className="w-24 shrink-0 truncate font-medium text-bsy-ink">
                 {entry.displayName}

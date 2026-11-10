@@ -65,7 +65,22 @@ export function QuizQuestionListPanel({
         disabled={disabled}
       >
         {questions.map((q, i) => (
-          <SortableQuestionCard key={q.clientId} id={q.clientId}>
+          <SortableQuestionCard
+            key={q.clientId}
+            id={q.clientId}
+            position={i + 1}
+            disabled={disabled}
+            onMoveUp={
+              i > 0
+                ? () => onReorder(q.clientId, questions[i - 1]?.clientId)
+                : undefined
+            }
+            onMoveDown={
+              i < questions.length - 1
+                ? () => onReorder(q.clientId, questions[i + 1]?.clientId)
+                : undefined
+            }
+          >
             <QuestionRow
               question={q}
               index={i}

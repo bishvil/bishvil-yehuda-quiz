@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
+import { hasTimeLimit } from "@/src/lib/schemas/question-settings";
 
 import {
   questionCacheTag,
@@ -20,7 +21,7 @@ interface HostQuestionBeginAnsweringSuccessBody {
   questionIndex: number;
   status: "answering";
   startedAt: string;
-  deadlineAt: string;
+  deadlineAt: string | null;
 }
 
 interface HostQuestionBeginAnsweringErrorBody {
@@ -69,7 +70,7 @@ export async function POST(
 
   const { data: question } = await serviceSupabase
     .from("questions")
-    .select("id, ordinal, time_seconds, quiz_id")
+    .select("id, ordinal, time_seconds, settings, type, quiz_id")
     .eq("id", parsed.data.questionId)
     .maybeSingle();
 
@@ -100,9 +101,11 @@ export async function POST(
   }
 
   const startedAt = new Date();
-  const deadlineAt = new Date(startedAt.getTime() + question.time_seconds * 1000);
+  const deadlineAt = hasTimeLimit(question.type, question.settings)
+    ? new Date(startedAt.getTime() + question.time_seconds * 1000)
+    : null;
   const startedAtIso = startedAt.toISOString();
-  const deadlineAtIso = deadlineAt.toISOString();
+  const deadlineAtIso = deadlineAt?.toISOString() ?? null;
 
   const { error: updateError } = await serviceSupabase
     .from("question_session_state")
@@ -139,4 +142,3 @@ export async function POST(
     deadlineAt: deadlineAtIso,
   });
 }
-

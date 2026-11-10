@@ -27,6 +27,7 @@ interface AdminQuestionListItem {
   imageHeight: number | null;
   imagePath: string | null;
   explanation: string | null;
+  settings?: Json;
   timeSeconds: number;
   points: number;
   createdAt: string;
@@ -73,6 +74,7 @@ function toListItem(
     imageHeight: row.image_height,
     imagePath: row.image_path,
     explanation: row.explanation,
+    settings: row.settings ?? {},
     timeSeconds: row.time_seconds,
     points: row.points,
     createdAt: row.created_at,
@@ -172,6 +174,7 @@ export async function POST(
     image_height: parsed.data.imageHeight ?? null,
     image_path: parsed.data.imagePath ?? null,
     explanation: parsed.data.explanation ?? null,
+    settings: parsed.data.settings ?? {},
     time_seconds: parsed.data.timeSeconds,
     points: parsed.data.points,
     video_url: parsed.data.videoUrl ?? null,

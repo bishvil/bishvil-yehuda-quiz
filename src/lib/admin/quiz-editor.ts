@@ -24,6 +24,8 @@ export interface EditableQuestionMap {
     center?: { lat: number; lng: number };
     zoom?: number;
     toleranceKm: number;
+    baseStyle?: "satellite" | "streets";
+    labelLevel?: "none" | "major" | "medium" | "all";
     styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
   };
 }
@@ -49,6 +51,9 @@ export interface EditableQuestion {
   /** Supabase storage path for future orphan cleanup — admin-only, never sent to participants. */
   imagePath: string | null;
   explanation: string | null;
+  /** Local-only draft: choose a GPS point before launching. */
+  locationGatePending?: boolean;
+  settings?: import("@/src/lib/schemas/question-settings").QuestionSettings;
   timeSeconds: number;
   points: number;
   // --- Video fields — populated only for type === "video" (mirrors the image
@@ -110,6 +115,7 @@ export function makeBlankQuestion(ordinal: number): EditableQuestion {
     clientId: nextClientId(),
     ordinal,
     type: "single",
+    settings: {},
     prompt: "שאלה חדשה",
     options: SCAFFOLDED_OPTIONS.map((option) => ({ ...option })),
     correctIds: ["a"],
@@ -216,6 +222,23 @@ export function validateQuestions(
         field: "video",
         message:
           "יש להזין את משך הסרטון בשניות כדי שהמערכת תוכל לאכוף את הצפייה לפני הצגת התשובות.",
+      });
+    }
+    if (q.locationGatePending) {
+      findings.push({
+        questionClientId: q.clientId,
+        field: "map",
+        message: "בחרו מיקום לפתיחת התחנה או בטלו את הפתיחה לפי GPS",
+      });
+    }
+    if (
+      q.type === "open" &&
+      !q.settings?.acceptedAnswers?.some((answer) => answer.trim().length > 0)
+    ) {
+      findings.push({
+        questionClientId: q.clientId,
+        field: "correct",
+        message: "יש להזין לפחות תשובה קבילה אחת",
       });
     }
     if (q.type === "map" && !q.map?.geo) {
@@ -374,7 +397,9 @@ export function normalizeQuestionForType(
       };
     case "truefalse": {
       const allowed = new Set(TRUE_FALSE_OPTIONS.map((o) => o.id));
-      const filtered = (question.correctIds ?? []).filter((id) => allowed.has(id));
+      const filtered = (question.correctIds ?? []).filter((id) =>
+        allowed.has(id),
+      );
       const correctIds = filtered.length > 0 ? filtered : ["yes"];
       return {
         ...question,
@@ -399,6 +424,24 @@ export function normalizeQuestionForType(
           },
         },
         ...IMAGE_WIPE,
+        ...VIDEO_WIPE,
+      };
+    case "open":
+    case "content":
+      return {
+        ...question,
+        type: nextType,
+        options: null,
+        correctIds: [],
+        map: null,
+        settings: {
+          ...question.settings,
+          acceptedAnswers:
+            nextType === "open"
+              ? (question.settings?.acceptedAnswers ?? [])
+              : undefined,
+        },
+        ...(nextType === "content" ? {} : IMAGE_WIPE),
         ...VIDEO_WIPE,
       };
     default: {

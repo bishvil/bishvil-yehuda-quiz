@@ -1,5 +1,6 @@
 import type {
   QuestionStatusEnum,
+  QuestionTypeEnum,
   SessionStatusEnum,
 } from "@/src/lib/supabase/database.types";
 
@@ -22,6 +23,8 @@ export interface HostPrimaryDecisionInput {
   sessionStatus: SessionStatusEnum;
   questionStatus: QuestionStatusEnum | null;
   deadlinePassed: boolean;
+  timeLimitEnabled?: boolean;
+  questionType?: QuestionTypeEnum;
   hasNextQuestion: boolean;
   isLastQuestion: boolean;
 }
@@ -33,6 +36,8 @@ export function decideHostPrimaryButton(
     sessionStatus,
     questionStatus,
     deadlinePassed,
+    timeLimitEnabled = true,
+    questionType,
     hasNextQuestion,
     isLastQuestion,
   } = input;
@@ -80,11 +85,13 @@ export function decideHostPrimaryButton(
   if (questionStatus === "presenting") {
     return {
       action: "begin_answering",
-      label: "התחלת מענה ←",
+      label: questionType === "content" ? "פתיחת תחנת המידע ←" : "התחלת מענה ←",
       disabled: sessionStatus === "paused",
       hint:
         sessionStatus === "paused"
-          ? "החידון מושהה — חזרו אליו לפני התחלת המענה."
+          ? questionType === "content"
+            ? "החידון מושהה — חזרו אליו לפני פתיחת תחנת המידע."
+            : "החידון מושהה — חזרו אליו לפני התחלת המענה."
           : null,
     };
   }
@@ -109,14 +116,29 @@ export function decideHostPrimaryButton(
     };
   }
 
-  const canReveal = questionStatus === "locked" || deadlinePassed;
+  const isContent = questionType === "content";
+  const manualClose =
+    questionStatus === "answering" && (!timeLimitEnabled || isContent);
+  const canReveal =
+    questionStatus === "locked" || deadlinePassed || manualClose;
 
   return {
     action: "reveal",
-    label: "חשיפת התשובה ←",
-    disabled: !canReveal,
-    hint: canReveal
-      ? "החשיפה תציג את התשובה הנכונה לכל המשתתפים."
-      : "ניתן לחשוף לאחר תום הזמן או לאחר שכל המשתתפים יענו.",
+    label: isContent
+      ? "סיום תחנת המידע ←"
+      : manualClose
+        ? "סיום המענה וחשיפת התשובה ←"
+        : "חשיפת התשובה ←",
+    disabled: !canReveal || sessionStatus === "paused",
+    hint:
+      sessionStatus === "paused"
+        ? isContent
+          ? "החידון מושהה — חזרו אליו לפני סיום התחנה."
+          : "החידון מושהה — חזרו אליו לפני חשיפת התשובה."
+        : isContent
+          ? "תחנת מידע אינה דורשת תשובה. סיימו אותה כשהקבוצה מוכנה להמשיך."
+          : canReveal
+            ? "החשיפה תציג את התשובה הנכונה לכל המשתתפים."
+            : "ניתן לחשוף לאחר תום הזמן או לאחר שכל המשתתפים יענו.",
   };
 }

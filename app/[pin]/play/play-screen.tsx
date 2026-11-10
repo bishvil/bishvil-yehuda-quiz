@@ -8,6 +8,7 @@ import {
   AnswerOption,
   type AnswerOptionState,
 } from "@/src/components/participant/AnswerOption";
+import { LocationGate } from "@/src/components/participant/LocationGate";
 import { FeedbackCard } from "@/src/components/participant/FeedbackCard";
 import { PrimaryButton } from "@/src/components/participant/PrimaryButton";
 import { ProgressBar } from "@/src/components/participant/ProgressBar";
@@ -61,6 +62,7 @@ export function PlayScreen({
     lat: number;
     lng: number;
   } | null>(null);
+  const [textAnswer, setTextAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -90,6 +92,7 @@ export function PlayScreen({
   useEffect(() => {
     if (previousQuestionKeyRef.current !== currentQuestionKey) {
       setSelectedIds([]);
+      setTextAnswer("");
       setMapGeoPin(null);
       setPendingReveal(null);
       setSubmitError(null);
@@ -99,7 +102,10 @@ export function PlayScreen({
 
   // End-state route.
   useEffect(() => {
-    if (state?.session.status === "ended") {
+    if (
+      state?.session.status === "ended" ||
+      state?.session.participantStatus === "completed"
+    ) {
       router.replace(`/${pin}/result`);
     }
   }, [state, pin, router]);
@@ -112,7 +118,10 @@ export function PlayScreen({
   // screen (QA-18).
   useEffect(() => {
     if (loadStatus !== "not_found") return;
-    if (state?.session.status === "ended") {
+    if (
+      state?.session.status === "ended" ||
+      state?.session.participantStatus === "completed"
+    ) {
       router.replace(`/${pin}/result`);
     } else {
       router.replace(`/${pin}?expired=1`);
@@ -192,14 +201,16 @@ export function PlayScreen({
     setSubmitError(null);
 
     const body =
-      question.type === "map" && mapGeoPin
-        ? {
-            questionId: question.id,
-            pin: { lat: mapGeoPin.lat, lng: mapGeoPin.lng },
-          }
-        : selectedIds.length > 0
-          ? { questionId: question.id, selectedIds }
-          : null;
+      question.type === "open"
+        ? { questionId: question.id, textAnswer }
+        : question.type === "map" && mapGeoPin
+          ? {
+              questionId: question.id,
+              pin: { lat: mapGeoPin.lat, lng: mapGeoPin.lng },
+            }
+          : selectedIds.length > 0
+            ? { questionId: question.id, selectedIds }
+            : null;
 
     if (!body || !body.questionId) {
       setSubmitting(false);
@@ -243,6 +254,7 @@ export function PlayScreen({
     submitting,
     mapGeoPin,
     selectedIds,
+    textAnswer,
     pin,
     refetch,
   ]);
@@ -258,7 +270,7 @@ export function PlayScreen({
 
     setAdvancing(true);
     try {
-      const response = await advanceParticipant(pin);
+      const response = await advanceParticipant(pin, question?.id);
       if (response.status === "completed") {
         router.replace(`/${pin}/result`);
         return;
@@ -289,6 +301,24 @@ export function PlayScreen({
     return <PlayLoading />;
   }
 
+  if (question.locationLocked && question.locationGate) {
+    return (
+      <LocationGate
+        key={question.id}
+        pin={pin}
+        questionId={question.id}
+        gate={question.locationGate}
+        onUnlock={refetch}
+        quizTitle={state.session.quizTitle}
+        index={question.index}
+        total={question.total}
+        brand={brand}
+        customLogo={customLogo}
+        customLogoLabel={customLogoLabel}
+      />
+    );
+  }
+
   const showSyncWaitingReveal =
     gameMode === "sync" && hasSubmitted && !isRevealed;
 
@@ -307,7 +337,11 @@ export function PlayScreen({
     submitting ||
     hasSubmitted ||
     !isAnswering ||
-    (question.type === "map" ? !mapGeoPin : selectedIds.length === 0);
+    (question.type === "map"
+      ? !mapGeoPin
+      : question.type === "open"
+        ? !textAnswer.trim()
+        : selectedIds.length === 0);
 
   const isLastQuestion = question.index === question.total;
 
@@ -320,9 +354,17 @@ export function PlayScreen({
             תחנה <b className="text-bsy-forest">{question.index}</b> מתוך{" "}
             {question.total}
           </span>
-          {needsSpotlight ? null : (
+          {needsSpotlight ||
+          question.type === "content" ||
+          question.timeLimitEnabled === false ? null : (
             <TimerLane question={question} isRevealed={isRevealed} />
           )}
+          {question.type !== "content" &&
+          question.timeLimitEnabled === false ? (
+            <span className="rounded-full border border-bsy-stone-200 bg-white px-3 py-1 text-[12px] font-bold text-bsy-forest">
+              ללא הגבלת זמן
+            </span>
+          ) : null}
         </div>
         <ProgressBar
           current={question.index}
@@ -381,6 +423,19 @@ export function PlayScreen({
           </div>
         )}
 
+        {question.type === "open" ? (
+          <label className="flex flex-col gap-2">
+            התשובה שלכם
+            <textarea
+              maxLength={2000}
+              rows={3}
+              className="rounded-md border border-bsy-stone-200 p-3"
+              value={myAnswer?.textAnswer ?? textAnswer}
+              disabled={hasSubmitted || !isAnswering}
+              onChange={(event) => setTextAnswer(event.target.value)}
+            />
+          </label>
+        ) : null}
         {showSyncWaitingReveal ? (
           <div
             role="status"
@@ -398,9 +453,22 @@ export function PlayScreen({
           </div>
         ) : null}
 
-        {isRevealed ? (
+        {isRevealed && question.type !== "content" ? (
           <FeedbackCard
-            isCorrect={Boolean(submittedIsCorrect)}
+            isCorrect={submittedIsCorrect}
+            outcome={
+              submittedIsCorrect === null
+                ? hasSubmitted
+                  ? "pending"
+                  : question?.deadlineAt &&
+                      Date.parse(question.serverNow) >=
+                        Date.parse(question.deadlineAt)
+                    ? "timeout"
+                    : "unanswered"
+                : !submittedIsCorrect && (revealedScore ?? 0) > 0
+                  ? "partial"
+                  : undefined
+            }
             explanation={explanation}
             score={revealedScore}
             totalPoints={question?.points ?? null}
@@ -416,6 +484,13 @@ export function PlayScreen({
           />
         ) : null}
 
+        {isRevealed && question.type === "open" && reveal?.acceptedAnswer ? (
+          <div className="rounded-md border border-bsy-stone-200 bg-white p-4 text-sm leading-7">
+            <p className="font-bold text-bsy-forest">תשובה קבילה</p>
+            <p>{reveal.acceptedAnswer}</p>
+          </div>
+        ) : null}
+
         {submitError ? (
           <div
             role="alert"
@@ -427,7 +502,9 @@ export function PlayScreen({
       </section>
 
       <footer className="border-t border-bsy-stone-100 bg-bsy-paper/95 px-5 py-3.5">
-        {!isRevealed ? (
+        {question.type === "content" && gameMode === "sync" ? (
+          <p role="status">ממתינים למדריך להמשך המסלול</p>
+        ) : !isRevealed ? (
           <PrimaryButton
             variant="primary"
             block

@@ -41,16 +41,20 @@ export async function lazyExpireSyncQuestionState(
 
   const now = options.nowMillis ?? Date.now();
   const deadlineMs = data.deadline_at ? Date.parse(data.deadline_at) : null;
-  const expired = data.status === "answering" && deadlineMs !== null && now > deadlineMs;
+  const expired =
+    data.status === "answering" && deadlineMs !== null && now > deadlineMs;
 
   if (!expired) {
     return { row: data, changed: false };
   }
 
-  const targetStatus: QuestionStatusEnum = options.autoReveal ? "revealed" : "locked";
-  const update: Database["public"]["Tables"]["question_session_state"]["Update"] = {
-    status: targetStatus,
-  };
+  const targetStatus: QuestionStatusEnum = options.autoReveal
+    ? "revealed"
+    : "locked";
+  const update: Database["public"]["Tables"]["question_session_state"]["Update"] =
+    {
+      status: targetStatus,
+    };
   if (options.autoReveal) {
     update.revealed_at = new Date(now).toISOString();
   }
@@ -102,8 +106,9 @@ export async function lazyExpireAsyncProgress(
   }
 
   const now = options.nowMillis ?? Date.now();
-  const deadlineMs = Date.parse(data.deadline_at);
-  const expired = data.status === "answering" && now > deadlineMs;
+  const deadlineMs = data.deadline_at ? Date.parse(data.deadline_at) : null;
+  const expired =
+    data.status === "answering" && deadlineMs !== null && now > deadlineMs;
 
   if (!expired) {
     return { row: data, changed: false };

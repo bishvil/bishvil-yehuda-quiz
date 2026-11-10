@@ -27,6 +27,7 @@ export function rowToEditable(row: AdminQuestionListItem): EditableQuestion {
     imageHeight: row.imageHeight ?? null,
     imagePath: row.imagePath ?? null,
     explanation: row.explanation ?? null,
+    settings: row.settings ?? {},
     timeSeconds: row.timeSeconds,
     points: row.points,
     videoUrl: row.videoUrl ?? null,
@@ -71,6 +72,12 @@ export function buildQuestionCreateRequest(
     ...(q.videoWidth != null ? { videoWidth: q.videoWidth } : {}),
     ...(q.videoHeight != null ? { videoHeight: q.videoHeight } : {}),
     mediaLeadSeconds: q.mediaLeadSeconds,
+    settings: {
+      ...q.settings,
+      acceptedAnswers: q.settings?.acceptedAnswers
+        ?.map((answer) => answer.trim())
+        .filter(Boolean),
+    },
     timeSeconds: q.timeSeconds,
     points: q.points,
   };
@@ -102,6 +109,12 @@ export function buildQuestionUpdateRequest(
     videoWidth: q.videoWidth,
     videoHeight: q.videoHeight,
     mediaLeadSeconds: q.mediaLeadSeconds,
+    settings: {
+      ...q.settings,
+      acceptedAnswers: q.settings?.acceptedAnswers
+        ?.map((answer) => answer.trim())
+        .filter(Boolean),
+    },
     timeSeconds: q.timeSeconds,
     points: q.points,
   };
@@ -127,6 +140,7 @@ export function isOrdinalOnlyChange(
     if (!prevRow) return false;
     if (prevRow.ordinal !== row.ordinal) ordinalDiff = true;
     if (
+      JSON.stringify(prevRow.settings) !== JSON.stringify(row.settings) ||
       prevRow.type !== row.type ||
       prevRow.prompt !== row.prompt ||
       prevRow.timeSeconds !== row.timeSeconds ||

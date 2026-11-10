@@ -18,10 +18,10 @@ export function MapToleranceControl({
   onTextChange,
 }: MapToleranceControlProps) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
-        רדיוס סובלנות (ק״מ)
-      </span>
+    <fieldset className="flex min-w-0 flex-col gap-1.5">
+      <legend className="text-[12px] font-bold text-bsy-stone-700">
+        טווח טעות מותר בתשובת מפה (ק״מ)
+      </legend>
       <div className="flex items-center gap-3">
         <input
           type="range"
@@ -31,7 +31,7 @@ export function MapToleranceControl({
           value={sliderValue}
           onChange={(event) => onSliderChange(Number(event.target.value))}
           aria-label="רדיוס סובלנות בק״מ"
-          className="flex-1 accent-bsy-forest"
+          className="min-h-11 min-w-0 flex-1 accent-bsy-forest"
         />
         <input
           type="number"
@@ -40,13 +40,13 @@ export function MapToleranceControl({
           step={0.1}
           value={Number(valueKm.toFixed(2))}
           onChange={(event) => onTextChange(event.target.value)}
-          className="w-24 rounded-md border border-bsy-stone-200 bg-white px-2 py-1 font-mono text-[13px]"
+          className="min-h-11 w-24 rounded-md border border-bsy-stone-200 bg-white px-2 py-1 font-mono text-[13px]"
           aria-label="רדיוס סובלנות בק״מ — קלט טקסטואלי"
         />
       </div>
       <span className="text-[11px] text-bsy-stone-400">
-        סולם לוגריתמי בין {minKm} ל־{maxKm} ק״מ.
+        זהו מרחק התשובה מהיעד, ולא רדיוס פתיחת GPS. בין {minKm} ל־{maxKm} ק״מ.
       </span>
-    </label>
+    </fieldset>
   );
 }

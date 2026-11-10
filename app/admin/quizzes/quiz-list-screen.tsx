@@ -57,7 +57,10 @@ interface QuizListScreenProps {
   defaultBrandId: string;
 }
 
-export function QuizListScreen({ brands, defaultBrandId }: QuizListScreenProps) {
+export function QuizListScreen({
+  brands,
+  defaultBrandId,
+}: QuizListScreenProps) {
   const [quizzes, setQuizzes] = useState<AdminQuizListItem[]>([]);
   const [status, setStatus] = useState<LoadStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -164,9 +167,7 @@ export function QuizListScreen({ brands, defaultBrandId }: QuizListScreenProps) 
       return;
     }
     setQuizzes((prev) =>
-      prev.map((q) =>
-        q.id === quizId ? { ...q, archivedAt: null } : q,
-      ),
+      prev.map((q) => (q.id === quizId ? { ...q, archivedAt: null } : q)),
     );
   }, []);
 
@@ -175,8 +176,10 @@ export function QuizListScreen({ brands, defaultBrandId }: QuizListScreenProps) 
     const filtered = quizzes.filter((q) => {
       if (statusFilter === "active" && q.archivedAt !== null) return false;
       if (statusFilter === "archived" && q.archivedAt === null) return false;
-      if (brandFilter !== "all" && q.brandId !== brandFilter) return false;
-      if (modeFilter !== "all" && q.defaultGameMode !== modeFilter) return false;
+      if (brandFilter !== "all" && (q.brandKey ?? q.brandId) !== brandFilter)
+        return false;
+      if (modeFilter !== "all" && q.defaultGameMode !== modeFilter)
+        return false;
       if (normQuery && !normalize(q.title).includes(normQuery)) return false;
       return true;
     });
@@ -744,8 +747,9 @@ function QuizCard({
   const sessionCount = quiz.sessionCount ?? 0;
   const canHardDelete = archived && sessionCount === 0;
   const locked = sessionCount > 0;
-  const brand = brands.find((b) => b.id === quiz.brandId);
-  const brandName = brand?.name ?? quiz.brandId;
+  const brand = brands.find((b) => b.id === (quiz.brandKey ?? quiz.brandId));
+  const brandName = quiz.brandName ?? brand?.name ?? "מותג כללי";
+  const brandLogoUrl = quiz.brandLogoUrl ?? brand?.logoUrl;
   const questionCount = quiz.questionCount;
 
   const menu: MenuItem[] = [
@@ -788,7 +792,22 @@ function QuizCard({
       data-testid="admin-quiz-card"
     >
       <div className="flex items-start justify-between gap-3">
-        <BrandSwatch name={brandName} color={brand?.primary} />
+        {brandLogoUrl ? (
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-bsy-stone-100 bg-white p-1">
+            {/* Brand logos may come from user-configured storage domains. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={brandLogoUrl}
+              alt={brandName}
+              className="h-full w-full object-contain"
+            />
+          </span>
+        ) : (
+          <BrandSwatch
+            name={brandName}
+            color={quiz.brandPrimary ?? brand?.primary}
+          />
+        )}
         {archived ? <StatusChip status="archived" /> : null}
       </div>
 

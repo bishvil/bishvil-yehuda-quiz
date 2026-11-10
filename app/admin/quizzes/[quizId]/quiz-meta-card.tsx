@@ -96,7 +96,7 @@ export function QuizMetaCard({
               <label
                 key={field.id}
                 className={[
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[12px]",
+                  "inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-[13px]",
                   checked
                     ? "border-bsy-forest bg-bsy-forest/10 text-bsy-forest"
                     : "border-bsy-stone-200 bg-white text-bsy-stone-700",
@@ -113,7 +113,7 @@ export function QuizMetaCard({
                     if (!set.has("phone")) set.add("phone");
                     onChange({ ...quiz, joinFields: Array.from(set) });
                   }}
-                  className="h-3.5 w-3.5 accent-bsy-forest"
+                  className="h-4 w-4 accent-bsy-forest"
                 />
                 <span>{field.label}</span>
               </label>
@@ -122,14 +122,17 @@ export function QuizMetaCard({
         </div>
       </fieldset>
 
-      <fieldset className="mt-4 rounded-md border border-bsy-stone-100 p-3">
-        <legend className="px-2 text-[11px] font-bold uppercase tracking-[0.12em] text-bsy-stone-700">
-          מיתוג ייעודי
-        </legend>
+      <details
+        className="mt-4 rounded-md border border-bsy-stone-100 p-3"
+        open={quiz.customLogoActive || undefined}
+      >
+        <summary className="min-h-11 cursor-pointer content-center text-[13px] font-bold text-bsy-forest">
+          מיתוג ייעודי והגדרות תצוגה
+        </summary>
         <div className="mt-2 grid gap-2">
           <label
             className={[
-              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[12px] w-fit",
+              "inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-[13px] w-fit",
               quiz.customLogoActive
                 ? "border-bsy-forest bg-bsy-forest/10 text-bsy-forest"
                 : "border-bsy-stone-200 bg-white text-bsy-stone-700",
@@ -142,7 +145,7 @@ export function QuizMetaCard({
               onChange={(event) =>
                 onChange({ ...quiz, customLogoActive: event.target.checked })
               }
-              className="h-3.5 w-3.5 accent-bsy-forest"
+              className="h-4 w-4 accent-bsy-forest"
             />
             <span>פעיל</span>
           </label>
@@ -169,6 +172,7 @@ export function QuizMetaCard({
                 ? ""
                 : "opacity-60",
             ].join(" ")}
+            aria-label="שם האירוע למיתוג הייעודי"
             placeholder="שם האירוע (לדוגמה: גדוד 890)"
             value={quiz.customLogoLabel ?? ""}
             onChange={(event) =>
@@ -182,7 +186,7 @@ export function QuizMetaCard({
             }
           />
         </div>
-      </fieldset>
+      </details>
     </div>
   );
 }

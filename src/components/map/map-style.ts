@@ -23,15 +23,23 @@ export const MAP_RTL_TEXT_PLUGIN_URL =
 /**
  * Resolve the single MapLibre style used by the map question.
  *
- * The game uses satellite imagery only. MapTiler `satellite` is preferred;
- * without a key we fall back to Esri World Imagery (free, no key required).
+ * Existing questions default to satellite imagery. Streets and configurable
+ * settlement labels use MapTiler streets or the keyless OpenFreeMap vector style.
+ * The map wrapper overlays imagery when satellite and labels are both selected.
  */
 export function resolveStyle(
   styleHint?: MapStyleHint,
+  baseStyle: "satellite" | "streets" = "satellite",
+  labelLevel: string = "none",
 ): string | StyleSpecification {
   void styleHint;
   const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
+  if (baseStyle === "streets" || labelLevel !== "none") {
+    return key
+      ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(key)}`
+      : "https://tiles.openfreemap.org/styles/liberty";
+  }
   if (key) {
     return `https://api.maptiler.com/maps/satellite/style.json?key=${encodeURIComponent(key)}`;
   }

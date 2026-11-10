@@ -1,3 +1,7 @@
+import {
+  hasTimeLimit,
+  readQuestionSettings,
+} from "@/src/lib/schemas/question-settings";
 import type {
   Database,
   GameModeEnum,
@@ -18,6 +22,7 @@ export interface ParticipantSessionPayload {
   quizTitle: string;
   brandId: string;
   customLogo: string | null;
+  participantStatus?: "joined" | "in_progress" | "completed";
 }
 
 export interface ParticipantQuestionPayload {
@@ -72,9 +77,16 @@ export interface ParticipantQuestionPayload {
       center?: { lat: number; lng: number };
       zoom?: number;
       toleranceKm: number;
+      baseStyle?: "satellite" | "streets";
+      labelLevel?: "none" | "major" | "medium" | "all";
       styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
     };
   } | null;
+  timeLimitEnabled?: boolean;
+  locationGate?:
+    | import("@/src/lib/schemas/question-settings").LocationGate
+    | null;
+  locationLocked?: boolean;
   timeSeconds: number;
   /** Total possible points for this question. Used for "X/Y נקודות" display. */
   points: number;
@@ -97,6 +109,7 @@ export interface ParticipantAnswerPayload {
    * "X מתוך W סימונים נכונים" for multi-select after a remount, when the
    * client-side selection state has been cleared.
    */
+  textAnswer?: string | null;
   selectedIds?: string[] | null;
   /**
    * The participant's submitted map pin. This is their own answer and is
@@ -119,6 +132,7 @@ export interface ParticipantAnswerPayload {
 }
 
 export interface ParticipantQuestionRevealPayload {
+  acceptedAnswer?: string | null;
   correctIds: string[] | null;
   explanation: string | null;
   /**
@@ -181,6 +195,7 @@ export function buildParticipantQuestionPayload(args: {
     | "video_width"
     | "video_height"
     | "media_lead_seconds"
+    | "settings"
     | "time_seconds"
     | "points"
   >;
@@ -216,11 +231,13 @@ export function buildParticipantQuestionPayload(args: {
         zoom: parsedMap.geo.zoom,
         toleranceKm: parsedMap.geo.toleranceKm,
         styleHint: parsedMap.geo.styleHint,
+        baseStyle: parsedMap.geo.baseStyle,
+        labelLevel: parsedMap.geo.labelLevel,
       },
     } as const;
   })();
   const imagePayload =
-    args.question.type === "image"
+    args.question.type === "image" || args.question.type === "content"
       ? {
           imageUrl: args.question.image_url,
           imageAlt: args.question.image_alt,
@@ -252,6 +269,9 @@ export function buildParticipantQuestionPayload(args: {
     videoHeight: args.question.video_height,
     mediaLeadSeconds: args.question.media_lead_seconds ?? 0,
     map: mapPayload,
+    timeLimitEnabled: hasTimeLimit(args.question.type, args.question.settings),
+    locationGate:
+      readQuestionSettings(args.question.settings).locationGate ?? null,
     timeSeconds: args.question.time_seconds,
     points: args.question.points,
     status: args.status,
@@ -281,6 +301,7 @@ export function buildParticipantAnswerPayload(
       submittedAt: answer.submitted_at,
       status: "submitted_awaiting_reveal",
       answerSeconds,
+      textAnswer: answer.text_answer ?? null,
       selectedIds: answer.selected_ids,
       pin: submittedPin,
     };
@@ -290,6 +311,7 @@ export function buildParticipantAnswerPayload(
     submittedAt: answer.submitted_at,
     status: "revealed",
     answerSeconds,
+    textAnswer: answer.text_answer ?? null,
     selectedIds: answer.selected_ids,
     pin: submittedPin,
     isCorrect: answer.is_correct,

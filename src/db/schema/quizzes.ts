@@ -36,6 +36,8 @@ export interface QuestionMap {
     center?: MapGeoTarget;
     zoom?: number;
     toleranceKm: number;
+    baseStyle?: "satellite" | "streets";
+    labelLevel?: "none" | "major" | "medium" | "all";
     styleHint?: "maptiler-streets" | "israel-hiking" | "osm-liberty";
   };
 }
@@ -53,7 +55,9 @@ export const quizzes = pgTable("quizzes", {
   customLogo: text("custom_logo"),
   customLogoLabel: text("custom_logo_label"),
   customLogoActive: boolean("custom_logo_active").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
 });
 
@@ -86,13 +90,22 @@ export const questions = pgTable(
     videoHeight: integer("video_height"),
     mediaLeadSeconds: integer("media_lead_seconds").notNull().default(0),
     explanation: text("explanation"),
+    settings: jsonb("settings")
+      .$type<import("@/src/lib/schemas/question-settings").QuestionSettings>()
+      .notNull()
+      .default({}),
     timeSeconds: integer("time_seconds")
       .notNull()
       .default(DEFAULT_QUESTION_TIME_SECONDS),
     points: integer("points").notNull().default(DEFAULT_QUESTION_POINTS),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("questions_quiz_id_ordinal_idx").on(table.quizId, table.ordinal),
+    uniqueIndex("questions_quiz_id_ordinal_idx").on(
+      table.quizId,
+      table.ordinal,
+    ),
   ],
 );

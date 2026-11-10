@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   aggregateAccuracy,
+  describeQuestionAccuracy,
+  participantStatusLabel,
   summarizeResponses,
   topScorers,
 } from "@/src/lib/admin/results";
@@ -112,5 +114,45 @@ describe("summarizeResponses", () => {
       finishedPlayers: 1,
       totalAnswers: 2,
     });
+  });
+});
+
+describe("station report semantics", () => {
+  it("does not assign a percentage to content, even if it has progress records", () => {
+    expect(
+      describeQuestionAccuracy("content", {
+        questionId: "q1",
+        total: 2,
+        correct: 0,
+        accuracyPct: 0,
+      }),
+    ).toEqual({
+      accuracyPct: null,
+      label: "תוכן בלבד · ללא מדד דיוק",
+    });
+  });
+  it("distinguishes unanswered questions from actual incorrect answers", () => {
+    expect(describeQuestionAccuracy("single")).toEqual({
+      accuracyPct: null,
+      label: "טרם נענתה",
+    });
+    expect(
+      describeQuestionAccuracy("single", {
+        questionId: "q1",
+        total: 2,
+        correct: 0,
+        accuracyPct: 0,
+      }),
+    ).toEqual({
+      accuracyPct: 0,
+      label: "0% · 0 מתוך 2 תשובות נכונות",
+    });
+  });
+  it("uses Hebrew for every participant status", () => {
+    expect(
+      ["joined", "in_progress", "completed"].map((status) =>
+        participantStatusLabel(status as AdminSessionResultPlayer["status"]),
+      ),
+    ).toEqual(["הצטרף/ה", "במהלך המשחק", "הושלם"]);
   });
 });
